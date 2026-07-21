@@ -449,4 +449,10 @@ Três expressões `CHECK` que usam arrays foram renderizadas com sintaxe canôni
 
 A documentação passou a usar o nome oficial `criar_banco`. O `backend/.gitignore` recebeu uma exceção específica para versionar `backend/documentos/banco.sql`, mantendo os demais itens de `documentos/` ignorados.
 
-O backup e a restauração cumprem o bloqueio operacional anterior à primeira migration estrutural. A execução da Fase 1 permanece condicionada ao checkpoint Git aprovado e ao preflight imediatamente anterior às migrations.
+O backup e a restauração cumpriram o bloqueio operacional anterior à primeira migration estrutural. O checkpoint `ad61fd1` (`checkpoint: estado antes da fase 1`) foi criado e enviado para `origin/main`. Depois disso, o preflight imediatamente anterior às migrations foi aprovado e a Fase 1 pôde ser executada.
+
+## 11. Atualização oficial sobre ManyChat
+
+O A Voz do Bairro permanece como fonte oficial dos dados e deve funcionar sem ManyChat. A plataforma poderá ser contratada futuramente apenas como canal adicional de automação e coleta pelo WhatsApp.
+
+Nenhuma integração, webhook, endpoint, token, origem específica ou alteração de banco foi criada para simular essa contratação. API direta da Meta/WhatsApp, WhatsApp Web, chatbox próprio e automação própria de mensagens foram retirados do planejamento.

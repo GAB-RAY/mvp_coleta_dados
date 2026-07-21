@@ -1,5 +1,45 @@
-async function criar(cliente, contatoId, historico) {
-  const consulta = `
+async function registrarRespostaSeDiferente(cliente, contatoId, autorizacao) {
+  const consultaAtual = `
+    SELECT
+      id,
+      resposta,
+      texto_apresentado,
+      versao_texto,
+      canal,
+      origem_id,
+      estado
+    FROM consentimentos
+    WHERE contato_id = $1
+      AND tipo = $2
+      AND ativo = TRUE
+    FOR UPDATE
+  `;
+  const resultadoAtual = await cliente.query(consultaAtual, [
+    contatoId,
+    autorizacao.tipo
+  ]);
+  const atual = resultadoAtual.rows[0];
+
+  if (
+    atual &&
+    atual.resposta === autorizacao.resposta &&
+    atual.texto_apresentado === autorizacao.texto &&
+    atual.versao_texto === autorizacao.versao &&
+    atual.canal === autorizacao.canal &&
+    Number(atual.origem_id) === Number(autorizacao.origemId) &&
+    atual.estado === autorizacao.estado
+  ) {
+    return null;
+  }
+
+  if (atual) {
+    await cliente.query(
+      'UPDATE consentimentos SET ativo = FALSE WHERE id = $1',
+      [atual.id]
+    );
+  }
+
+  const consultaInsercao = `
     INSERT INTO consentimentos (
       contato_id,
       tipo,
@@ -9,28 +49,43 @@ async function criar(cliente, contatoId, historico) {
       canal,
       origem_registro,
       registrado_por_usuario_id,
-      ativo
+      ativo,
+      estado,
+      origem_id
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE, $9, $10)
     RETURNING id
   `;
-
   const valores = [
     contatoId,
-    historico.tipo,
-    historico.resposta,
-    historico.textoApresentado,
-    historico.versaoTexto,
-    historico.canal,
-    historico.origemRegistro,
-    historico.registradoPorUsuarioId
+    autorizacao.tipo,
+    autorizacao.resposta,
+    autorizacao.texto,
+    autorizacao.versao,
+    autorizacao.canal,
+    autorizacao.origemRegistro,
+    autorizacao.registradoPorUsuarioId,
+    autorizacao.estado,
+    autorizacao.origemId
   ];
-
-  const resultado = await cliente.query(consulta, valores);
+  const resultado = await cliente.query(consultaInsercao, valores);
 
   return resultado.rows[0];
 }
 
+async function registrarAutorizacaoSeDiferente(cliente, contatoId, autorizacao) {
+  return registrarRespostaSeDiferente(
+    cliente,
+    contatoId,
+    Object.assign({}, autorizacao, {
+      resposta: true,
+      estado: 'autorizado',
+      origemRegistro: 'resposta_expressa'
+    })
+  );
+}
+
 module.exports = {
-  criar
+  registrarAutorizacaoSeDiferente,
+  registrarRespostaSeDiferente
 };

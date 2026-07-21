@@ -21,7 +21,10 @@ function prepararConfiguracao(opcoesRecebidas) {
 
   delete configuracao.autenticado;
 
-  if (configuracao.body && !cabecalhos.has('Content-Type')) {
+  const corpoEhFormulario = typeof FormData !== 'undefined' &&
+    configuracao.body instanceof FormData;
+
+  if (configuracao.body && !corpoEhFormulario && !cabecalhos.has('Content-Type')) {
     cabecalhos.set('Content-Type', 'application/json');
   }
 

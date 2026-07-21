@@ -1,10 +1,7 @@
 const contatoModel = require('./contatoModel');
 const criarAppError = require('../../utils/AppError');
 const normalizarTelefone = require('../../utils/normalizarTelefone');
-const textosConsentimento = require('../../config/textosConsentimento');
-
-const TEXTO_LEGADO_NAO_REGISTRADO =
-  'Texto apresentado não registrado pelo cliente legado.';
+const categoriasProblema = require('../../config/categoriasProblema');
 
 function validarCampoTexto(valor, nomeCampo, tamanhoMinimo, tamanhoMaximo) {
   if (typeof valor !== 'string' || valor.trim() === '') {
@@ -30,76 +27,79 @@ function validarCampoTexto(valor, nomeCampo, tamanhoMinimo, tamanhoMaximo) {
   return textoTratado;
 }
 
-function campoFoiInformado(dadosRecebidos, nomeCampo) {
-  return Object.prototype.hasOwnProperty.call(dadosRecebidos, nomeCampo);
+function obterPrimeiroCampoInformado(dadosRecebidos, nomesCampos) {
+  let indice;
+
+  for (indice = 0; indice < nomesCampos.length; indice += 1) {
+    if (Object.prototype.hasOwnProperty.call(dadosRecebidos, nomesCampos[indice])) {
+      return dadosRecebidos[nomesCampos[indice]];
+    }
+  }
+
+  return undefined;
 }
 
-function obterConsentimentoComAlias(
-  dadosRecebidos,
-  nomeAtual,
-  nomeAntigo,
-  nomeExibicao,
-  obrigatorioNoContrato
-) {
-  const informouAtual = campoFoiInformado(dadosRecebidos, nomeAtual);
-  const informouAntigo = nomeAntigo && campoFoiInformado(dadosRecebidos, nomeAntigo);
-
-  if (
-    informouAtual &&
-    informouAntigo &&
-    dadosRecebidos[nomeAtual] !== dadosRecebidos[nomeAntigo]
-  ) {
-    throw criarAppError('Os campos de ' + nomeExibicao + ' são incompatíveis.', 400);
-  }
-
-  if (!informouAtual && !informouAntigo) {
-    if (obrigatorioNoContrato) {
-      throw criarAppError('O consentimento para ' + nomeExibicao + ' é obrigatório.', 400);
+function validarBooleano(valor, nomeCampo, obrigatorio) {
+  if (valor === undefined) {
+    if (obrigatorio) {
+      throw criarAppError(nomeCampo + ' é obrigatório.', 400);
     }
 
-    return {
-      valor: null,
-      clienteLegado: false,
-      apresentado: false
-    };
+    return false;
   }
 
-  const valor = informouAtual
-    ? dadosRecebidos[nomeAtual]
-    : dadosRecebidos[nomeAntigo];
-
   if (typeof valor !== 'boolean') {
+    throw criarAppError(nomeCampo + ' deve ser verdadeiro ou falso.', 400);
+  }
+
+  return valor;
+}
+
+function validarIdade(valor) {
+  if (!Number.isInteger(valor) || valor < 16 || valor > 120) {
+    throw criarAppError('Idade deve ser um número inteiro entre 16 e 120.', 400);
+  }
+
+  return valor;
+}
+
+function validarCampoOpcional(valor, nomeCampo, tamanhoMaximo) {
+  if (valor === undefined || valor === null || valor === '') {
+    return null;
+  }
+
+  if (typeof valor !== 'string') {
+    throw criarAppError(nomeCampo + ' é inválido.', 400);
+  }
+
+  const textoTratado = valor.trim();
+
+  if (!textoTratado) {
+    return null;
+  }
+
+  if (textoTratado.length > tamanhoMaximo) {
     throw criarAppError(
-      'O consentimento para ' + nomeExibicao + ' deve ser verdadeiro ou falso.',
+      nomeCampo + ' deve ter no máximo ' + tamanhoMaximo + ' caracteres.',
       400
     );
   }
 
-  return {
-    valor,
-    clienteLegado: !informouAtual && informouAntigo,
-    apresentado: true
-  };
+  return textoTratado;
 }
 
-function criarHistorico(tipo, consentimento, textoApresentado, versaoTexto) {
-  if (!consentimento.apresentado) {
+function validarParticipacaoEleitoral(valor) {
+  const valoresValidos = ['sim', 'nao', 'prefiro_nao_informar'];
+
+  if (valor === undefined || valor === null || valor === '') {
     return null;
   }
 
-  return {
-    tipo,
-    resposta: consentimento.valor,
-    textoApresentado: consentimento.clienteLegado
-      ? TEXTO_LEGADO_NAO_REGISTRADO
-      : textoApresentado,
-    versaoTexto: consentimento.clienteLegado
-      ? 'legado_sem_versao'
-      : versaoTexto,
-    canal: 'formulario_publico',
-    origemRegistro: 'resposta_expressa',
-    registradoPorUsuarioId: null
-  };
+  if (typeof valor !== 'string' || !valoresValidos.includes(valor)) {
+    throw criarAppError('Participação na última eleição é inválida.', 400);
+  }
+
+  return valor;
 }
 
 function validarDadosDoContato(dadosRecebidos) {
@@ -110,75 +110,68 @@ function validarDadosDoContato(dadosRecebidos) {
   const nome = validarCampoTexto(dadosRecebidos.nome, 'Nome', 2, 150);
   const telefone = validarCampoTexto(dadosRecebidos.telefone, 'Telefone', 1, 30);
   const bairro = validarCampoTexto(dadosRecebidos.bairro, 'Bairro', 2, 150);
-  const problema = validarCampoTexto(dadosRecebidos.problema, 'Problema', 3, 500);
-  const tratamentoDados = obterConsentimentoComAlias(
-    dadosRecebidos,
-    'consentimentoTratamentoDados',
-    'consentimentoArmazenamento',
-    'tratamento dos dados',
+  const problema = validarCampoTexto(
+    dadosRecebidos.problema,
+    'Categoria do problema',
+    3,
+    500
+  );
+  const aceitePrivacidade = validarBooleano(
+    obterPrimeiroCampoInformado(
+      dadosRecebidos,
+      ['aceitePrivacidade', 'consentimentoTratamentoDados', 'consentimentoArmazenamento']
+    ),
+    'O aceite do Aviso de Privacidade',
     true
   );
-  const whatsapp = obterConsentimentoComAlias(
-    dadosRecebidos,
-    'consentimentoWhatsapp',
-    'consentimentoMensagens',
-    'mensagens pelo WhatsApp',
-    true
-  );
-  const ligacoes = obterConsentimentoComAlias(
-    dadosRecebidos,
-    'consentimentoLigacoes',
-    null,
-    'ligações',
+  const autorizacaoMensagens = validarBooleano(
+    obterPrimeiroCampoInformado(
+      dadosRecebidos,
+      ['autorizacaoMensagens', 'consentimentoWhatsapp', 'consentimentoMensagens']
+    ),
+    'Autorização de mensagens',
     false
   );
+  const autorizacaoLigacoes = validarBooleano(
+    obterPrimeiroCampoInformado(
+      dadosRecebidos,
+      ['autorizacaoLigacoes', 'consentimentoLigacoes']
+    ),
+    'Autorização de ligações',
+    false
+  );
+  const telefoneNormalizado = normalizarTelefone(telefone);
 
-  if (tratamentoDados.valor !== true) {
-    throw criarAppError('O consentimento para tratamento dos dados é obrigatório.', 400);
+  if (!categoriasProblema.includes(problema)) {
+    throw criarAppError('Selecione uma categoria de problema válida.', 400);
   }
 
-  const telefoneNormalizado = normalizarTelefone(telefone);
+  if (aceitePrivacidade !== true) {
+    throw criarAppError('O aceite do Aviso de Privacidade é obrigatório.', 400);
+  }
 
   if (telefoneNormalizado.length < 10 || telefoneNormalizado.length > 15) {
     throw criarAppError('O telefone informado é inválido.', 400);
   }
 
-  const historicosConsentimento = [
-    criarHistorico(
-      'tratamento_dados',
-      tratamentoDados,
-      textosConsentimento.textoTratamentoDados,
-      textosConsentimento.versaoTratamentoDados
-    ),
-    criarHistorico(
-      'mensagens_whatsapp',
-      whatsapp,
-      textosConsentimento.textoWhatsapp,
-      textosConsentimento.versaoWhatsapp
-    ),
-    criarHistorico(
-      'ligacoes',
-      ligacoes,
-      textosConsentimento.textoLigacoes,
-      textosConsentimento.versaoLigacoes
-    )
-  ].filter(function (historico) {
-    return historico !== null;
-  });
-
   return {
     nome,
     telefone,
     telefoneNormalizado,
+    idade: validarIdade(dadosRecebidos.idade),
     bairro,
     problema,
-    consentimentoTratamentoDados: tratamentoDados.valor,
-    consentimentoWhatsapp: whatsapp.valor,
-    consentimentoLigacoes: ligacoes.valor,
-    bloqueadoParaMensagens: whatsapp.valor !== true,
-    origemAtual: 'Formulário A Voz do Bairro',
-    statusContato: 'ativo',
-    historicosConsentimento
+    descricaoProblema: validarCampoOpcional(
+      dadosRecebidos.descricaoProblema,
+      'Descrição do problema',
+      1000
+    ),
+    participouEleicaoAnterior: validarParticipacaoEleitoral(
+      dadosRecebidos.participouEleicaoAnterior
+    ),
+    aceitePrivacidade,
+    autorizacaoMensagens,
+    autorizacaoLigacoes
   };
 }
 
@@ -189,12 +182,18 @@ function transformarContatoParaResposta(contato) {
     telefone: contato.telefone,
     bairro: contato.bairro,
     problema: contato.problema,
+    idade: contato.idade,
+    descricaoProblema: contato.descricao_problema,
+    participouEleicaoAnterior: contato.participou_eleicao_anterior,
     consentimentoArmazenamento: contato.consentimento_tratamento_dados,
     consentimentoMensagens: contato.consentimento_whatsapp,
     consentimentoTratamentoDados: contato.consentimento_tratamento_dados,
     consentimentoWhatsapp: contato.consentimento_whatsapp,
     consentimentoLigacoes: contato.consentimento_ligacoes,
-    origemAtual: contato.origem_atual,
+    autorizacaoMensagens: contato.autorizacao_mensagens,
+    autorizacaoLigacoes: contato.autorizacao_ligacoes,
+    aceitePrivacidade: contato.aceite_privacidade,
+    origemAtual: contato.origem_nome || contato.origem_atual,
     statusContato: contato.status_contato,
     bloqueadoParaMensagens: contato.bloqueado_para_mensagens,
     criadoEm: contato.criado_em
@@ -203,21 +202,102 @@ function transformarContatoParaResposta(contato) {
 
 async function cadastrarContato(dadosRecebidos) {
   const dadosDoContato = validarDadosDoContato(dadosRecebidos);
-  const contatoExistente = await contatoModel.buscarPorTelefoneNormalizado(
-    dadosDoContato.telefoneNormalizado
-  );
 
-  if (contatoExistente) {
-    throw criarAppError('Este WhatsApp já está cadastrado em nossa ação.', 409);
+  await contatoModel.salvarCadastroPublico(dadosDoContato);
+}
+
+function listarOpcoesFormulario() {
+  return {
+    categoriasProblema: categoriasProblema.slice()
+  };
+}
+
+function validarEstadoAutorizacao(valor, nomeCampo) {
+  const estados = ['nao_informado', 'autorizado', 'recusado'];
+
+  if (valor === undefined || valor === null || valor === '') {
+    return 'nao_informado';
   }
 
-  try {
-    const contatoCriado = await contatoModel.criar(dadosDoContato);
+  if (typeof valor !== 'string' || !estados.includes(valor)) {
+    throw criarAppError(nomeCampo + ' é inválida.', 400);
+  }
 
-    return transformarContatoParaResposta(contatoCriado);
+  return valor;
+}
+
+function validarDadosCadastroManual(dadosRecebidos) {
+  if (!dadosRecebidos || typeof dadosRecebidos !== 'object' || Array.isArray(dadosRecebidos)) {
+    throw criarAppError('Os dados do contato são obrigatórios.', 400);
+  }
+
+  const telefone = validarCampoTexto(dadosRecebidos.telefone, 'Telefone', 1, 30);
+  const telefoneNormalizado = normalizarTelefone(telefone);
+  const problema = validarCampoTexto(
+    dadosRecebidos.problema,
+    'Categoria do problema',
+    3,
+    500
+  );
+  const origemId = Number(dadosRecebidos.origemId);
+
+  if (telefoneNormalizado.length < 10 || telefoneNormalizado.length > 15) {
+    throw criarAppError('O telefone informado é inválido.', 400);
+  }
+
+  if (!categoriasProblema.includes(problema)) {
+    throw criarAppError('Selecione uma categoria de problema válida.', 400);
+  }
+
+  if (!Number.isInteger(origemId) || origemId < 1) {
+    throw criarAppError('Origem é obrigatória.', 400);
+  }
+
+  return {
+    nome: validarCampoTexto(dadosRecebidos.nome, 'Nome', 2, 150),
+    telefone,
+    telefoneNormalizado,
+    bairro: validarCampoTexto(dadosRecebidos.bairro, 'Bairro', 2, 150),
+    idade: validarIdade(dadosRecebidos.idade),
+    problema,
+    descricaoProblema: validarCampoOpcional(
+      dadosRecebidos.descricaoProblema,
+      'Descrição do problema',
+      1000
+    ),
+    participouEleicaoAnterior: validarParticipacaoEleitoral(
+      dadosRecebidos.participouEleicaoAnterior
+    ),
+    origemId,
+    status: validarCampoTexto(dadosRecebidos.status, 'Status', 2, 50),
+    aceitePrivacidade: validarBooleano(
+      dadosRecebidos.aceitePrivacidade,
+      'Aceite do Aviso de Privacidade',
+      false
+    ),
+    autorizacaoMensagens: validarEstadoAutorizacao(
+      dadosRecebidos.autorizacaoMensagens,
+      'Autorização de mensagens'
+    ),
+    autorizacaoLigacoes: validarEstadoAutorizacao(
+      dadosRecebidos.autorizacaoLigacoes,
+      'Autorização de ligações'
+    )
+  };
+}
+
+async function cadastrarContatoManual(dadosRecebidos, usuario) {
+  if (!usuario || !usuario.id) {
+    throw criarAppError('Usuário autenticado não identificado.', 401);
+  }
+
+  const dados = validarDadosCadastroManual(dadosRecebidos);
+
+  try {
+    return await contatoModel.salvarCadastroManual(dados, usuario.id);
   } catch (erro) {
-    if (erro.code === '23505') {
-      throw criarAppError('Este WhatsApp já está cadastrado em nossa ação.', 409);
+    if (erro.codigoAplicacao === 'ORIGEM_NAO_ENCONTRADA') {
+      throw criarAppError('A origem informada não existe ou está inativa.', 400);
     }
 
     throw erro;
@@ -270,6 +350,53 @@ function tratarNumeroPaginacao(valor, valorPadrao, nomeCampo) {
   return numero;
 }
 
+function tratarIdadeFiltro(valor, nomeCampo) {
+  if (valor === undefined || valor === null || valor === '') {
+    return null;
+  }
+
+  const idade = Number(valor);
+
+  if (!Number.isInteger(idade) || idade < 16 || idade > 120) {
+    throw criarAppError('O filtro ' + nomeCampo + ' é inválido.', 400);
+  }
+
+  return idade;
+}
+
+function tratarOpcaoFiltro(valor, nomeCampo, opcoes) {
+  if (valor === undefined || valor === null || valor === '') {
+    return '';
+  }
+
+  if (typeof valor !== 'string' || !opcoes.includes(valor)) {
+    throw criarAppError('O filtro ' + nomeCampo + ' é inválido.', 400);
+  }
+
+  return valor;
+}
+
+function tratarDataFiltro(valor, nomeCampo) {
+  if (valor === undefined || valor === null || valor === '') {
+    return '';
+  }
+
+  const data = typeof valor === 'string'
+    ? new Date(valor + 'T00:00:00Z')
+    : new Date('invalida');
+
+  if (
+    typeof valor !== 'string' ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(valor) ||
+    Number.isNaN(data.getTime()) ||
+    data.toISOString().slice(0, 10) !== valor
+  ) {
+    throw criarAppError('O filtro ' + nomeCampo + ' é inválido.', 400);
+  }
+
+  return valor;
+}
+
 function prepararFiltros(parametrosRecebidos) {
   const nome = tratarFiltroTexto(parametrosRecebidos.nome, 'nome');
   const telefoneRecebido = tratarFiltroTexto(parametrosRecebidos.telefone, 'telefone');
@@ -285,7 +412,39 @@ function prepararFiltros(parametrosRecebidos) {
     parametrosRecebidos.consentimentoLigacoes,
     'consentimentoLigacoes'
   );
+  const idadeMinima = tratarIdadeFiltro(parametrosRecebidos.idadeMinima, 'idadeMinima');
+  const idadeMaxima = tratarIdadeFiltro(parametrosRecebidos.idadeMaxima, 'idadeMaxima');
+  const participouEleicaoAnterior = tratarOpcaoFiltro(
+    parametrosRecebidos.participouEleicaoAnterior,
+    'participouEleicaoAnterior',
+    ['sim', 'nao', 'prefiro_nao_informar']
+  );
+  const autorizacaoMensagens = tratarOpcaoFiltro(
+    parametrosRecebidos.autorizacaoMensagens,
+    'autorizacaoMensagens',
+    ['nao_informado', 'autorizado', 'recusado', 'revogado']
+  );
+  const autorizacaoLigacoes = tratarOpcaoFiltro(
+    parametrosRecebidos.autorizacaoLigacoes,
+    'autorizacaoLigacoes',
+    ['nao_informado', 'autorizado', 'recusado', 'revogado']
+  );
+  const dataInicial = tratarDataFiltro(parametrosRecebidos.dataInicial, 'dataInicial');
+  const dataFinal = tratarDataFiltro(parametrosRecebidos.dataFinal, 'dataFinal');
+  const ordenacao = tratarOpcaoFiltro(
+    parametrosRecebidos.ordenacao || 'mais_recentes',
+    'ordenacao',
+    ['mais_recentes', 'mais_antigos', 'nome_asc', 'nome_desc']
+  );
   let telefone = '';
+
+  if (idadeMinima !== null && idadeMaxima !== null && idadeMinima > idadeMaxima) {
+    throw criarAppError('A idade mínima não pode ser maior que a idade máxima.', 400);
+  }
+
+  if (dataInicial && dataFinal && dataInicial > dataFinal) {
+    throw criarAppError('A data inicial não pode ser posterior à data final.', 400);
+  }
 
   if (telefoneRecebido) {
     telefone = normalizarTelefone(telefoneRecebido);
@@ -303,7 +462,81 @@ function prepararFiltros(parametrosRecebidos) {
     consentimentoWhatsapp,
     consentimentoLigacoes,
     origem,
-    status
+    status,
+    idadeMinima,
+    idadeMaxima,
+    participouEleicaoAnterior,
+    autorizacaoMensagens,
+    autorizacaoLigacoes,
+    dataInicial,
+    dataFinal,
+    ordenacao
+  };
+}
+
+function transformarConsentimento(consentimento) {
+  return {
+    id: consentimento.id,
+    tipo: consentimento.tipo,
+    resposta: consentimento.resposta,
+    estado: consentimento.estado || (consentimento.resposta ? 'autorizado' : 'recusado'),
+    textoApresentado: consentimento.texto_apresentado,
+    versaoTexto: consentimento.versao_texto,
+    canal: consentimento.canal,
+    origemRegistro: consentimento.origem_registro,
+    origem: consentimento.origem_nome,
+    ativo: consentimento.ativo,
+    criadoEm: consentimento.criado_em,
+    revogadoEm: consentimento.revogado_em
+  };
+}
+
+async function detalharContato(idRecebido) {
+  const id = Number(idRecebido);
+
+  if (!Number.isInteger(id) || id < 1) {
+    throw criarAppError('Identificador do contato inválido.', 400);
+  }
+
+  const resultado = await contatoModel.buscarDetalhes(id);
+
+  if (!resultado) {
+    throw criarAppError('Contato não encontrado.', 404);
+  }
+
+  const contato = transformarContatoParaResposta(resultado.contato);
+
+  contato.origem = {
+    nome: resultado.contato.origem_nome,
+    slug: resultado.contato.origem_slug,
+    tipo: resultado.contato.origem_tipo
+  };
+
+  return {
+    contato,
+    consentimentos: resultado.consentimentos.map(transformarConsentimento),
+    aceitesPrivacidade: resultado.aceitesPrivacidade.map(function (aceite) {
+      return {
+        id: aceite.id,
+        aceito: aceite.aceito,
+        textoApresentado: aceite.texto_apresentado,
+        versaoTexto: aceite.versao_texto,
+        canal: aceite.canal,
+        origem: aceite.origem_nome,
+        criadoEm: aceite.criado_em
+      };
+    }),
+    historico: resultado.historico.map(function (historico) {
+      return {
+        id: historico.id,
+        tipoEvento: historico.tipo_evento,
+        dadosAnteriores: historico.dados_anteriores,
+        dadosNovos: historico.dados_novos,
+        origem: historico.origem_nome,
+        usuario: historico.usuario_nome,
+        criadoEm: historico.criado_em
+      };
+    })
   };
 }
 
@@ -335,7 +568,24 @@ async function listarContatos(parametrosRecebidos) {
   };
 }
 
+async function listarContatosParaRelatorio(parametrosRecebidos) {
+  const filtros = prepararFiltros(parametrosRecebidos || {});
+  const contatosEncontrados = await contatoModel.listar(
+    filtros,
+    1,
+    2147483647
+  );
+
+  return contatosEncontrados.map(function (contato) {
+    return transformarContatoParaResposta(contato);
+  });
+}
+
 module.exports = {
   cadastrarContato,
-  listarContatos
+  listarContatos,
+  listarOpcoesFormulario,
+  detalharContato,
+  cadastrarContatoManual,
+  listarContatosParaRelatorio
 };

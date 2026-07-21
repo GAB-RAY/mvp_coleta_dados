@@ -2,6 +2,14 @@
 
 > Documento de diagnóstico. Nenhuma funcionalidade, rota, regra de negócio ou estrutura do banco foi alterada nesta etapa.
 
+## Atualização oficial de arquitetura externa
+
+Esta decisão substitui qualquer proposta anterior de integração direta com WhatsApp, API oficial da Meta, WhatsApp Web, chatbox próprio ou automação própria de mensagens.
+
+> O sistema A Voz do Bairro é a fonte oficial dos dados. O ManyChat será futuramente utilizado apenas como canal de automação de mensagens e coleta de dados pelo WhatsApp, sem substituir o cadastro público, o cadastro manual, a importação de telefones ou a administração dos dados pelo sistema.
+
+O sistema deve funcionar integralmente sem ManyChat. Nenhum endpoint, webhook, token, feature flag, origem `manychat` ou dependência dessa plataforma será criado antes da contratação e de autorização específica. Quando autorizado, o ManyChat será somente uma camada adicional de entrada e comunicação, subordinada às regras do sistema, ao telefone normalizado, aos consentimentos explícitos e ao histórico.
+
 ## Escopo da análise
 
 Este diagnóstico foi produzido a partir de:
@@ -19,7 +27,7 @@ Nenhum segredo do `.env` foi registrado neste documento.
 ## Conclusões críticas
 
 1. A especificação informa que o banco possui duas tabelas, mas o banco físico atual possui **três**: `contatos`, `usuarios` e `consentimentos`. A terceira tabela foi criada pela migration já aplicada e contém dados. Ela deve ser preservada.
-2. O banco conectado se chama **`criar_banco`**, enquanto READMEs anteriores citam `cirar_banco`. Essa divergência precisa ser corrigida na documentação depois da confirmação do nome oficial.
+2. O banco conectado e oficialmente confirmado se chama **`criar_banco`**. A documentação operacional foi corrigida para usar esse nome.
 3. O consentimento atual `mensagens_whatsapp` reúne mensagens sociais e políticas. A especificação nova exige consentimentos separados para projetos sociais e conteúdo político. Os dados legados não permitem inferir autorização para cada finalidade.
 4. O sistema atual não possui perfis de acesso. Existe somente usuário ativo/inativo e qualquer JWT válido acessa a listagem administrativa.
 5. O formulário público, login e listagem funcionam, mas cadastro manual, importação, origens cadastradas, revogações, exclusões, campanhas e ManyChat não existem.
@@ -367,7 +375,7 @@ Legenda:
 | Validação no backend | 🟡 | O fluxo atual é validado, mas ainda não existem validações dos novos domínios. |
 | SQL parametrizado | ✅ | Models atuais usam parâmetros. |
 | Tratamento de erros | ✅ | Há middleware e mensagens sem stack trace. |
-| Não enviar mensagens/Meta/ManyChat real | ✅ | Nenhuma integração ou disparo existe. |
+| Não criar API direta Meta/WhatsApp ou chat próprio | ✅ | Nenhuma integração, disparo ou chat próprio existe e esses caminhos foram retirados do planejamento. |
 | Não criar consentimento por email | ✅ | Não existe consentimento nem envio por email. |
 | Não coletar data de nascimento | ✅ | Data de nascimento não é coletada. |
 | Coletar idade | ❌ | Campo inexistente. |
@@ -381,7 +389,7 @@ Legenda:
 | Cadastro público | ✅ | Existe e está integrado ao banco. |
 | Importação CSV/XLSX | ❌ | Não há upload, parsing, prévia, mapeamento ou relatório. |
 | Cadastro manual | ❌ | Não há rota nem tela. |
-| Entrada futura via ManyChat | ❌ | Não existem contratos, endpoints ou configuração preparatória. |
+| Entrada futura opcional via ManyChat | 🟡 | A modelagem genérica de origem e histórico permite evolução futura, mas nenhum contrato ou endpoint será criado antes da contratação. |
 | Origem, idade, eleição anterior e descrição | ❌ | Não existem, salvo origem textual fixa. |
 | Recusas e revogações | 🟡 | Recusa booleana pode ser gravada; revogação não tem fluxo. |
 | Interrupção geral | ❌ | Existe apenas um bloqueio calculado pelo WhatsApp agregado. |
@@ -455,7 +463,7 @@ Legenda:
 | Estados não informado/autorizado/recusado/revogado | 🟡 | `null/true/false` existem; revogado não é representado claramente na API e UI. |
 | Auditoria com texto, versão, canal e data | ✅ | Existe na tabela atual. |
 | Usuário interno responsável | 🟡 | A coluna existe, mas não há cadastro manual que a use. |
-| Conversa/evento ManyChat | ❌ | Campo inexistente. |
+| Origem e data de entradas futuras | 🟡 | A fundação de origem e histórico é genérica; não existe campo específico de plataforma e ele não é necessário agora. |
 | Observação opcional | ❌ | Campo inexistente. |
 | Textos configuráveis e versionados | 🟡 | São centralizados e versionados em arquivo, mas não configuráveis sem alteração de código. |
 | Um consentimento não altera os demais | 🟡 | WhatsApp e ligações são independentes, mas social e político ainda são um só. |
@@ -518,11 +526,12 @@ Todos os requisitos estão ❌: não existem campanhas, audiência, critérios d
 | Requisito | Estado | Diagnóstico |
 | --- | --- | --- |
 | Integração real desativada | ✅ | Não existe conexão, token ou envio. |
-| Sistema como fonte principal | ✅ | O PostgreSQL local é a fonte atual. |
-| Endpoints preparatórios | ❌ | Nenhum endpoint existe. |
-| Autenticação de integração | ❌ | Inexistente. |
-| Feature flag, rate limit e logs | ❌ | Inexistentes. |
-| Contratos e exemplos no README | ❌ | Inexistentes. |
+| Sistema como fonte oficial | ✅ | PostgreSQL, regras de negócio e histórico pertencem ao A Voz do Bairro. |
+| Funcionamento sem ManyChat | ✅ | Formulário, administração e banco não dependem da plataforma. |
+| Estruturas específicas antecipadas | ✅ | Nenhuma foi criada; origem e histórico permanecem genéricos. |
+| API direta Meta/WhatsApp | ✅ | Definitivamente retirada do escopo arquitetural. |
+| Chatbox ou automação própria | ✅ | Definitivamente retirados do escopo arquitetural. |
+| Integração futura | 🟡 | Somente após contratação e autorização, como camada adicional de entrada e comunicação. |
 
 ## 2.16 Histórico e auditoria
 
@@ -573,7 +582,7 @@ Todos os requisitos estão ❌: não existem campanhas, audiência, critérios d
 | XSS | 🟡 | React escapa renderização; não há estratégia de sanitização para novos campos/arquivos. |
 | CORS e headers | ✅ | CORS configurado e Helmet habilitado. |
 | Segredos em ambiente | ✅ | `.env` é ignorado e exemplos não contêm segredo real. |
-| Proteção de integração | ❌ | Endpoints não existem. |
+| Proteção de integração externa | ✅ | Nenhum endpoint externo foi antecipado; requisitos de proteção serão definidos somente com contrato real. |
 | Erros sem detalhes internos | ✅ | Middleware usa mensagem genérica no `500`. |
 
 ## 2.20 Testes
@@ -586,12 +595,12 @@ Todos os requisitos estão ❌: não existem campanhas, audiência, critérios d
 | Consentimento político independente | ❌ | Tipo inexistente. |
 | Revogação, interrupção e exclusão | ❌ | Inexistentes. |
 | Campanhas e elegibilidade | ❌ | Inexistentes. |
-| Autenticação/payload ManyChat | ❌ | Inexistentes. |
+| Ausência de dependência ManyChat | ✅ | O sistema e os testes atuais não dependem de serviço externo. |
 | Testes automatizados do frontend | ❌ | Não há suíte versionada. |
 
 ## 2.21 README obrigatório
 
-🟡 Os READMEs atuais documentam bem o MVP atual, mas não cobrem backup, origens/QR, cadastro manual, importação, consentimento político separado, interrupções, exclusões, campanhas ou ManyChat. Também citam um nome de banco divergente do banco conectado.
+🟡 Os READMEs documentam o MVP, o backup, a Fase 1 e a arquitetura externa oficial. Cadastro manual, importação, consentimento político separado, interrupções, exclusões e relatórios continuam pendentes porque ainda não foram implementados.
 
 ## 2.22 Relatório final obrigatório
 
@@ -688,14 +697,12 @@ Não é seguro converter `mensagens_whatsapp` legado automaticamente em autoriza
 | `importacao_erros` | Erros por linha e motivo. |
 | `campanhas` | Definição e configuração da campanha, sem envio. |
 | `campanha_contatos` | Prévia/associação, elegibilidade e motivo de exclusão. |
-| `eventos_integracao` | Auditoria de chamadas futuras e erros de integração. |
 
 ### Dependentes de decisão arquitetural
 
 | Tabela candidata | Questão |
 | --- | --- |
 | `versoes_consentimento` | Usar banco para textos configuráveis ou manter constantes versionadas em código? |
-| `respostas_coleta` | Necessária se respostas arbitrárias do ManyChat forem persistidas separadamente. |
 | `migrations_executadas` | Adotar ledger próprio ou outra ferramenta de migrations? |
 | `categorias_problema` | Manter catálogo no frontend, criar catálogo no banco ou usar texto controlado? |
 | `perfis`/`usuario_perfis` | Usar enum/check simples ou tabelas de papéis e permissões? |
@@ -710,8 +717,7 @@ Após backup e decisões:
 4. histórico, interrupções e solicitações de exclusão;
 5. importações e erros;
 6. campanhas e audiência;
-7. eventos de integração e campos ManyChat;
-8. índices, constraints e comentários finais após validação dos dados.
+7. índices, constraints e comentários finais após validação dos dados.
 
 Cada migration deverá usar transação quando aplicável, ser revisada, testada em cópia do banco e possuir instrução de recuperação. Nenhuma coluna antiga será removida na primeira passagem.
 
@@ -726,7 +732,6 @@ src/modules/
   importacoes/
   campanhas/
   solicitacoesExclusao/
-  integracoes/manychat/
 ```
 
 O módulo `contatos` deverá ser ampliado sem misturar responsabilidades:
@@ -748,7 +753,6 @@ O módulo `usuarios` precisará de service/controller somente se houver gestão 
 - `importacaoController`;
 - `campanhaController`;
 - `solicitacaoExclusaoController`;
-- `manychatController`;
 - ampliação de `contatoController` para detalhe e cadastro manual;
 - controller específico de consentimentos/interrupções, se aprovado.
 
@@ -763,7 +767,6 @@ O módulo `usuarios` precisará de service/controller somente se houver gestão 
 - interrupção geral;
 - solicitação de exclusão;
 - elegibilidade de campanhas;
-- autenticação e validação ManyChat;
 - autorização por perfil.
 
 ### Models
@@ -775,7 +778,6 @@ O módulo `usuarios` precisará de service/controller somente se houver gestão 
 - `campanhaModel`;
 - `campanhaContatoModel`;
 - `solicitacaoExclusaoModel`;
-- `eventoIntegracaoModel`;
 - evolução de `contatoModel`, `consentimentoModel` e `usuarioModel`.
 
 ## 3.7 Rotas propostas
@@ -801,18 +803,9 @@ Os nomes finais dependem de aprovação para manter um contrato consistente.
 - gestão de solicitações de exclusão;
 - consulta de histórico.
 
-### Integração futura
+### Integração externa futura
 
-Rotas candidatas fornecidas pela especificação:
-
-- `POST /api/integracoes/manychat/contatos`;
-- `POST /api/integracoes/manychat/respostas`;
-- `POST /api/integracoes/manychat/consentimentos`;
-- `POST /api/integracoes/manychat/interrupcoes`;
-- `POST /api/integracoes/manychat/solicitacoes-exclusao`;
-- `POST /api/integracoes/manychat/eventos`.
-
-Elas não devem ser registradas até serem definidos feature flag, autenticação, rate limit e contratos exatos.
+Nenhuma rota de integração será criada agora. Depois da contratação do ManyChat, contratos mínimos poderão ser definidos em uma fase própria e autorizada. Qualquer entrada futura deverá usar telefone normalizado, registrar origem e data, preencher apenas campos vazios e exigir resposta explícita para consentimentos.
 
 ## 3.8 Novas páginas do frontend
 
@@ -826,7 +819,6 @@ Elas não devem ser registradas até serem definidos feature flag, autenticaçã
 - `/admin/campanhas`;
 - `/admin/campanhas/:id`;
 - `/admin/solicitacoes-exclusao`;
-- página preparatória de integração, somente se houver informação útil sem segredo.
 
 ## 3.9 Novos componentes React
 
@@ -888,7 +880,7 @@ Elas não devem ser registradas até serem definidos feature flag, autenticaçã
 - revogação específica;
 - exclusão e anonimização;
 - elegibilidade de campanha;
-- endpoints ManyChat desativados, sem autenticação, autenticados e com payload inválido;
+- regressão que confirme ausência de dependência obrigatória de serviços externos;
 - rate limit e honeypot;
 - regressão de login, listagem, filtros e paginação.
 
@@ -939,83 +931,89 @@ Cada fase deve ser aprovada isoladamente.
 - constraints inicialmente compatíveis;
 - executar e validar somente essa migration.
 
-## Fase 2 — Consentimentos e privacidade
+## Fase 2 — Formulário público `/participar`
 
-- novo modelo de tipos/status;
-- preservação do legado sem inferência;
-- textos/versionamento;
-- aviso de privacidade;
-- revogação específica no backend;
-- testes de independência.
-
-## Fase 3 — Cadastro público e origens
-
-- idade, eleição, categoria e descrição aprovadas;
+- rota pública principal `/participar` e redirecionamento de `/`;
+- idade obrigatória entre 16 e 120;
+- pergunta eleitoral opcional;
+- categoria e descrição opcional do problema;
 - origem por slug/link;
-- atualização segura de duplicidade;
+- preenchimento seguro apenas de campos vazios;
+- histórico somente das mudanças efetivas;
 - rate limit e anti-spam;
-- rota `/participar`, se aprovada;
-- testes completos do fluxo público.
+- mensagem oficial de sucesso;
+- funcionamento completamente independente do ManyChat.
 
-## Fase 4 — Perfis e cadastro manual
+## Fase 3 — Privacidade e consentimentos
 
-- autorização por perfil;
-- cadastro manual;
-- autoria e meio da coleta;
-- consentimentos tri-state/status;
-- detalhe básico do contato.
+- aceite de privacidade em estrutura própria;
+- novos tipos e quatro estados oficiais;
+- preservação do legado sem conversão;
+- textos configuráveis e versionados;
+- revogação específica;
+- testes de independência e ausência de presunção.
 
-## Fase 5 — Importação
+## Fase 4 — Área administrativa
+
+- perfis e autorização;
+- detalhe do contato;
+- histórico e auditoria;
+- origens;
+- status, interrupção e exclusão;
+- filtros e navegação administrativa.
+
+## Fase 5 — Cadastro manual
+
+- cadastro por usuário autorizado;
+- autoria, origem e meio da coleta;
+- mesmas regras de telefone e atualização segura;
+- consentimentos somente com resposta explícita;
+- aceite de privacidade quando aplicável.
+
+## Fase 6 — Importação CSV/XLSX
 
 - upload controlado;
-- CSV/XLSX;
 - prévia e mapeamento;
+- normalização e deduplicação;
 - validação e confirmação;
-- relatório e limpeza de temporários;
-- nenhum consentimento importado.
+- relatório de criados, atualizados, ignorados e inválidos;
+- origem da lista;
+- nenhum consentimento presumido.
 
-## Fase 6 — Histórico, interrupção e exclusão
+## Fase 7 — Relatórios, filtros e segmentações
 
-- histórico geral;
-- interrupção geral;
-- bloqueios separados;
-- solicitações de exclusão;
-- fluxo administrativo e auditoria.
+- relatórios operacionais;
+- filtros reproduzíveis;
+- segmentações baseadas em regras do sistema;
+- campanhas somente após regras específicas e autorização;
+- nenhum disparo próprio de mensagens.
 
-## Fase 7 — Campanhas sem disparo
+## Fase 8 — Preparação técnica final para integração futura
 
-- campanhas;
-- regras aprovadas de consentimento;
-- prévia de audiência;
-- motivos de inelegibilidade;
-- nenhum envio real.
+- revisar se origem e histórico genéricos atendem ao canal futuro;
+- documentar limites e contratos somente depois de requisitos reais;
+- confirmar que o sistema continua funcionando sem serviço externo;
+- não criar endpoint, token, webhook, origem `manychat` ou dependência antecipada.
 
-## Fase 8 — Preparação ManyChat
+## Fase 9 — Integração real opcional com ManyChat
 
-- contratos aprovados;
-- feature flag desativada por padrão;
-- segredo e autenticação;
-- rate limit;
-- validação e eventos;
-- exemplos no README;
-- nenhuma conexão real.
+Esta fase somente poderá existir depois da contratação do ManyChat e de autorização explícita.
 
-## Fase 9 — Consolidação do frontend
+- ManyChat como canal adicional de coleta e comunicação;
+- sistema A Voz do Bairro como fonte oficial;
+- telefone normalizado como identificador principal;
+- origem e data registradas;
+- campos existentes nunca sobrescritos silenciosamente;
+- consentimentos somente por resposta explícita;
+- nenhuma API direta da Meta, WhatsApp Web, chatbox ou automação própria.
 
-- navegação administrativa;
-- páginas restantes;
-- tema laranja central;
-- estados visuais;
-- responsividade e acessibilidade.
+## Fase 10 — Regressão e documentação contínuas
 
-## Fase 10 — Regressão e documentação final
-
-- executar todos os testes;
+- executar testes ao final de cada fase;
 - validar banco e dados preservados;
 - validar build e console;
-- atualizar READMEs;
-- concluir `RELATORIO_IMPLEMENTACAO.md`;
-- entregar limitações e próximos passos.
+- atualizar READMEs e `RELATORIO_IMPLEMENTACAO.md`;
+- registrar limitações e próximos passos reais.
 
 # 5. Riscos
 
@@ -1054,7 +1052,7 @@ Cada fase deve ser aprovada isoladamente.
 - JWT no `localStorage` aumenta impacto de eventual XSS;
 - formulário público não possui rate limit;
 - upload de planilha amplia superfície de ataque;
-- endpoints ManyChat não podem ser registrados antes da proteção;
+- criar estruturas específicas de ManyChat antes da contratação produziria complexidade e contratos fictícios;
 - CORS aceita uma única origem configurada, o que pode precisar de adaptação por ambiente.
 
 ## 5.5 Interface e escopo
@@ -1078,7 +1076,7 @@ Nenhuma das decisões abaixo deve ser assumida durante a implementação.
 
 ## 6.1 Banco e ambiente
 
-1. O nome oficial do banco deve ser `criar_banco` ou `cirar_banco`? O `.env` conecta no primeiro e a documentação anterior cita o segundo.
+1. ✅ Resolvida: o nome oficial do banco é `criar_banco`.
 2. Confirma que a tabela `consentimentos`, já existente e populada, deve ser considerada parte oficial do estado atual apesar da frase “apenas 2 tabelas”?
 3. Você aprova criar uma tabela de controle de migrations ou prefere manter scripts idempotentes reaplicados em ordem?
 4. Onde o backup deve ser armazenado e quem validará a restauração?
@@ -1140,11 +1138,11 @@ Nenhuma das decisões abaixo deve ser assumida durante a implementação.
 
 ## 6.9 ManyChat
 
-39. “Preparar endpoints” significa implementar rotas desativadas ou apenas documentar contratos nesta primeira etapa?
-40. Qual header e formato de segredo serão usados na autenticação futura?
-41. Qual feature flag deve controlar a integração?
-42. Quais dos seis endpoints sugeridos serão realmente adotados?
-43. Um evento ManyChat poderá criar contato automaticamente ou somente atualizar contato já existente?
+39. ✅ Resolvida: nenhum endpoint, webhook, segredo, feature flag ou origem específica será criado agora.
+40. ✅ Resolvida: o sistema funciona sem ManyChat e permanece como fonte oficial dos dados.
+41. ✅ Resolvida: API direta da Meta, WhatsApp Web, chatbox e automação própria foram retirados do planejamento.
+42. Os contratos reais serão definidos somente após contratação e autorização específica.
+43. A integração futura deverá obedecer às mesmas regras de telefone, preenchimento de campos vazios, histórico, origem, data e consentimento explícito.
 
 ## 6.10 Testes e operação
 

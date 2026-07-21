@@ -295,13 +295,11 @@ Status: **implementado e testado**.
 - filtra consentimentos pelos três estados;
 - mantém login, JWT, filtros anteriores e paginação.
 
-## 17. O que o sistema ainda não faz
+## 17. Limites atuais e canais externos
 
 Status: **planejado e não implementado**.
 
-- API Oficial do WhatsApp;
 - envio de mensagens, ligações ou campanhas;
-- chatbox, atendimento ou webhook;
 - atualização ou revogação de consentimentos por rota;
 - exclusão física automática;
 - detalhe administrativo com histórico;
@@ -310,6 +308,8 @@ Status: **planejado e não implementado**.
 - sorteios ou brindes;
 - integração com redes sociais;
 - canal real para solicitações dos titulares.
+
+API direta da Meta/WhatsApp, WhatsApp Web, chatbox próprio e automação própria de mensagens foram retirados do planejamento. O ManyChat poderá ser contratado futuramente somente como canal adicional de automação e coleta pelo WhatsApp. O sistema A Voz do Bairro continuará sendo a fonte oficial dos dados e deverá funcionar sem essa contratação.
 
 ## 18. Testes realizados
 

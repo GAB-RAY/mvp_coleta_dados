@@ -5,18 +5,29 @@
   "description": "Backend do MVP de coleta de dados",
   "main": "src/server.js",
   "scripts": {
+    "test": "npm run testar:fase1 && npm run testar:publico && npm run testar:admin && npm run testar:manual && npm run testar:importacoes && npm run testar:relatorios",
     "start": "node src/server.js",
     "criar-admin": "node scripts/criarAdministrador.js",
     "banco:migrar": "node scripts/executarMigracoes.js",
-    "testar:consentimentos": "node scripts/testarConsentimentos.js"
+    "testar:fase1": "node scripts/verificarFase1.js",
+    "testar:publico": "node scripts/testarCadastroPublico.js",
+    "testar:admin": "node scripts/testarAdministracao.js",
+    "testar:manual": "node scripts/testarCadastroManual.js",
+    "testar:importacoes": "node scripts/testarImportacoes.js",
+    "testar:relatorios": "node scripts/testarRelatorios.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
     "dotenv": "^17.2.1",
+    "exceljs": "^4.4.0",
     "express": "^5.1.0",
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.2",
+    "multer": "^2.2.0",
     "pg": "^8.16.3"
+  },
+  "overrides": {
+    "uuid": "^11.1.0"
   }
 }

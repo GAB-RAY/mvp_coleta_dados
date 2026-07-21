@@ -42,6 +42,9 @@ function CampoFormulario(propriedades) {
           maxLength={propriedades.tamanhoMaximo}
           autoComplete={propriedades.autoComplete}
           inputMode={propriedades.inputMode}
+          min={propriedades.minimo}
+          max={propriedades.maximo}
+          step={propriedades.passo}
         />
       )}
     </div>

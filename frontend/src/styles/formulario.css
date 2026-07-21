@@ -162,6 +162,10 @@
   background: #fff0e7;
 }
 
+.pagina-publica .campo-textarea {
+  min-height: 88px;
+}
+
 .pagina-publica .campo-input:hover,
 .pagina-publica .campo-textarea:hover {
   border-color: #efc9b3;

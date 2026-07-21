@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import CampoFormulario from '../components/CampoFormulario';
 import CampoSelecao from '../components/CampoSelecao';
@@ -6,23 +6,35 @@ import CampoSelecaoPesquisavel from '../components/CampoSelecaoPesquisavel';
 import MensagemRetorno from '../components/MensagemRetorno';
 import { BAIRROS_RIO, PROBLEMAS } from '../data/opcoesFormulario';
 import {
+  TEXTO_AVISO_PRIVACIDADE,
   TEXTO_LIGACOES,
-  TEXTO_TRATAMENTO_DADOS,
-  TEXTO_WHATSAPP
+  TEXTO_MENSAGENS
 } from '../data/textosConsentimento';
-import { cadastrarContato } from '../services/contatoService';
+import {
+  buscarOpcoesFormulario,
+  cadastrarContato
+} from '../services/contatoService';
 
 const FORMULARIO_INICIAL = {
   nome: '',
   telefone: '',
+  idade: '',
   bairro: '',
   problema: '',
-  consentimentoTratamentoDados: false,
-  consentimentoWhatsapp: false,
-  consentimentoLigacoes: false
+  descricaoProblema: '',
+  participouEleicaoAnterior: '',
+  aceitePrivacidade: false,
+  autorizacaoMensagens: false,
+  autorizacaoLigacoes: false
 };
 
-function validarFormulario(dadosFormulario, bairroConfirmado) {
+const OPCOES_ELEICAO = [
+  { valor: 'sim', rotulo: 'Sim' },
+  { valor: 'nao', rotulo: 'Não' },
+  { valor: 'prefiro_nao_informar', rotulo: 'Prefiro não informar' }
+];
+
+function validarFormulario(dadosFormulario, bairroConfirmado, categoriasProblema) {
   if (!dadosFormulario.nome.trim()) {
     return 'Informe seu nome.';
   }
@@ -41,15 +53,21 @@ function validarFormulario(dadosFormulario, bairroConfirmado) {
     return 'Informe um telefone válido, com DDD.';
   }
 
+  const idade = Number(dadosFormulario.idade);
+
+  if (!Number.isInteger(idade) || idade < 16 || idade > 120) {
+    return 'Informe uma idade válida entre 16 e 120 anos.';
+  }
+
   if (!bairroConfirmado || !BAIRROS_RIO.includes(dadosFormulario.bairro)) {
     return 'Digite e selecione seu bairro na lista.';
   }
 
-  if (!PROBLEMAS.includes(dadosFormulario.problema)) {
+  if (!categoriasProblema.includes(dadosFormulario.problema)) {
     return 'Selecione a principal necessidade do seu bairro.';
   }
 
-  if (!dadosFormulario.consentimentoTratamentoDados) {
+  if (!dadosFormulario.aceitePrivacidade) {
     return 'É necessário autorizar o tratamento dos dados.';
   }
 
@@ -62,6 +80,35 @@ function FormularioPublico() {
   const [mensagem, setMensagem] = useState('');
   const [tipoMensagem, setTipoMensagem] = useState('informacao');
   const [bairroConfirmado, setBairroConfirmado] = useState(false);
+  const [categoriasProblema, setCategoriasProblema] = useState(PROBLEMAS);
+
+  useEffect(function () {
+    let paginaAtiva = true;
+
+    async function carregarOpcoes() {
+      try {
+        const resposta = await buscarOpcoesFormulario();
+
+        if (
+          paginaAtiva &&
+          Array.isArray(resposta.categoriasProblema) &&
+          resposta.categoriasProblema.length > 0
+        ) {
+          setCategoriasProblema(resposta.categoriasProblema);
+        }
+      } catch (erro) {
+        if (paginaAtiva) {
+          setCategoriasProblema(PROBLEMAS);
+        }
+      }
+    }
+
+    carregarOpcoes();
+
+    return function () {
+      paginaAtiva = false;
+    };
+  }, []);
 
   function alterarCampo(evento) {
     const campo = evento.target.name;
@@ -92,7 +139,11 @@ function FormularioPublico() {
     evento.preventDefault();
     setMensagem('');
 
-    const mensagemValidacao = validarFormulario(dadosFormulario, bairroConfirmado);
+    const mensagemValidacao = validarFormulario(
+      dadosFormulario,
+      bairroConfirmado,
+      categoriasProblema
+    );
 
     if (mensagemValidacao) {
       setTipoMensagem('erro');
@@ -106,11 +157,15 @@ function FormularioPublico() {
       const resposta = await cadastrarContato({
         nome: dadosFormulario.nome.trim(),
         telefone: dadosFormulario.telefone.trim(),
+        idade: Number(dadosFormulario.idade),
         bairro: dadosFormulario.bairro.trim(),
         problema: dadosFormulario.problema.trim(),
-        consentimentoTratamentoDados: dadosFormulario.consentimentoTratamentoDados,
-        consentimentoWhatsapp: dadosFormulario.consentimentoWhatsapp,
-        consentimentoLigacoes: dadosFormulario.consentimentoLigacoes
+        descricaoProblema: dadosFormulario.descricaoProblema.trim() || null,
+        participouEleicaoAnterior:
+          dadosFormulario.participouEleicaoAnterior || null,
+        aceitePrivacidade: dadosFormulario.aceitePrivacidade,
+        autorizacaoMensagens: dadosFormulario.autorizacaoMensagens,
+        autorizacaoLigacoes: dadosFormulario.autorizacaoLigacoes
       });
 
       setTipoMensagem('sucesso');
@@ -165,7 +220,7 @@ function FormularioPublico() {
 
             <CampoFormulario
               id="telefone"
-              rotulo="Telefone ou WhatsApp"
+              rotulo="Telefone"
               tipo="tel"
               valor={dadosFormulario.telefone}
               aoAlterar={alterarCampo}
@@ -175,6 +230,21 @@ function FormularioPublico() {
               tamanhoMaximo={30}
               autoComplete="tel"
               inputMode="tel"
+            />
+
+            <CampoFormulario
+              id="idade"
+              rotulo="Idade"
+              tipo="number"
+              valor={dadosFormulario.idade}
+              aoAlterar={alterarCampo}
+              placeholder="Ex.: 35"
+              obrigatorio
+              desabilitado={enviando}
+              minimo={16}
+              maximo={120}
+              passo={1}
+              inputMode="numeric"
             />
 
             <CampoSelecaoPesquisavel
@@ -194,9 +264,31 @@ function FormularioPublico() {
               rotulo="Principal necessidade"
               valor={dadosFormulario.problema}
               aoAlterar={alterarCampo}
-              opcoes={PROBLEMAS}
+              opcoes={categoriasProblema}
               placeholder="Selecione uma categoria"
               obrigatorio
+              desabilitado={enviando}
+            />
+
+            <CampoFormulario
+              id="descricaoProblema"
+              rotulo="Conte um pouco mais (opcional)"
+              valor={dadosFormulario.descricaoProblema}
+              aoAlterar={alterarCampo}
+              placeholder="Descreva brevemente a necessidade"
+              desabilitado={enviando}
+              tamanhoMaximo={1000}
+              multilinha
+              linhas={3}
+            />
+
+            <CampoSelecao
+              id="participouEleicaoAnterior"
+              rotulo="Você votou na última eleição? (opcional)"
+              valor={dadosFormulario.participouEleicaoAnterior}
+              aoAlterar={alterarCampo}
+              opcoes={OPCOES_ELEICAO}
+              placeholder="Selecione uma opção"
               desabilitado={enviando}
             />
           </div>
@@ -204,38 +296,38 @@ function FormularioPublico() {
           <fieldset className="grupo-consentimentos" disabled={enviando}>
             <legend>Autorizações</legend>
 
-            <label className="opcao-consentimento" htmlFor="consentimentoTratamentoDados">
+            <label className="opcao-consentimento" htmlFor="aceitePrivacidade">
               <input
-                id="consentimentoTratamentoDados"
-                name="consentimentoTratamentoDados"
+                id="aceitePrivacidade"
+                name="aceitePrivacidade"
                 type="checkbox"
-                checked={dadosFormulario.consentimentoTratamentoDados}
+                checked={dadosFormulario.aceitePrivacidade}
                 onChange={alterarCampo}
                 required
               />
               <span>
-                {TEXTO_TRATAMENTO_DADOS}
+                {TEXTO_AVISO_PRIVACIDADE}
                 <strong aria-hidden="true"> *</strong>
               </span>
             </label>
 
-            <label className="opcao-consentimento" htmlFor="consentimentoWhatsapp">
+            <label className="opcao-consentimento" htmlFor="autorizacaoMensagens">
               <input
-                id="consentimentoWhatsapp"
-                name="consentimentoWhatsapp"
+                id="autorizacaoMensagens"
+                name="autorizacaoMensagens"
                 type="checkbox"
-                checked={dadosFormulario.consentimentoWhatsapp}
+                checked={dadosFormulario.autorizacaoMensagens}
                 onChange={alterarCampo}
               />
-              <span>{TEXTO_WHATSAPP}</span>
+              <span>{TEXTO_MENSAGENS}</span>
             </label>
 
-            <label className="opcao-consentimento" htmlFor="consentimentoLigacoes">
+            <label className="opcao-consentimento" htmlFor="autorizacaoLigacoes">
               <input
-                id="consentimentoLigacoes"
-                name="consentimentoLigacoes"
+                id="autorizacaoLigacoes"
+                name="autorizacaoLigacoes"
                 type="checkbox"
-                checked={dadosFormulario.consentimentoLigacoes}
+                checked={dadosFormulario.autorizacaoLigacoes}
                 onChange={alterarCampo}
               />
               <span>{TEXTO_LIGACOES}</span>

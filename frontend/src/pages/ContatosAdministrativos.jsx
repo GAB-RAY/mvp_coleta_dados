@@ -15,16 +15,36 @@ const FILTROS_INICIAIS = {
   telefone: '',
   bairro: '',
   problema: '',
-  consentimentoWhatsapp: '',
-  consentimentoLigacoes: '',
   origem: '',
-  status: ''
+  status: '',
+  idadeMinima: '',
+  idadeMaxima: '',
+  participouEleicaoAnterior: '',
+  autorizacaoMensagens: '',
+  autorizacaoLigacoes: '',
+  dataInicial: '',
+  dataFinal: '',
+  ordenacao: 'mais_recentes'
 };
 
 const OPCOES_CONSENTIMENTO = [
-  { valor: 'true', rotulo: 'Sim' },
-  { valor: 'false', rotulo: 'Não' },
-  { valor: 'null', rotulo: 'Não informado' }
+  { valor: 'autorizado', rotulo: 'Autorizado' },
+  { valor: 'nao_informado', rotulo: 'Não informado' },
+  { valor: 'recusado', rotulo: 'Recusado' },
+  { valor: 'revogado', rotulo: 'Revogado' }
+];
+
+const OPCOES_ELEICAO = [
+  { valor: 'sim', rotulo: 'Sim' },
+  { valor: 'nao', rotulo: 'Não' },
+  { valor: 'prefiro_nao_informar', rotulo: 'Prefiro não informar' }
+];
+
+const OPCOES_ORDENACAO = [
+  { valor: 'mais_recentes', rotulo: 'Mais recentes' },
+  { valor: 'mais_antigos', rotulo: 'Mais antigos' },
+  { valor: 'nome_asc', rotulo: 'Nome: A a Z' },
+  { valor: 'nome_desc', rotulo: 'Nome: Z a A' }
 ];
 
 const PAGINACAO_INICIAL = {
@@ -40,10 +60,16 @@ function prepararFiltros(filtros) {
     telefone: filtros.telefone.trim(),
     bairro: filtros.bairro.trim(),
     problema: filtros.problema.trim(),
-    consentimentoWhatsapp: filtros.consentimentoWhatsapp,
-    consentimentoLigacoes: filtros.consentimentoLigacoes,
     origem: filtros.origem.trim(),
-    status: filtros.status.trim()
+    status: filtros.status.trim(),
+    idadeMinima: filtros.idadeMinima,
+    idadeMaxima: filtros.idadeMaxima,
+    participouEleicaoAnterior: filtros.participouEleicaoAnterior,
+    autorizacaoMensagens: filtros.autorizacaoMensagens,
+    autorizacaoLigacoes: filtros.autorizacaoLigacoes,
+    dataInicial: filtros.dataInicial,
+    dataFinal: filtros.dataFinal,
+    ordenacao: filtros.ordenacao
   };
 }
 
@@ -206,11 +232,46 @@ function ContatosAdministrativos() {
                 desabilitado={carregando}
               />
 
+              <CampoFormulario
+                id="filtro-idade-minima"
+                nome="idadeMinima"
+                rotulo="Idade mínima"
+                tipo="number"
+                valor={filtrosFormulario.idadeMinima}
+                aoAlterar={alterarFiltro}
+                minimo={16}
+                maximo={120}
+                desabilitado={carregando}
+              />
+
+              <CampoFormulario
+                id="filtro-idade-maxima"
+                nome="idadeMaxima"
+                rotulo="Idade máxima"
+                tipo="number"
+                valor={filtrosFormulario.idadeMaxima}
+                aoAlterar={alterarFiltro}
+                minimo={16}
+                maximo={120}
+                desabilitado={carregando}
+              />
+
               <CampoSelecao
-                id="filtro-consentimento-whatsapp"
-                nome="consentimentoWhatsapp"
-                rotulo="Mensagens no WhatsApp"
-                valor={filtrosFormulario.consentimentoWhatsapp}
+                id="filtro-eleicao"
+                nome="participouEleicaoAnterior"
+                rotulo="Votou na última eleição"
+                valor={filtrosFormulario.participouEleicaoAnterior}
+                aoAlterar={alterarFiltro}
+                opcoes={OPCOES_ELEICAO}
+                placeholder="Todos"
+                desabilitado={carregando}
+              />
+
+              <CampoSelecao
+                id="filtro-autorizacao-mensagens"
+                nome="autorizacaoMensagens"
+                rotulo="Autorização de mensagens"
+                valor={filtrosFormulario.autorizacaoMensagens}
                 aoAlterar={alterarFiltro}
                 opcoes={OPCOES_CONSENTIMENTO}
                 placeholder="Todos"
@@ -218,10 +279,10 @@ function ContatosAdministrativos() {
               />
 
               <CampoSelecao
-                id="filtro-consentimento-ligacoes"
-                nome="consentimentoLigacoes"
-                rotulo="Ligações"
-                valor={filtrosFormulario.consentimentoLigacoes}
+                id="filtro-autorizacao-ligacoes"
+                nome="autorizacaoLigacoes"
+                rotulo="Autorização de ligações"
+                valor={filtrosFormulario.autorizacaoLigacoes}
                 aoAlterar={alterarFiltro}
                 opcoes={OPCOES_CONSENTIMENTO}
                 placeholder="Todos"
@@ -235,6 +296,36 @@ function ContatosAdministrativos() {
                 valor={filtrosFormulario.origem}
                 aoAlterar={alterarFiltro}
                 placeholder="Origem ou parte dela"
+                desabilitado={carregando}
+              />
+
+              <CampoFormulario
+                id="filtro-data-inicial"
+                nome="dataInicial"
+                rotulo="Cadastro a partir de"
+                tipo="date"
+                valor={filtrosFormulario.dataInicial}
+                aoAlterar={alterarFiltro}
+                desabilitado={carregando}
+              />
+
+              <CampoFormulario
+                id="filtro-data-final"
+                nome="dataFinal"
+                rotulo="Cadastro até"
+                tipo="date"
+                valor={filtrosFormulario.dataFinal}
+                aoAlterar={alterarFiltro}
+                desabilitado={carregando}
+              />
+
+              <CampoSelecao
+                id="filtro-ordenacao"
+                nome="ordenacao"
+                rotulo="Ordenação"
+                valor={filtrosFormulario.ordenacao}
+                aoAlterar={alterarFiltro}
+                opcoes={OPCOES_ORDENACAO}
                 desabilitado={carregando}
               />
 

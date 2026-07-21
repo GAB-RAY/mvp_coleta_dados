@@ -1,4 +1,5 @@
 import formatarTelefone from '../utils/formatarTelefone';
+import { Link } from 'react-router-dom';
 
 const formatadorData = new Intl.DateTimeFormat('pt-BR', {
   dateStyle: 'short',
@@ -20,16 +21,16 @@ function formatarData(dataRecebida) {
 }
 
 function obterConsentimento(valor) {
-  if (valor === true) {
+  if (valor === true || valor === 'autorizado') {
     return {
       texto: 'Sim',
       classe: 'consentimento-sim'
     };
   }
 
-  if (valor === false) {
+  if (valor === false || valor === 'recusado' || valor === 'revogado') {
     return {
-      texto: 'Não',
+      texto: valor === 'revogado' ? 'Revogado' : 'Recusado',
       classe: 'consentimento-nao'
     };
   }
@@ -65,15 +66,16 @@ function TabelaContatos(propriedades) {
         <thead>
           <tr>
             <th scope="col">Nome</th>
-            <th scope="col">WhatsApp</th>
+            <th scope="col">Telefone</th>
+            <th scope="col">Idade</th>
             <th scope="col">Bairro</th>
             <th scope="col">Principal problema</th>
-            <th scope="col">Tratamento de dados</th>
-            <th scope="col">Mensagens no WhatsApp</th>
+            <th scope="col">Mensagens</th>
             <th scope="col">Ligações</th>
             <th scope="col">Origem</th>
             <th scope="col">Status</th>
             <th scope="col">Data de cadastro</th>
+            <th scope="col">Ações</th>
           </tr>
         </thead>
         <tbody>
@@ -82,14 +84,19 @@ function TabelaContatos(propriedades) {
               <tr key={contato.id}>
                 <td>{contato.nome}</td>
                 <td className="texto-sem-quebra">{formatarTelefone(contato.telefone)}</td>
+                <td>{contato.idade || '—'}</td>
                 <td>{contato.bairro}</td>
                 <td className="coluna-problema">{contato.problema}</td>
-                <td>{exibirConsentimento(contato.consentimentoTratamentoDados)}</td>
-                <td>{exibirConsentimento(contato.consentimentoWhatsapp)}</td>
-                <td>{exibirConsentimento(contato.consentimentoLigacoes)}</td>
+                <td>{exibirConsentimento(contato.autorizacaoMensagens)}</td>
+                <td>{exibirConsentimento(contato.autorizacaoLigacoes)}</td>
                 <td>{exibirTextoOuNaoInformado(contato.origemAtual)}</td>
                 <td>{exibirTextoOuNaoInformado(contato.statusContato)}</td>
                 <td className="texto-sem-quebra">{formatarData(contato.criadoEm)}</td>
+                <td>
+                  <Link className="link-detalhes" to={'/admin/contatos/' + contato.id}>
+                    Ver detalhes
+                  </Link>
+                </td>
               </tr>
             );
           })}
