@@ -13,7 +13,7 @@ async function buscarPorTelefoneNormalizado(telefoneNormalizado) {
   return resultado.rows[0] || null;
 }
 
-async function criarContato(dadosContato) {
+async function criar(dadosDoContato) {
   const consulta = `
     INSERT INTO contatos (
       nome,
@@ -23,9 +23,12 @@ async function criarContato(dadosContato) {
       problema,
       consentimento_armazenamento,
       consentimento_mensagens,
+      consentimento_armazenamento_em,
       consentimento_mensagens_em
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7,
+    VALUES (
+      $1, $2, $3, $4, $5, $6, $7,
+      CURRENT_TIMESTAMP,
       CASE WHEN $7 = TRUE THEN CURRENT_TIMESTAMP ELSE NULL END
     )
     RETURNING
@@ -34,19 +37,19 @@ async function criarContato(dadosContato) {
       telefone,
       bairro,
       problema,
-      consentimento_armazenamento AS "consentimentoArmazenamento",
-      consentimento_mensagens AS "consentimentoMensagens",
-      criado_em AS "criadoEm"
+      consentimento_armazenamento,
+      consentimento_mensagens,
+      criado_em
   `;
 
   const valores = [
-    dadosContato.nome,
-    dadosContato.telefone,
-    dadosContato.telefoneNormalizado,
-    dadosContato.bairro,
-    dadosContato.problema,
-    dadosContato.consentimentoArmazenamento,
-    dadosContato.consentimentoMensagens
+    dadosDoContato.nome,
+    dadosDoContato.telefone,
+    dadosDoContato.telefoneNormalizado,
+    dadosDoContato.bairro,
+    dadosDoContato.problema,
+    dadosDoContato.consentimentoArmazenamento,
+    dadosDoContato.consentimentoMensagens
   ];
 
   const resultado = await banco.query(consulta, valores);
@@ -56,5 +59,5 @@ async function criarContato(dadosContato) {
 
 module.exports = {
   buscarPorTelefoneNormalizado,
-  criarContato
+  criar
 };

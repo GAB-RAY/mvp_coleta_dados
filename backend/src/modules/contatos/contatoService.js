@@ -2,51 +2,59 @@ const contatoModel = require('./contatoModel');
 const criarAppError = require('../../utils/AppError');
 const normalizarTelefone = require('../../utils/normalizarTelefone');
 
-function validarTexto(valor, nomeCampo, tamanhoMinimo, tamanhoMaximo) {
-  if (typeof valor !== 'string') {
-    throw criarAppError('O campo ' + nomeCampo + ' é obrigatório.', 400);
+function validarCampoTexto(valor, nomeCampo, tamanhoMinimo, tamanhoMaximo) {
+  if (typeof valor !== 'string' || valor.trim() === '') {
+    throw criarAppError(nomeCampo + ' é obrigatório.', 400);
   }
 
-  const texto = valor.trim();
+  const textoTratado = valor.trim();
 
-  if (texto.length < tamanhoMinimo || texto.length > tamanhoMaximo) {
+  if (textoTratado.length < tamanhoMinimo) {
     throw criarAppError(
-      'O campo ' + nomeCampo + ' deve ter entre ' + tamanhoMinimo +
-        ' e ' + tamanhoMaximo + ' caracteres.',
+      nomeCampo + ' deve ter pelo menos ' + tamanhoMinimo + ' caracteres.',
       400
     );
   }
 
-  return texto;
+  if (textoTratado.length > tamanhoMaximo) {
+    throw criarAppError(
+      nomeCampo + ' deve ter no máximo ' + tamanhoMaximo + ' caracteres.',
+      400
+    );
+  }
+
+  return textoTratado;
 }
 
-function validarDadosContato(dadosRecebidos) {
+function validarDadosDoContato(dadosRecebidos) {
   if (!dadosRecebidos || typeof dadosRecebidos !== 'object' || Array.isArray(dadosRecebidos)) {
     throw criarAppError('Os dados do contato são obrigatórios.', 400);
   }
 
-  const nome = validarTexto(dadosRecebidos.nome, 'nome', 2, 150);
-  const telefone = validarTexto(dadosRecebidos.telefone, 'telefone', 8, 30);
-  const bairro = validarTexto(dadosRecebidos.bairro, 'bairro', 2, 150);
-  const problema = validarTexto(dadosRecebidos.problema, 'problema', 3, 500);
-  const telefoneNormalizado = normalizarTelefone(telefone);
+  const nome = validarCampoTexto(dadosRecebidos.nome, 'Nome', 2, 150);
+  const telefone = validarCampoTexto(dadosRecebidos.telefone, 'Telefone', 1, 30);
+  const bairro = validarCampoTexto(dadosRecebidos.bairro, 'Bairro', 2, 150);
+  const problema = validarCampoTexto(dadosRecebidos.problema, 'Problema', 3, 500);
 
-  if (telefoneNormalizado.length < 10 || telefoneNormalizado.length > 15) {
-    throw criarAppError('O telefone deve conter entre 10 e 15 números.', 400);
-  }
-
-  if (dadosRecebidos.consentimentoArmazenamento !== true) {
-    throw criarAppError(
-      'O consentimento para armazenamento deve ser aceito.',
-      400
-    );
+  if (typeof dadosRecebidos.consentimentoArmazenamento !== 'boolean') {
+    throw criarAppError('O consentimento para armazenamento é obrigatório.', 400);
   }
 
   if (typeof dadosRecebidos.consentimentoMensagens !== 'boolean') {
     throw criarAppError(
-      'O campo consentimentoMensagens deve ser verdadeiro ou falso.',
+      'O consentimento para mensagens deve ser verdadeiro ou falso.',
       400
     );
+  }
+
+  if (dadosRecebidos.consentimentoArmazenamento !== true) {
+    throw criarAppError('O consentimento para armazenamento é obrigatório.', 400);
+  }
+
+  const telefoneNormalizado = normalizarTelefone(telefone);
+
+  if (telefoneNormalizado.length < 10 || telefoneNormalizado.length > 15) {
+    throw criarAppError('O telefone informado é inválido.', 400);
   }
 
   return {
@@ -55,26 +63,41 @@ function validarDadosContato(dadosRecebidos) {
     telefoneNormalizado,
     bairro,
     problema,
-    consentimentoArmazenamento: true,
+    consentimentoArmazenamento: dadosRecebidos.consentimentoArmazenamento,
     consentimentoMensagens: dadosRecebidos.consentimentoMensagens
   };
 }
 
+function transformarContatoParaResposta(contatoCriado) {
+  return {
+    id: contatoCriado.id,
+    nome: contatoCriado.nome,
+    telefone: contatoCriado.telefone,
+    bairro: contatoCriado.bairro,
+    problema: contatoCriado.problema,
+    consentimentoArmazenamento: contatoCriado.consentimento_armazenamento,
+    consentimentoMensagens: contatoCriado.consentimento_mensagens,
+    criadoEm: contatoCriado.criado_em
+  };
+}
+
 async function cadastrarContato(dadosRecebidos) {
-  const dadosContato = validarDadosContato(dadosRecebidos);
+  const dadosDoContato = validarDadosDoContato(dadosRecebidos);
   const contatoExistente = await contatoModel.buscarPorTelefoneNormalizado(
-    dadosContato.telefoneNormalizado
+    dadosDoContato.telefoneNormalizado
   );
 
   if (contatoExistente) {
-    throw criarAppError('Já existe um contato com este telefone.', 409);
+    throw criarAppError('Já existe um cadastro com este telefone.', 409);
   }
 
   try {
-    return await contatoModel.criarContato(dadosContato);
+    const contatoCriado = await contatoModel.criar(dadosDoContato);
+
+    return transformarContatoParaResposta(contatoCriado);
   } catch (erro) {
     if (erro.code === '23505') {
-      throw criarAppError('Já existe um contato com este telefone.', 409);
+      throw criarAppError('Já existe um cadastro com este telefone.', 409);
     }
 
     throw erro;

@@ -3,6 +3,6 @@ const contatoController = require('./contatoController');
 
 const roteador = express.Router();
 
-roteador.post('/contatos', contatoController.cadastrarContato);
+roteador.post('/', contatoController.cadastrar);
 
 module.exports = roteador;

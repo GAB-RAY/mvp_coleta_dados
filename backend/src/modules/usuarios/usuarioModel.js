@@ -13,17 +13,17 @@ async function buscarPorEmail(email) {
   return resultado.rows[0] || null;
 }
 
-async function criarUsuario(dadosUsuario) {
+async function criar(dadosDoUsuario) {
   const consulta = `
     INSERT INTO usuarios (nome, email, senha_hash)
     VALUES ($1, $2, $3)
-    RETURNING id, nome, email, ativo, criado_em AS "criadoEm"
+    RETURNING id, nome, email, ativo, criado_em
   `;
 
   const valores = [
-    dadosUsuario.nome,
-    dadosUsuario.email,
-    dadosUsuario.senhaHash
+    dadosDoUsuario.nome,
+    dadosDoUsuario.email,
+    dadosDoUsuario.senhaHash
   ];
 
   const resultado = await banco.query(consulta, valores);
@@ -33,5 +33,5 @@ async function criarUsuario(dadosUsuario) {
 
 module.exports = {
   buscarPorEmail,
-  criarUsuario
+  criar
 };

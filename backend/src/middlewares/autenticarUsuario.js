@@ -1,44 +1,42 @@
 const jwt = require('jsonwebtoken');
+const criarAppError = require('../utils/AppError');
 
 function autenticarUsuario(requisicao, resposta, proximo) {
-  const cabecalhoAutorizacao = requisicao.headers.authorization;
+  const authorization = requisicao.headers.authorization;
 
-  if (!cabecalhoAutorizacao || !cabecalhoAutorizacao.startsWith('Bearer ')) {
-    return resposta.status(401).json({
-      mensagem: 'Token de autenticação não informado.'
-    });
+  if (!authorization) {
+    return proximo(criarAppError('Token não fornecido.', 401));
   }
 
-  const token = cabecalhoAutorizacao.slice(7).trim();
+  const partesDoAuthorization = authorization.split(' ');
+  const palavraBearer = partesDoAuthorization[0];
+  const token = partesDoAuthorization[1];
 
   if (!token) {
-    return resposta.status(401).json({
-      mensagem: 'Token de autenticação não informado.'
-    });
+    return proximo(criarAppError('Token não fornecido.', 401));
   }
 
-  if (!process.env.JWT_SEGREDO) {
-    console.error('JWT_SEGREDO não está configurado.');
+  if (partesDoAuthorization.length !== 2 || palavraBearer !== 'Bearer') {
+    return proximo(criarAppError('Token inválido.', 401));
+  }
 
-    return resposta.status(500).json({
-      mensagem: 'Erro interno do servidor.'
-    });
+  const segredoJwt = process.env.JWT_SECRET || process.env.JWT_SEGREDO;
+
+  if (!segredoJwt) {
+    return proximo(new Error('JWT_SECRET não está configurado.'));
   }
 
   try {
-    const dadosToken = jwt.verify(token, process.env.JWT_SEGREDO);
+    const dadosDoToken = jwt.verify(token, segredoJwt);
 
     requisicao.usuario = {
-      id: dadosToken.sub,
-      nome: dadosToken.nome,
-      email: dadosToken.email
+      id: dadosDoToken.id,
+      email: dadosDoToken.email
     };
 
     return proximo();
   } catch (erro) {
-    return resposta.status(401).json({
-      mensagem: 'Token inválido ou expirado.'
-    });
+    return proximo(criarAppError('Token inválido.', 401));
   }
 }
 
