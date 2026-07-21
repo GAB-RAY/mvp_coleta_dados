@@ -13,6 +13,21 @@ async function cadastrar(requisicao, resposta, proximo) {
   }
 }
 
+async function listar(requisicao, resposta, proximo) {
+  try {
+    const resultado = await contatoService.listarContatos(requisicao.query);
+
+    return resposta.status(200).json({
+      mensagem: 'Contatos listados com sucesso.',
+      contatos: resultado.contatos,
+      paginacao: resultado.paginacao
+    });
+  } catch (erro) {
+    return proximo(erro);
+  }
+}
+
 module.exports = {
-  cadastrar
+  cadastrar,
+  listar
 };

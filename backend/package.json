@@ -6,7 +6,9 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "criar-admin": "node scripts/criarAdministrador.js"
+    "criar-admin": "node scripts/criarAdministrador.js",
+    "banco:migrar": "node scripts/executarMigracoes.js",
+    "testar:consentimentos": "node scripts/testarConsentimentos.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",

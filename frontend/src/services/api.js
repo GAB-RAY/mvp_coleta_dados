@@ -1,0 +1,86 @@
+import { obterToken } from '../utils/armazenamentoToken';
+
+const MENSAGEM_FALHA_CONEXAO =
+  'Não foi possível conectar ao servidor. Tente novamente em alguns instantes.';
+
+function obterUrlBase() {
+  const urlConfigurada = import.meta.env.VITE_API_URL;
+
+  if (!urlConfigurada) {
+    throw new Error('A URL da API não está configurada.');
+  }
+
+  return urlConfigurada.replace(/\/+$/, '');
+}
+
+function prepararConfiguracao(opcoesRecebidas) {
+  const opcoes = opcoesRecebidas || {};
+  const configuracao = Object.assign({}, opcoes);
+  const autenticado = configuracao.autenticado === true;
+  const cabecalhos = new Headers(configuracao.headers || {});
+
+  delete configuracao.autenticado;
+
+  if (configuracao.body && !cabecalhos.has('Content-Type')) {
+    cabecalhos.set('Content-Type', 'application/json');
+  }
+
+  if (autenticado) {
+    const token = obterToken();
+
+    if (token) {
+      cabecalhos.set('Authorization', 'Bearer ' + token);
+    }
+  }
+
+  configuracao.headers = cabecalhos;
+
+  return configuracao;
+}
+
+async function lerRespostaJson(resposta) {
+  const textoResposta = await resposta.text();
+
+  if (!textoResposta) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(textoResposta);
+  } catch (erro) {
+    return null;
+  }
+}
+
+async function requisitar(caminho, opcoes) {
+  const url = obterUrlBase() + caminho;
+  const configuracao = prepararConfiguracao(opcoes);
+  let resposta;
+
+  try {
+    resposta = await fetch(url, configuracao);
+  } catch (erro) {
+    if (erro.name === 'AbortError') {
+      throw erro;
+    }
+
+    const erroConexao = new Error(MENSAGEM_FALHA_CONEXAO);
+    erroConexao.statusHttp = 0;
+    throw erroConexao;
+  }
+
+  const dados = await lerRespostaJson(resposta);
+
+  if (!resposta.ok) {
+    const mensagem = dados && dados.mensagem
+      ? dados.mensagem
+      : 'Não foi possível concluir a solicitação.';
+    const erroResposta = new Error(mensagem);
+    erroResposta.statusHttp = resposta.status;
+    throw erroResposta;
+  }
+
+  return dados;
+}
+
+export default requisitar;

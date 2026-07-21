@@ -1,0 +1,51 @@
+.pagina-login {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 1.5rem;
+  background:
+    radial-gradient(circle at 85% 10%, rgba(74, 157, 137, 0.16), transparent 27rem),
+    linear-gradient(145deg, #eef5f3, #f7f9f8 60%);
+}
+
+.cartao-login {
+  width: min(100%, 460px);
+  padding: clamp(1.5rem, 5vw, 2.5rem);
+}
+
+.cabecalho-login {
+  margin: 1.6rem 0 1.5rem;
+}
+
+.cabecalho-login h1 {
+  margin: 0.5rem 0 0.65rem;
+  font-size: clamp(1.7rem, 5vw, 2.25rem);
+  letter-spacing: -0.025em;
+}
+
+.cabecalho-login p {
+  margin-bottom: 0;
+  color: var(--cor-texto-suave);
+  line-height: 1.55;
+}
+
+.formulario-login {
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+
+.formulario-login .botao {
+  width: 100%;
+  margin-top: 0.25rem;
+}
+
+@media (max-width: 480px) {
+  .pagina-login {
+    padding: 1rem;
+  }
+
+  .cartao-login {
+    border-radius: 15px;
+  }
+}
