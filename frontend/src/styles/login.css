@@ -4,13 +4,32 @@
   place-items: center;
   padding: 1.5rem;
   background:
-    radial-gradient(circle at 85% 10%, rgba(74, 157, 137, 0.16), transparent 27rem),
-    linear-gradient(145deg, #eef5f3, #f7f9f8 60%);
+    radial-gradient(circle at 85% 10%, rgba(255, 92, 0, 0.16), transparent 27rem),
+    linear-gradient(145deg, #fff4ed, #f8f8f6 60%);
 }
 
 .cartao-login {
   width: min(100%, 460px);
+  border-top: 4px solid #ff5c00;
   padding: clamp(1.5rem, 5vw, 2.5rem);
+}
+
+.pagina-login .marca-sistema,
+.pagina-login .link-voltar {
+  color: #d44700;
+}
+
+.pagina-login .campo-input:focus {
+  border-color: #ff5c00;
+  box-shadow: 0 0 0 3px rgba(255, 92, 0, 0.13);
+}
+
+.pagina-login .botao-primario {
+  background: #ff5c00;
+}
+
+.pagina-login .botao-primario:hover:not(:disabled) {
+  background: #cc4100;
 }
 
 .cabecalho-login {

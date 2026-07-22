@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import CampoFormulario from '../components/CampoFormulario';
 import MensagemRetorno from '../components/MensagemRetorno';
 import { realizarLogin } from '../services/autenticacaoService';
-import { obterToken, salvarToken } from '../utils/armazenamentoToken';
+import { obterToken, salvarToken, salvarUsuario } from '../utils/armazenamentoToken';
 
 function Login() {
   const navegacao = useNavigate();
@@ -19,7 +19,7 @@ function Login() {
 
   useEffect(function () {
     if (obterToken()) {
-      navegacao('/admin/contatos', { replace: true });
+      navegacao('/admin', { replace: true });
     }
   }, [navegacao]);
 
@@ -45,15 +45,16 @@ function Login() {
     try {
       const resposta = await realizarLogin(email.trim(), senha);
 
-      if (!resposta || !resposta.token) {
+      if (!resposta || !resposta.token || !resposta.usuario) {
         throw new Error('Não foi possível iniciar a sessão.');
       }
 
       salvarToken(resposta.token);
+      salvarUsuario(resposta.usuario);
 
       const destino = localizacao.state && localizacao.state.origem
         ? localizacao.state.origem
-        : '/admin/contatos';
+        : '/admin';
 
       navegacao(destino, { replace: true });
     } catch (erro) {
@@ -69,9 +70,9 @@ function Login() {
         <Link className="link-voltar" to="/">← Voltar ao formulário</Link>
 
         <div className="cabecalho-login">
-          <span className="marca-sistema">A Voz do Bairro</span>
+          <span className="marca-sistema">Central de Comunicação</span>
           <h1 id="titulo-login">Acesso administrativo</h1>
-          <p>Entre com suas credenciais para consultar os contatos cadastrados.</p>
+          <p>Entre com suas credenciais para acessar a gestão de contatos.</p>
         </div>
 
         <MensagemRetorno mensagem={mensagem} tipo="erro" />

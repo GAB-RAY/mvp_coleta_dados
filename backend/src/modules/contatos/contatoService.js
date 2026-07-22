@@ -2,6 +2,7 @@ const contatoModel = require('./contatoModel');
 const criarAppError = require('../../utils/AppError');
 const normalizarTelefone = require('../../utils/normalizarTelefone');
 const categoriasProblema = require('../../config/categoriasProblema');
+const bairroService = require('../bairros/bairroService');
 
 function validarCampoTexto(valor, nomeCampo, tamanhoMinimo, tamanhoMaximo) {
   if (typeof valor !== 'string' || valor.trim() === '') {
@@ -102,14 +103,14 @@ function validarParticipacaoEleitoral(valor) {
   return valor;
 }
 
-function validarDadosDoContato(dadosRecebidos) {
+async function validarDadosDoContato(dadosRecebidos) {
   if (!dadosRecebidos || typeof dadosRecebidos !== 'object' || Array.isArray(dadosRecebidos)) {
     throw criarAppError('Os dados do contato são obrigatórios.', 400);
   }
 
   const nome = validarCampoTexto(dadosRecebidos.nome, 'Nome', 2, 150);
   const telefone = validarCampoTexto(dadosRecebidos.telefone, 'Telefone', 1, 30);
-  const bairro = validarCampoTexto(dadosRecebidos.bairro, 'Bairro', 2, 150);
+  const bairroInformado = validarCampoTexto(dadosRecebidos.bairro, 'Bairro', 2, 150);
   const problema = validarCampoTexto(
     dadosRecebidos.problema,
     'Categoria do problema',
@@ -141,6 +142,7 @@ function validarDadosDoContato(dadosRecebidos) {
     false
   );
   const telefoneNormalizado = normalizarTelefone(telefone);
+  const bairro = await bairroService.validarBairroAtivo(bairroInformado);
 
   if (!categoriasProblema.includes(problema)) {
     throw criarAppError('Selecione uma categoria de problema válida.', 400);
@@ -161,11 +163,6 @@ function validarDadosDoContato(dadosRecebidos) {
     idade: validarIdade(dadosRecebidos.idade),
     bairro,
     problema,
-    descricaoProblema: validarCampoOpcional(
-      dadosRecebidos.descricaoProblema,
-      'Descrição do problema',
-      1000
-    ),
     participouEleicaoAnterior: validarParticipacaoEleitoral(
       dadosRecebidos.participouEleicaoAnterior
     ),
@@ -196,18 +193,28 @@ function transformarContatoParaResposta(contato) {
     origemAtual: contato.origem_nome || contato.origem_atual,
     statusContato: contato.status_contato,
     bloqueadoParaMensagens: contato.bloqueado_para_mensagens,
+    bloqueadoParaLigacoes: contato.bloqueado_para_ligacoes,
+    bloqueadoParaCampanhas: contato.bloqueado_para_campanhas,
+    exclusaoSolicitadaEm: contato.exclusao_solicitada_em,
+    exclusaoSolicitadaPor: contato.exclusao_solicitada_por_usuario_id
+      ? {
+          id: contato.exclusao_solicitada_por_usuario_id,
+          nome: contato.exclusao_solicitada_por_usuario_nome || null
+        }
+      : null,
     criadoEm: contato.criado_em
   };
 }
 
 async function cadastrarContato(dadosRecebidos) {
-  const dadosDoContato = validarDadosDoContato(dadosRecebidos);
+  const dadosDoContato = await validarDadosDoContato(dadosRecebidos);
 
   await contatoModel.salvarCadastroPublico(dadosDoContato);
 }
 
-function listarOpcoesFormulario() {
+async function listarOpcoesFormulario() {
   return {
+    bairros: await bairroService.listarNomesAtivos(),
     categoriasProblema: categoriasProblema.slice()
   };
 }
@@ -226,7 +233,7 @@ function validarEstadoAutorizacao(valor, nomeCampo) {
   return valor;
 }
 
-function validarDadosCadastroManual(dadosRecebidos) {
+async function validarDadosCadastroManual(dadosRecebidos) {
   if (!dadosRecebidos || typeof dadosRecebidos !== 'object' || Array.isArray(dadosRecebidos)) {
     throw criarAppError('Os dados do contato são obrigatórios.', 400);
   }
@@ -240,6 +247,8 @@ function validarDadosCadastroManual(dadosRecebidos) {
     500
   );
   const origemId = Number(dadosRecebidos.origemId);
+  const bairroInformado = validarCampoTexto(dadosRecebidos.bairro, 'Bairro', 2, 150);
+  const bairro = await bairroService.validarBairroAtivo(bairroInformado);
 
   if (telefoneNormalizado.length < 10 || telefoneNormalizado.length > 15) {
     throw criarAppError('O telefone informado é inválido.', 400);
@@ -257,7 +266,7 @@ function validarDadosCadastroManual(dadosRecebidos) {
     nome: validarCampoTexto(dadosRecebidos.nome, 'Nome', 2, 150),
     telefone,
     telefoneNormalizado,
-    bairro: validarCampoTexto(dadosRecebidos.bairro, 'Bairro', 2, 150),
+    bairro,
     idade: validarIdade(dadosRecebidos.idade),
     problema,
     descricaoProblema: validarCampoOpcional(
@@ -291,7 +300,7 @@ async function cadastrarContatoManual(dadosRecebidos, usuario) {
     throw criarAppError('Usuário autenticado não identificado.', 401);
   }
 
-  const dados = validarDadosCadastroManual(dadosRecebidos);
+  const dados = await validarDadosCadastroManual(dadosRecebidos);
 
   try {
     return await contatoModel.salvarCadastroManual(dados, usuario.id);
@@ -487,16 +496,79 @@ function transformarConsentimento(consentimento) {
     origem: consentimento.origem_nome,
     ativo: consentimento.ativo,
     criadoEm: consentimento.criado_em,
-    revogadoEm: consentimento.revogado_em
+    revogadoEm: consentimento.revogado_em,
+    registradoPor: consentimento.registrado_por_usuario_nome || null,
+    motivoRevogacao: consentimento.motivo_revogacao || null
   };
 }
 
-async function detalharContato(idRecebido) {
+function validarIdentificadorContato(idRecebido) {
   const id = Number(idRecebido);
 
   if (!Number.isInteger(id) || id < 1) {
     throw criarAppError('Identificador do contato inválido.', 400);
   }
+
+  return id;
+}
+
+function validarUsuarioResponsavel(usuario) {
+  if (!usuario || !usuario.id) {
+    throw criarAppError('Usuário autenticado não identificado.', 401);
+  }
+}
+
+async function revogarConsentimentos(idRecebido, dadosRecebidos, usuario) {
+  validarUsuarioResponsavel(usuario);
+  const id = validarIdentificadorContato(idRecebido);
+  const tipoRecebido = dadosRecebidos && dadosRecebidos.tipo;
+  const tiposPorOpcao = {
+    mensagens: ['mensagens'],
+    ligacoes: ['ligacoes'],
+    ambos: ['mensagens', 'ligacoes']
+  };
+  const tipos = tiposPorOpcao[tipoRecebido];
+  const motivo = validarCampoOpcional(
+    dadosRecebidos && dadosRecebidos.motivo,
+    'Motivo da revogação',
+    500
+  );
+
+  if (!tipos) {
+    throw criarAppError(
+      'Tipo de revogação inválido. Use mensagens, ligacoes ou ambos.',
+      400
+    );
+  }
+
+  const resultado = await contatoModel.revogarConsentimentos(
+    id,
+    tipos,
+    motivo,
+    usuario.id
+  );
+
+  if (!resultado) {
+    throw criarAppError('Contato não encontrado.', 404);
+  }
+
+  return resultado;
+}
+
+async function solicitarExclusao(idRecebido, usuario) {
+  validarUsuarioResponsavel(usuario);
+  const id = validarIdentificadorContato(idRecebido);
+  const resultado = await contatoModel.solicitarExclusao(id, usuario.id);
+
+  if (!resultado) {
+    throw criarAppError('Contato não encontrado.', 404);
+  }
+
+  return resultado;
+}
+
+async function detalharContato(idRecebido) {
+  const id = validarIdentificadorContato(idRecebido);
 
   const resultado = await contatoModel.buscarDetalhes(id);
 
@@ -507,6 +579,7 @@ async function detalharContato(idRecebido) {
   const contato = transformarContatoParaResposta(resultado.contato);
 
   contato.origem = {
+    id: resultado.contato.origem_id,
     nome: resultado.contato.origem_nome,
     slug: resultado.contato.origem_slug,
     tipo: resultado.contato.origem_tipo
@@ -586,6 +659,8 @@ module.exports = {
   listarContatos,
   listarOpcoesFormulario,
   detalharContato,
+  revogarConsentimentos,
+  solicitarExclusao,
   cadastrarContatoManual,
   listarContatosParaRelatorio
 };

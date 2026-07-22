@@ -98,6 +98,21 @@ async function buscarDetalhesContato(id, sinal) {
   });
 }
 
+async function revogarConsentimentos(id, tipo, motivo) {
+  return requisitar('/api/admin/contatos/' + id + '/revogar-consentimentos', {
+    method: 'POST',
+    autenticado: true,
+    body: JSON.stringify({ tipo, motivo: motivo || null })
+  });
+}
+
+async function solicitarExclusaoContato(id) {
+  return requisitar('/api/admin/contatos/' + id + '/solicitacao-exclusao', {
+    method: 'POST',
+    autenticado: true
+  });
+}
+
 async function listarOrigens(sinal) {
   return requisitar('/api/admin/origens', {
     method: 'GET',
@@ -141,5 +156,7 @@ export {
   confirmarImportacao,
   listarContatos,
   listarOrigens,
-  preVisualizarImportacao
+  preVisualizarImportacao,
+  revogarConsentimentos,
+  solicitarExclusaoContato
 };

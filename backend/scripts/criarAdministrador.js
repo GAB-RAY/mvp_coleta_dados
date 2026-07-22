@@ -23,8 +23,8 @@ async function criarAdministrador(argumentos) {
       throw new Error('Nome e email são obrigatórios.');
     }
 
-    if (senha.length < 8) {
-      throw new Error('A senha deve ter pelo menos 8 caracteres.');
+    if (senha.length < 12) {
+      throw new Error('A senha deve ter pelo menos 12 caracteres.');
     }
 
     const usuarioExistente = await usuarioModel.buscarPorEmail(email);
@@ -37,7 +37,12 @@ async function criarAdministrador(argumentos) {
     let usuario;
 
     try {
-      usuario = await usuarioModel.criar({ nome, email, senhaHash });
+      usuario = await usuarioModel.criar({
+        nome,
+        email,
+        senhaHash,
+        perfil: 'administrador'
+      });
     } catch (erro) {
       if (erro.code === '23505') {
         throw new Error('Já existe um usuário com este email.');

@@ -7,7 +7,8 @@ async function registrarRespostaSeDiferente(cliente, contatoId, autorizacao) {
       versao_texto,
       canal,
       origem_id,
-      estado
+      estado,
+      motivo_revogacao
     FROM consentimentos
     WHERE contato_id = $1
       AND tipo = $2
@@ -27,15 +28,24 @@ async function registrarRespostaSeDiferente(cliente, contatoId, autorizacao) {
     atual.versao_texto === autorizacao.versao &&
     atual.canal === autorizacao.canal &&
     Number(atual.origem_id) === Number(autorizacao.origemId) &&
-    atual.estado === autorizacao.estado
+    atual.estado === autorizacao.estado &&
+    (atual.motivo_revogacao || null) === (autorizacao.motivoRevogacao || null)
   ) {
     return null;
   }
 
   if (atual) {
     await cliente.query(
-      'UPDATE consentimentos SET ativo = FALSE WHERE id = $1',
-      [atual.id]
+      `
+        UPDATE consentimentos
+        SET ativo = FALSE,
+            revogado_em = CASE
+              WHEN $2 = 'revogado' THEN CURRENT_TIMESTAMP
+              ELSE revogado_em
+            END
+        WHERE id = $1
+      `,
+      [atual.id, autorizacao.estado]
     );
   }
 
@@ -51,9 +61,10 @@ async function registrarRespostaSeDiferente(cliente, contatoId, autorizacao) {
       registrado_por_usuario_id,
       ativo,
       estado,
-      origem_id
+      origem_id,
+      motivo_revogacao
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE, $9, $10)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE, $9, $10, $11)
     RETURNING id
   `;
   const valores = [
@@ -66,11 +77,37 @@ async function registrarRespostaSeDiferente(cliente, contatoId, autorizacao) {
     autorizacao.origemRegistro,
     autorizacao.registradoPorUsuarioId,
     autorizacao.estado,
-    autorizacao.origemId
+    autorizacao.origemId,
+    autorizacao.motivoRevogacao || null
   ];
   const resultado = await cliente.query(consultaInsercao, valores);
 
   return resultado.rows[0];
+}
+
+async function buscarAtivosPorTipos(cliente, contatoId, tipos) {
+  const resultado = await cliente.query(
+    `
+      SELECT
+        id,
+        tipo,
+        resposta,
+        texto_apresentado,
+        versao_texto,
+        origem_id,
+        estado,
+        motivo_revogacao
+      FROM consentimentos
+      WHERE contato_id = $1
+        AND tipo = ANY($2::text[])
+        AND ativo = TRUE
+      ORDER BY id
+      FOR UPDATE
+    `,
+    [contatoId, tipos]
+  );
+
+  return resultado.rows;
 }
 
 async function registrarAutorizacaoSeDiferente(cliente, contatoId, autorizacao) {
@@ -86,6 +123,7 @@ async function registrarAutorizacaoSeDiferente(cliente, contatoId, autorizacao) 
 }
 
 module.exports = {
+  buscarAtivosPorTipos,
   registrarAutorizacaoSeDiferente,
   registrarRespostaSeDiferente
 };

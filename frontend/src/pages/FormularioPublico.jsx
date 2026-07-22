@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import CampoFormulario from '../components/CampoFormulario';
 import CampoSelecao from '../components/CampoSelecao';
 import CampoSelecaoPesquisavel from '../components/CampoSelecaoPesquisavel';
 import MensagemRetorno from '../components/MensagemRetorno';
-import { BAIRROS_RIO, PROBLEMAS } from '../data/opcoesFormulario';
 import {
   TEXTO_AVISO_PRIVACIDADE,
   TEXTO_LIGACOES,
@@ -21,20 +19,12 @@ const FORMULARIO_INICIAL = {
   idade: '',
   bairro: '',
   problema: '',
-  descricaoProblema: '',
-  participouEleicaoAnterior: '',
   aceitePrivacidade: false,
   autorizacaoMensagens: false,
   autorizacaoLigacoes: false
 };
 
-const OPCOES_ELEICAO = [
-  { valor: 'sim', rotulo: 'Sim' },
-  { valor: 'nao', rotulo: 'Não' },
-  { valor: 'prefiro_nao_informar', rotulo: 'Prefiro não informar' }
-];
-
-function validarFormulario(dadosFormulario, bairroConfirmado, categoriasProblema) {
+function validarFormulario(dadosFormulario, bairroConfirmado, bairros, categoriasProblema) {
   if (!dadosFormulario.nome.trim()) {
     return 'Informe seu nome.';
   }
@@ -59,7 +49,7 @@ function validarFormulario(dadosFormulario, bairroConfirmado, categoriasProblema
     return 'Informe uma idade válida entre 16 e 120 anos.';
   }
 
-  if (!bairroConfirmado || !BAIRROS_RIO.includes(dadosFormulario.bairro)) {
+  if (!bairroConfirmado || !bairros.includes(dadosFormulario.bairro)) {
     return 'Digite e selecione seu bairro na lista.';
   }
 
@@ -75,12 +65,18 @@ function validarFormulario(dadosFormulario, bairroConfirmado, categoriasProblema
 }
 
 function FormularioPublico() {
+  const numeroWhatsapp = String(import.meta.env.VITE_WHATSAPP_NUMERO || '').replace(/\D/g, '');
+  const linkWhatsapp = numeroWhatsapp.length >= 10 && numeroWhatsapp.length <= 15
+    ? 'https://wa.me/' + numeroWhatsapp
+    : '';
   const [dadosFormulario, setDadosFormulario] = useState(FORMULARIO_INICIAL);
   const [enviando, setEnviando] = useState(false);
   const [mensagem, setMensagem] = useState('');
   const [tipoMensagem, setTipoMensagem] = useState('informacao');
   const [bairroConfirmado, setBairroConfirmado] = useState(false);
-  const [categoriasProblema, setCategoriasProblema] = useState(PROBLEMAS);
+  const [bairros, setBairros] = useState([]);
+  const [categoriasProblema, setCategoriasProblema] = useState([]);
+  const [carregandoOpcoes, setCarregandoOpcoes] = useState(true);
 
   useEffect(function () {
     let paginaAtiva = true;
@@ -89,16 +85,30 @@ function FormularioPublico() {
       try {
         const resposta = await buscarOpcoesFormulario();
 
+        const bairrosRecebidos = resposta.bairros;
+        const categoriasRecebidas = resposta.categoriasProblema;
+
         if (
-          paginaAtiva &&
-          Array.isArray(resposta.categoriasProblema) &&
-          resposta.categoriasProblema.length > 0
+          !Array.isArray(bairrosRecebidos) ||
+          bairrosRecebidos.length === 0 ||
+          !Array.isArray(categoriasRecebidas) ||
+          categoriasRecebidas.length === 0
         ) {
-          setCategoriasProblema(resposta.categoriasProblema);
+          throw new Error('O catálogo do formulário está indisponível.');
+        }
+
+        if (paginaAtiva) {
+          setBairros(bairrosRecebidos);
+          setCategoriasProblema(categoriasRecebidas);
         }
       } catch (erro) {
         if (paginaAtiva) {
-          setCategoriasProblema(PROBLEMAS);
+          setTipoMensagem('erro');
+          setMensagem('Não foi possível carregar os bairros. Tente novamente em alguns instantes.');
+        }
+      } finally {
+        if (paginaAtiva) {
+          setCarregandoOpcoes(false);
         }
       }
     }
@@ -142,6 +152,7 @@ function FormularioPublico() {
     const mensagemValidacao = validarFormulario(
       dadosFormulario,
       bairroConfirmado,
+      bairros,
       categoriasProblema
     );
 
@@ -160,9 +171,6 @@ function FormularioPublico() {
         idade: Number(dadosFormulario.idade),
         bairro: dadosFormulario.bairro.trim(),
         problema: dadosFormulario.problema.trim(),
-        descricaoProblema: dadosFormulario.descricaoProblema.trim() || null,
-        participouEleicaoAnterior:
-          dadosFormulario.participouEleicaoAnterior || null,
         aceitePrivacidade: dadosFormulario.aceitePrivacidade,
         autorizacaoMensagens: dadosFormulario.autorizacaoMensagens,
         autorizacaoLigacoes: dadosFormulario.autorizacaoLigacoes
@@ -232,6 +240,18 @@ function FormularioPublico() {
               inputMode="tel"
             />
 
+            <CampoSelecaoPesquisavel
+              id="bairro"
+              rotulo="Bairro"
+              valor={dadosFormulario.bairro}
+              aoAlterar={alterarBairro}
+              aoSelecionar={selecionarBairro}
+              opcoes={bairros}
+              placeholder="Digite para buscar"
+              obrigatorio
+              desabilitado={enviando || carregandoOpcoes}
+            />
+
             <CampoFormulario
               id="idade"
               rotulo="Idade"
@@ -247,18 +267,6 @@ function FormularioPublico() {
               inputMode="numeric"
             />
 
-            <CampoSelecaoPesquisavel
-              id="bairro"
-              rotulo="Bairro"
-              valor={dadosFormulario.bairro}
-              aoAlterar={alterarBairro}
-              aoSelecionar={selecionarBairro}
-              opcoes={BAIRROS_RIO}
-              placeholder="Digite para buscar"
-              obrigatorio
-              desabilitado={enviando}
-            />
-
             <CampoSelecao
               id="problema"
               rotulo="Principal necessidade"
@@ -270,27 +278,6 @@ function FormularioPublico() {
               desabilitado={enviando}
             />
 
-            <CampoFormulario
-              id="descricaoProblema"
-              rotulo="Conte um pouco mais (opcional)"
-              valor={dadosFormulario.descricaoProblema}
-              aoAlterar={alterarCampo}
-              placeholder="Descreva brevemente a necessidade"
-              desabilitado={enviando}
-              tamanhoMaximo={1000}
-              multilinha
-              linhas={3}
-            />
-
-            <CampoSelecao
-              id="participouEleicaoAnterior"
-              rotulo="Você votou na última eleição? (opcional)"
-              valor={dadosFormulario.participouEleicaoAnterior}
-              aoAlterar={alterarCampo}
-              opcoes={OPCOES_ELEICAO}
-              placeholder="Selecione uma opção"
-              desabilitado={enviando}
-            />
           </div>
 
           <fieldset className="grupo-consentimentos" disabled={enviando}>
@@ -341,9 +328,30 @@ function FormularioPublico() {
 
           <p className="legenda-obrigatorios">* Campos obrigatórios</p>
 
-          <button className="botao botao-primario botao-enviar" type="submit" disabled={enviando}>
-            {enviando ? 'Enviando...' : 'Enviar minha resposta'}
-          </button>
+          <div className="acoes-formulario-publico">
+            <button
+              className="botao botao-primario botao-enviar"
+              type="submit"
+              disabled={enviando || carregandoOpcoes || bairros.length === 0}
+            >
+              {carregandoOpcoes
+                ? 'Carregando bairros...'
+                : enviando
+                  ? 'Enviando...'
+                  : 'Enviar minha resposta'}
+            </button>
+
+            {linkWhatsapp && (
+              <a
+                className="botao-whatsapp-publico"
+                href={linkWhatsapp}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                Falar pelo WhatsApp
+              </a>
+            )}
+          </div>
         </form>
       </section>
 
@@ -374,7 +382,6 @@ function FormularioPublico() {
             Diogo Ventura.
           </p>
         </div>
-        <Link className="link-administrativo" to="/login">Acesso administrativo</Link>
       </footer>
     </main>
   );

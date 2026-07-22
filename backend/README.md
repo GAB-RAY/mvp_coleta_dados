@@ -1,201 +1,223 @@
-# Backend — A Voz do Bairro
+# Backend — Central de Comunicação
 
-API Node.js/Express do projeto A Voz do Bairro. O PostgreSQL `criar_banco` é a fonte oficial dos dados; não há integração com ManyChat, WhatsApp, Meta, SMS ou email.
+API do projeto **A Voz do Bairro**, construída com Node.js, Express, PostgreSQL, CommonJS e `pg`, sem ORM. A arquitetura é modular por funcionalidade e mantém o fluxo `Routes → Controller → Service → Model → PostgreSQL`.
 
-## Tecnologias
+## Funcionalidades
 
-- Node.js, Express 5 e CommonJS;
-- PostgreSQL com `pg` e SQL parametrizado;
-- bcrypt para senhas e jsonwebtoken para JWT;
-- multer para upload em memória;
-- ExcelJS para leitura de XLSX;
-- sem TypeScript, ORM, Prisma ou Sequelize.
+- cadastro público transacional com telefone normalizado, idade, bairro e categoria;
+- catálogo persistido com os 166 bairros oficiais do município do Rio de Janeiro;
+- validação e escrita canônica do bairro no cadastro público, manual e nas importações;
+- aceite de privacidade separado das autorizações de comunicação;
+- autorizações independentes para mensagens e ligações, nunca presumidas;
+- tratamento seguro de telefone existente, sem revelar ou sobrescrever dados preenchidos;
+- login JWT com bcrypt, auditoria, limite de tentativas e bloqueio temporário;
+- perfis `administrador` e `operador`;
+- gestão de usuários e perfis somente por administradores;
+- redefinição administrativa da senha de operadores e de outros administradores;
+- listagem, filtros, ordenação, paginação e detalhe de contatos;
+- cadastro manual, edição e histórico por operador ou administrador;
+- telefone e origem protegidos contra alteração na edição comum;
+- importação CSV/XLSX com pré-visualização e confirmação;
+- resumo administrativo e exportação CSV;
+- revogação de mensagens, ligações ou ambas;
+- motivo opcional da revogação com até 500 caracteres;
+- registro de responsável, data e hora;
+- pedido de exclusão sem apagamento imediato;
+- bloqueio de mensagens, ligações e campanhas após pedido de exclusão.
 
-O código usa arquitetura modular por funcionalidade. O fluxo principal permanece `Route -> Controller -> Service -> Model -> PostgreSQL`.
+O backend ainda não envia campanhas nem se comunica com o ManyChat.
 
-## Instalação
+## Tecnologias e dependências
 
-Na pasta `backend`:
+| Dependência | Função |
+| --- | --- |
+| Node.js | Runtime do backend. |
+| Express | API HTTP e rotas. |
+| PostgreSQL | Persistência relacional. |
+| `pg` | Pool e SQL parametrizado. |
+| `bcrypt` | Hash e comparação de senhas. |
+| `jsonwebtoken` | Emissão e validação do JWT. |
+| `cors` | Restrição da origem do frontend. |
+| `helmet` | Cabeçalhos HTTP de segurança. |
+| `dotenv` | Variáveis locais de ambiente. |
+| `multer` | Upload controlado de planilhas. |
+| `exceljs` | Leitura de XLSX. |
 
-```bash
-npm install
+Todo o código usa CommonJS, `require`, `module.exports` e funções tradicionais.
+
+## Criar um banco novo
+
+O nome oficial é `criar_banco`. O arquivo [database/criar_banco.sql](database/criar_banco.sql) contém toda a estrutura atual.
+
+No PowerShell, dentro de `backend`:
+
+```powershell
+createdb criar_banco
+psql --set ON_ERROR_STOP=1 --dbname criar_banco --file database/criar_banco.sql
 ```
 
-Copie `.env.example` para `.env`. É possível usar `DATABASE_URL`:
+O script deve ser executado **somente em banco vazio**. Ele recusa a execução ao encontrar tabelas do projeto.
+
+- banco novo e vazio: executar `database/criar_banco.sql` uma única vez;
+- banco já publicado ou com dados: nunca executar o script final;
+- mudanças futuras: criar migrations incrementais novas, partindo desta versão.
+
+As migrations antigas foram consolidadas e não fazem mais parte do fluxo principal. Não existe comando `banco:migrar` nesta versão.
+
+## Configurar o ambiente
+
+```powershell
+npm install
+Copy-Item .env.example .env
+```
+
+Conexão por variáveis separadas:
 
 ```env
 PORTA=3000
-DATABASE_URL=postgresql://postgres:SUA_SENHA@localhost:5432/criar_banco
+BANCO_NOME=criar_banco
+BANCO_HOST=localhost
+BANCO_PORTA=5432
+BANCO_USUARIO=postgres
+BANCO_SENHA=SENHA_LOCAL
+BANCO_SSL=false
+BANCO_SSL_REJEITAR_NAO_AUTORIZADO=true
 FRONTEND_URL=http://localhost:5173
-JWT_SECRET=uma_chave_secreta_grande
+JWT_SECRET=SEGREDO_GRANDE_E_ALEATORIO
 JWT_TEMPO_EXPIRACAO=8h
 ```
 
-Ou as variáveis separadas `BANCO_HOST`, `BANCO_PORTA`, `BANCO_USUARIO`, `BANCO_SENHA` e `BANCO_NOME=criar_banco`. Os aliases existentes `JWT_SEGREDO` e `JWT_EXPIRACAO` também são aceitos.
+Em ambiente gerenciado, `DATABASE_URL` pode substituir as variáveis `BANCO_*`. Para PostgreSQL com TLS, use a URL fornecida pelo provedor com `sslmode=require`. O `.env` contém segredos e permanece ignorado pelo Git.
 
-Nunca versione o arquivo `.env`.
+As variáveis `MANYCHAT_API_TOKEN` e `MANYCHAT_WEBHOOK_SECRET` aparecem somente comentadas no exemplo: ainda não são usadas e deverão ficar no ambiente, nunca no banco.
 
-## Banco e migrations
+## Primeiro administrador
 
-O banco deve existir. Para executar somente migrations pendentes:
+Não existe senha padrão no SQL. Depois de criar o banco:
 
-```bash
-npm run banco:migrar
+```powershell
+npm run criar-admin -- "Administrador" "admin@email.com" "SenhaCom12OuMais"
 ```
 
-O runner:
+A senha precisa ter pelo menos 12 caracteres e é salva somente como hash bcrypt. Depois do primeiro acesso, o administrador pode criar operadores e outros administradores pela interface.
 
-- recusa banco diferente de `criar_banco` e schema diferente de `public`;
-- usa advisory lock;
-- executa cada arquivo em transação;
-- registra nome, checksum SHA-256 e data em `schema_migrations`;
-- aborta se uma migration executada for editada;
-- nunca reaplica a migration `003`, registrada como baseline.
+## Iniciar e testar conexão
 
-Ledger atual:
-
-- `003_consentimentos_publicos_e_listagem.sql` — baseline;
-- `004_criar_schema_migrations.sql`;
-- `005_criar_origens_e_vincular_contatos.sql`;
-- `006_adicionar_campos_publicos_contatos.sql`;
-- `007_criar_historico_contatos.sql`;
-- `008_privacidade_e_autorizacoes.sql`;
-- `009_adicionar_origem_cadastro_manual.sql`;
-- `010_criar_importacoes.sql`.
-
-As tabelas originais `usuarios`, `contatos` e `consentimentos` foram preservadas. A migration `010` permite `NULL` em nome, bairro e categoria somente para suportar listas importadas com campos opcionais; os cadastros público e manual continuam exigindo esses campos no Service.
-
-Estruturas adicionais:
-
-- `schema_migrations`;
-- `origens`;
-- `historico_contatos`;
-- `textos_formulario`;
-- `aceites_privacidade`;
-- `importacoes`;
-- `importacao_linhas`.
-
-Os oito registros legados `tratamento_dados` e `mensagens_whatsapp` não foram convertidos. O aceite do Aviso de Privacidade é registrado separadamente em `aceites_privacidade`. Autorizações novas usam `mensagens` e `ligacoes`, com estados `autorizado`, `recusado` e `revogado`; ausência de resposta é representada por nenhum evento, isto é, `nao_informado` na leitura.
-
-Os textos provisórios ficam versionados em `textos_formulario` e são lidos do banco durante a transação. Eles não devem ser tratados como textos jurídicos definitivos.
-
-## Executar
-
-```bash
+```powershell
 npm start
 ```
 
-API padrão: `http://localhost:3000`.
+Abra `http://localhost:3000/api/teste`. A resposta `200` confirma que a API iniciou e consultou o PostgreSQL.
 
-## Criar administrador
+## Permissões
 
-```bash
-npm run criar-admin -- "Administrador" "admin@email.com" "MinhaSenhaSegura"
-```
+- `operador`: contatos, edição, cadastro manual, importação, relatórios, revogações e pedidos de exclusão;
+- `administrador`: todas as permissões do operador, gestão de usuários/perfis e redefinição da senha de outro usuário.
 
-O script normaliza o email, valida duplicidade e armazena somente o hash bcrypt.
+As rotas administrativas exigem JWT. As rotas de usuários também exigem o middleware de administrador.
 
 ## Rotas
 
-| Método | Endpoint | Autenticação | Função |
+| Método | Rota | Acesso | Função |
 | --- | --- | --- | --- |
-| GET | `/api/teste` | Não | Valida API e PostgreSQL. |
-| GET | `/api/publico/contatos/opcoes` | Não | Retorna o catálogo oficial de categorias. |
-| POST | `/api/publico/contatos` | Não | Processa cadastro público. |
-| POST | `/api/autenticacao/login` | Não | Valida bcrypt e retorna JWT. |
-| GET | `/api/admin/contatos` | Bearer JWT | Lista, filtra, ordena e pagina. |
-| POST | `/api/admin/contatos` | Bearer JWT | Cadastro manual ou atualização auditada. |
-| GET | `/api/admin/contatos/:id` | Bearer JWT | Detalhes, origem, histórico, privacidade e autorizações. |
-| GET | `/api/admin/origens` | Bearer JWT | Lista origens ativas. |
-| POST | `/api/admin/importacoes/pre-visualizar` | Bearer JWT | Valida CSV/XLSX e cria pré-visualização. |
-| POST | `/api/admin/importacoes/:id/confirmar` | Bearer JWT | Confirma a importação e retorna relatório. |
-| GET | `/api/admin/relatorios/resumo` | Bearer JWT | Retorna agregações filtradas. |
-| GET | `/api/admin/relatorios/exportar.csv` | Bearer JWT | Exporta contatos filtrados em CSV. |
+| GET | `/api/teste` | Público | Testa API e banco. |
+| GET | `/api/publico/contatos/opcoes` | Público | Lista bairros ativos e categorias. |
+| POST | `/api/publico/contatos` | Público | Cadastra ou complementa campos vazios. |
+| POST | `/api/autenticacao/login` | Público | Retorna JWT e usuário. |
+| GET | `/api/admin/contatos` | JWT | Lista e filtra contatos. |
+| POST | `/api/admin/contatos` | JWT | Cadastra ou edita contato. |
+| GET | `/api/admin/contatos/:id` | JWT | Retorna detalhes e históricos. |
+| POST | `/api/admin/contatos/:id/revogar-consentimentos` | JWT | Revoga mensagens, ligações ou ambas. |
+| POST | `/api/admin/contatos/:id/solicitacao-exclusao` | JWT | Registra pedido e bloqueios. |
+| GET | `/api/admin/origens` | JWT | Lista origens ativas. |
+| POST | `/api/admin/importacoes/pre-visualizar` | JWT | Valida CSV/XLSX. |
+| POST | `/api/admin/importacoes/:id/confirmar` | JWT | Confirma importação. |
+| GET | `/api/admin/relatorios/resumo` | JWT | Retorna agregações. |
+| GET | `/api/admin/relatorios/exportar.csv` | JWT | Exporta CSV filtrado. |
+| GET | `/api/admin/usuarios` | Administrador | Lista usuários. |
+| POST | `/api/admin/usuarios` | Administrador | Cria operador ou administrador. |
+| PATCH | `/api/admin/usuarios/:id/senha` | Administrador | Redefine a senha de outro usuário. |
 
-### Cadastro público
-
-```json
-{
-  "nome": "Maria da Silva",
-  "telefone": "(21) 99999-9999",
-  "idade": 35,
-  "bairro": "Vila Kennedy",
-  "problema": "Saúde",
-  "descricaoProblema": "Descrição opcional",
-  "participouEleicaoAnterior": "sim",
-  "aceitePrivacidade": true,
-  "autorizacaoMensagens": false,
-  "autorizacaoLigacoes": false
-}
-```
-
-Regras principais:
-
-- idade obrigatória, inteira, de 16 a 120;
-- telefone normalizado para 10 a 15 dígitos;
-- categoria deve existir no catálogo central do backend;
-- participação eleitoral aceita `sim`, `nao`, `prefiro_nao_informar` ou `null`;
-- aceite de privacidade é obrigatório e não é consentimento de comunicação;
-- checkboxes opcionais desmarcadas não criam evento de recusa;
-- telefone existente não revela dados anteriores e não sobrescreve campos preenchidos;
-- somente campos `NULL` ou vazios são complementados, com histórico;
-- evento idêntico de privacidade ou autorização não é duplicado;
-- contato, complementação, histórico, privacidade e autorizações são processados na mesma transação.
-
-Resposta `201`:
+Exemplo de revogação:
 
 ```json
 {
-  "mensagem": "Cadastro realizado com sucesso. Obrigado por contribuir com o projeto A Voz do Bairro."
+  "tipo": "ambos",
+  "motivo": "Solicitação feita pela própria pessoa."
 }
 ```
 
-### Listagem administrativa
+`tipo` aceita `mensagens`, `ligacoes` ou `ambos`. A operação é idempotente.
 
-Parâmetros aceitos:
+Redefinição administrativa de senha:
 
-- `nome`, `telefone`, `bairro`, `problema`, `origem`, `status`;
-- `idadeMinima`, `idadeMaxima`;
-- `participouEleicaoAnterior`;
-- `autorizacaoMensagens`, `autorizacaoLigacoes`;
-- `dataInicial`, `dataFinal`;
-- `ordenacao`: `mais_recentes`, `mais_antigos`, `nome_asc` ou `nome_desc`;
-- `pagina` e `limite`, com limite máximo 100.
+```json
+{
+  "novaSenha": "NovaSenhaCom12OuMais"
+}
+```
 
-Os filtros legados `consentimentoWhatsapp` e `consentimentoLigacoes` continuam aceitos para compatibilidade. A API não retorna `telefone_normalizado` nem nomes em snake_case.
+Somente administradores acessam essa rota. Eles podem redefinir a senha de operadores e de outros administradores, mas não a própria senha por esse endpoint. A senha deve ter entre 12 caracteres e 72 bytes, é armazenada somente como hash bcrypt e nunca aparece na resposta. A redefinição também limpa bloqueios e tentativas de login do usuário-alvo.
 
-### Cadastro manual
+## Estrutura do banco
 
-Exige os campos do contato, `origemId` e `status`. `aceitePrivacidade` só é gravado quando expressamente verdadeiro. Mensagens e ligações aceitam `nao_informado`, `autorizado` ou `recusado`. Alterações em dados preenchidos registram valores anteriores, novos e o usuário responsável.
+O script cria 17 tabelas:
 
-### Importação
+- operação atual: `usuarios`, `tentativas_login`, `bairros`, `contatos`, `consentimentos`, `aceites_privacidade`, `origens`, `historico_contatos`, `textos_formulario`, `importacoes` e `importacao_linhas`;
+- preparação ManyChat: `campanhas`, `campanha_contatos`, `envios_campanha`, `respostas_campanha`, `eventos_manychat` e `sincronizacoes_manychat`.
 
-O upload usa `multipart/form-data` com campos `arquivo` e `origem`:
+Também cria índices, constraints, relacionamentos, a função de atualização automática, triggers de auditoria e validações de elegibilidade.
 
-- formatos `.csv` e `.xlsx`;
-- máximo de 5 MB e 5000 linhas;
-- telefone obrigatório; demais dados do contato opcionais;
-- cabeçalhos aceitos incluem `telefone`, `nome`, `bairro`, `idade`, `categoria`, `descricao` e `eleicao`;
-- a pré-visualização aponta linhas inválidas e duplicadas;
-- a confirmação cria, complementa ou ignora sem sobrescrever;
-- nenhum aceite ou autorização é presumido;
-- o relatório retorna recebidos, criados, complementados, ignorados, duplicados, inválidos e erros por linha.
+### Catálogo de bairros
 
-## Scripts e testes
+`bairros` é a fonte única para os 166 bairros. A carga inicial usa a camada [Limite de Bairros da Prefeitura do Rio](https://pgeo3.rio.rj.gov.br/arcgis/rest/services/Hosted/LimitedeBairroshosted/FeatureServer/0) e inclui **Argentino**, criado pela Lei Municipal nº 8.020/2025 como o 166º bairro. O nome atual usado para São Cristóvão segue a camada oficial.
 
-| Comando | Resultado/uso |
-| --- | --- |
-| `npm test` | Executa toda a regressão integrada. |
-| `npm run testar:fase1` | Banco oficial, ledger 003–010, constraints e legado. |
-| `npm run testar:publico` | 22 verificações. |
-| `npm run testar:admin` | 21 verificações. |
-| `npm run testar:manual` | 16 verificações. |
-| `npm run testar:importacoes` | 20 verificações CSV/XLSX. |
-| `npm run testar:relatorios` | 15 verificações de agregação/CSV. |
-| `npm audit` | 0 vulnerabilidades na validação final. |
+`contatos.bairro` possui chave estrangeira para `bairros.nome`. A API aceita diferenças de maiúsculas, minúsculas e acentuação, mas grava sempre o nome canônico. Bairro inexistente retorna `400`; uma escrita direta inválida também é recusada pelo PostgreSQL. A mesma regra vale para formulário público, cadastro manual e bairros informados em CSV/XLSX. Importações continuam permitindo bairro vazio, mas nunca um bairro preenchido fora do catálogo.
 
-Os testes usam a aplicação e o PostgreSQL reais, criam dados com telefones reservados para teste e os removem no `finally`.
+### Base preparada para ManyChat
 
-## Limites desta entrega
+Já está pronto no banco:
 
-Não existem envio de mensagens, campanhas, ManyChat, API do WhatsApp/Meta, webhook, SMS, email, chatbox ou automação. Estados `revogado` e fluxos de revogação permanecem preparados no banco, mas sem endpoint operacional nesta entrega.
+- `manychat_contact_id` único e opcional no contato;
+- campanhas e participação única por contato/campanha;
+- tentativas, status, erros, entrega, leitura e resposta;
+- respostas vinculadas ao contato e à campanha;
+- evento externo com identificador único para rejeitar webhook duplicado;
+- controle de sincronizações e tentativas;
+- bloqueio de inclusão e de novo envio sem consentimento ativo;
+- bloqueio após revogação ou pedido de exclusão;
+- participação única que impede reinserir o mesmo fluxo após recusa ou conclusão.
+
+Ainda depende da contratação e configuração do ManyChat:
+
+- token e segredo de webhook;
+- API de envio;
+- endpoint de webhook e validação da assinatura;
+- processamento de eventos e retentativas;
+- mapeamento dos status reais oferecidos pelo plano contratado;
+- telas e rotas de campanhas.
+
+Nenhuma credencial do ManyChat é armazenada no PostgreSQL.
+
+## Produção
+
+Em um banco gerenciado novo e vazio, execute uma única vez:
+
+```powershell
+psql --set ON_ERROR_STOP=1 --dbname "SUA_DATABASE_URL" --file database/criar_banco.sql
+```
+
+Depois configure o backend, crie o primeiro administrador e teste `/api/teste`. Quando o sistema já possuir dados reais, faça backup antes de qualquer mudança e aplique apenas migrations incrementais novas. Nunca reaplique `criar_banco.sql`.
+
+O passo a passo de DigitalOcean e Vercel está no [README principal](../README.md#publicação-passo-a-passo).
+
+## Testes
+
+```powershell
+npm test
+npm audit
+```
+
+`npm test` cobre estrutura do banco, catálogo e relacionamento de bairros, regras preparatórias do ManyChat, cadastro público, administração, edição, importação, relatórios, autenticação, perfis, revogações e exclusão.
+
+Última execução: **233 verificações aprovadas**. O build do frontend e as auditorias são registrados no README principal.

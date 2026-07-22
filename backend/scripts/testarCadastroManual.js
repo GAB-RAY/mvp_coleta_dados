@@ -1,11 +1,15 @@
 require('dotenv').config({ quiet: true });
 
 const assert = require('assert');
+const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const aplicacao = require('../src/app');
 const banco = require('../src/config/banco');
 
 const TELEFONE = '21999986001';
+const EMAIL_OPERADOR = 'cadastro.operador@invalid.local';
+const EMAIL_ADMIN = 'cadastro.admin@invalid.local';
+const EMAILS_TESTE = [EMAIL_OPERADOR, EMAIL_ADMIN];
 
 async function requisitar(baseUrl, caminho, opcoes) {
   const resposta = await fetch(baseUrl + caminho, Object.assign({
@@ -22,15 +26,22 @@ async function limpar() {
     [TELEFONE]
   );
 
-  if (!resultado.rows[0]) {
-    return;
+  if (resultado.rows[0]) {
+    const id = resultado.rows[0].id;
+    await banco.query('DELETE FROM aceites_privacidade WHERE contato_id = $1', [id]);
+    await banco.query('DELETE FROM consentimentos WHERE contato_id = $1', [id]);
+    await banco.query('DELETE FROM historico_contatos WHERE contato_id = $1', [id]);
+    await banco.query('DELETE FROM contatos WHERE id = $1', [id]);
   }
 
-  const id = resultado.rows[0].id;
-  await banco.query('DELETE FROM aceites_privacidade WHERE contato_id = $1', [id]);
-  await banco.query('DELETE FROM consentimentos WHERE contato_id = $1', [id]);
-  await banco.query('DELETE FROM historico_contatos WHERE contato_id = $1', [id]);
-  await banco.query('DELETE FROM contatos WHERE id = $1', [id]);
+  await banco.query(
+    'DELETE FROM tentativas_login WHERE email_informado = ANY($1::text[])',
+    [EMAILS_TESTE]
+  );
+  await banco.query(
+    'DELETE FROM usuarios WHERE email = ANY($1::text[])',
+    [EMAILS_TESTE]
+  );
 }
 
 async function executar() {
@@ -38,11 +49,31 @@ async function executar() {
 
   try {
     await limpar();
-    const usuario = await banco.query('SELECT id, email FROM usuarios ORDER BY id LIMIT 1');
-    assert.ok(usuario.rows[0]);
+    const senhaHash = await bcrypt.hash('SenhaCadastro123!', 4);
+    const usuarios = await banco.query(
+      `
+        INSERT INTO usuarios (nome, email, senha_hash, perfil)
+        VALUES
+          ('Operador Cadastro', $1, $3, 'operador'),
+          ('Administrador Cadastro', $2, $3, 'administrador')
+        RETURNING id, email, perfil
+      `,
+      [EMAIL_OPERADOR, EMAIL_ADMIN, senhaHash]
+    );
+    const operador = usuarios.rows.find(function (usuario) {
+      return usuario.perfil === 'operador';
+    });
+    const administrador = usuarios.rows.find(function (usuario) {
+      return usuario.perfil === 'administrador';
+    });
     const segredo = process.env.JWT_SECRET || process.env.JWT_SEGREDO;
-    const token = jwt.sign(
-      { id: usuario.rows[0].id, email: usuario.rows[0].email },
+    const tokenOperador = jwt.sign(
+      { id: operador.id, email: operador.email, perfil: operador.perfil },
+      segredo,
+      { expiresIn: '10m' }
+    );
+    const tokenAdministrador = jwt.sign(
+      { id: administrador.id, email: administrador.email, perfil: administrador.perfil },
       segredo,
       { expiresIn: '10m' }
     );
@@ -52,12 +83,16 @@ async function executar() {
       servidor.once('error', rejeitar);
     });
     const baseUrl = 'http://127.0.0.1:' + servidor.address().port;
-    const cabecalhos = {
+    const cabecalhosOperador = {
       'Content-Type': 'application/json',
-      Authorization: 'Bearer ' + token
+      Authorization: 'Bearer ' + tokenOperador
+    };
+    const cabecalhosAdministrador = {
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer ' + tokenAdministrador
     };
     const origens = await requisitar(baseUrl, '/api/admin/origens', {
-      headers: cabecalhos
+      headers: cabecalhosOperador
     });
     assert.strictEqual(origens.status, 200);
     const origemManual = origens.corpo.origens.find(function (origem) {
@@ -68,7 +103,7 @@ async function executar() {
     const dados = {
       nome: 'Cadastro Manual Teste',
       telefone: TELEFONE,
-      bairro: 'Vila Kennedy',
+      bairro: 'vila kennedy',
       idade: 40,
       problema: 'Educação',
       descricaoProblema: 'Registro manual temporário',
@@ -82,12 +117,22 @@ async function executar() {
     assert.strictEqual((await requisitar(baseUrl, '/api/admin/contatos', {
       method: 'POST', body: JSON.stringify(dados)
     })).status, 401);
+    assert.strictEqual((await requisitar(baseUrl, '/api/admin/contatos', {
+      method: 'POST',
+      headers: cabecalhosOperador,
+      body: JSON.stringify(Object.assign({}, dados, { bairro: 'Bairro inventado' }))
+    })).status, 400);
 
     const criacao = await requisitar(baseUrl, '/api/admin/contatos', {
-      method: 'POST', headers: cabecalhos, body: JSON.stringify(dados)
+      method: 'POST', headers: cabecalhosOperador, body: JSON.stringify(dados)
     });
     assert.strictEqual(criacao.status, 201);
     assert.strictEqual(criacao.corpo.contatoCriado, true);
+    const bairroArmazenado = await banco.query(
+      'SELECT bairro FROM contatos WHERE id = $1',
+      [criacao.corpo.contatoId]
+    );
+    assert.strictEqual(bairroArmazenado.rows[0].bairro, 'Vila Kennedy');
 
     const registros = await banco.query(
       `
@@ -103,11 +148,11 @@ async function executar() {
     assert.strictEqual(registros.rows[0].estado, 'recusado');
     assert.strictEqual(registros.rows[0].resposta, false);
     assert.strictEqual(registros.rows[1].estado, 'autorizado');
-    assert.strictEqual(Number(registros.rows[1].registrado_por_usuario_id), Number(usuario.rows[0].id));
+    assert.strictEqual(Number(registros.rows[1].registrado_por_usuario_id), Number(operador.id));
 
-    const atualizacao = await requisitar(baseUrl, '/api/admin/contatos', {
+    const atualizacaoOperador = await requisitar(baseUrl, '/api/admin/contatos', {
       method: 'POST',
-      headers: cabecalhos,
+      headers: cabecalhosOperador,
       body: JSON.stringify(Object.assign({}, dados, {
         nome: 'Cadastro Manual Atualizado',
         idade: 41,
@@ -115,29 +160,52 @@ async function executar() {
         autorizacaoLigacoes: 'nao_informado'
       }))
     });
-    assert.strictEqual(atualizacao.status, 200);
-    assert.strictEqual(atualizacao.corpo.contatoCriado, false);
-    assert.deepStrictEqual(atualizacao.corpo.camposAlterados.sort(), ['idade', 'nome']);
+    assert.strictEqual(atualizacaoOperador.status, 200);
+    assert.strictEqual(atualizacaoOperador.corpo.contatoCriado, false);
+    assert.deepStrictEqual(atualizacaoOperador.corpo.camposAlterados.sort(), ['idade', 'nome']);
+
+    const atualizacaoAdministrador = await requisitar(baseUrl, '/api/admin/contatos', {
+      method: 'POST',
+      headers: cabecalhosAdministrador,
+      body: JSON.stringify(Object.assign({}, dados, {
+        nome: 'Cadastro Revisado pelo Admin',
+        idade: 42,
+        autorizacaoMensagens: 'nao_informado',
+        autorizacaoLigacoes: 'nao_informado'
+      }))
+    });
+    assert.strictEqual(atualizacaoAdministrador.status, 200);
+    assert.strictEqual(atualizacaoAdministrador.corpo.contatoCriado, false);
+    assert.deepStrictEqual(
+      atualizacaoAdministrador.corpo.camposAlterados.sort(),
+      ['idade', 'nome']
+    );
 
     const historico = await banco.query(
       `
         SELECT dados_anteriores, dados_novos, registrado_por_usuario_id
         FROM historico_contatos
         WHERE contato_id = $1
+        ORDER BY id
       `,
       [criacao.corpo.contatoId]
     );
-    assert.strictEqual(historico.rowCount, 1);
+    assert.strictEqual(historico.rowCount, 2);
     assert.strictEqual(historico.rows[0].dados_novos.idade, 41);
-    assert.strictEqual(Number(historico.rows[0].registrado_por_usuario_id), Number(usuario.rows[0].id));
+    assert.strictEqual(Number(historico.rows[0].registrado_por_usuario_id), Number(operador.id));
+    assert.strictEqual(historico.rows[1].dados_novos.idade, 42);
+    assert.strictEqual(
+      Number(historico.rows[1].registrado_por_usuario_id),
+      Number(administrador.id)
+    );
     const consentimentosDepois = await banco.query(
       "SELECT COUNT(*)::integer AS total FROM consentimentos WHERE contato_id = $1 AND tipo IN ('mensagens','ligacoes')",
       [criacao.corpo.contatoId]
     );
     assert.strictEqual(consentimentosDepois.rows[0].total, 2);
 
-    console.log('Cadastro manual: 16 verificações aprovadas.');
-    console.log('Criação, atualização auditada e consentimentos explícitos aprovados.');
+    console.log('Cadastro manual: 24 verificações aprovadas.');
+    console.log('Operador e administrador editaram com histórico; consentimentos explícitos aprovados.');
   } finally {
     if (servidor) {
       await new Promise(function (resolver) {

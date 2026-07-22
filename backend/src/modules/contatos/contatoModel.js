@@ -51,7 +51,6 @@ async function criarContatoPublico(cliente, dadosDoContato, origem) {
       atualizado_em,
       origem_id,
       idade,
-      descricao_problema,
       participou_eleicao_anterior
     )
     VALUES (
@@ -59,7 +58,7 @@ async function criarContatoPublico(cliente, dadosDoContato, origem) {
       TRUE, FALSE, CURRENT_TIMESTAMP, NULL,
       NULL, NULL, NULL, NULL,
       $6, 'ativo', FALSE, FALSE, CURRENT_TIMESTAMP,
-      $7, $8, $9, $10
+      $7, $8, $9
     )
     ON CONFLICT (telefone_normalizado) DO NOTHING
     RETURNING *
@@ -73,7 +72,6 @@ async function criarContatoPublico(cliente, dadosDoContato, origem) {
     origem.nome,
     origem.id,
     dadosDoContato.idade,
-    dadosDoContato.descricaoProblema,
     dadosDoContato.participouEleicaoAnterior
   ];
   const resultado = await cliente.query(consulta, valores);
@@ -102,7 +100,6 @@ async function complementarCamposVazios(cliente, contato, dadosDoContato, origem
     { coluna: 'bairro', propriedade: 'bairro' },
     { coluna: 'problema', propriedade: 'problema' },
     { coluna: 'idade', propriedade: 'idade' },
-    { coluna: 'descricao_problema', propriedade: 'descricaoProblema' },
     {
       coluna: 'participou_eleicao_anterior',
       propriedade: 'participouEleicaoAnterior'
@@ -172,6 +169,16 @@ async function registrarPrivacidadeEAutorizacoes(
       canal: 'formulario_publico',
       registradoPorUsuarioId: null
     });
+    await cliente.query(
+      `
+        UPDATE contatos
+        SET bloqueado_para_mensagens = FALSE,
+            atualizado_em = CURRENT_TIMESTAMP
+        WHERE id = $1
+          AND bloqueado_para_campanhas = FALSE
+      `,
+      [contatoId]
+    );
   }
 
   if (dadosDoContato.autorizacaoLigacoes === true) {
@@ -183,6 +190,16 @@ async function registrarPrivacidadeEAutorizacoes(
       canal: 'formulario_publico',
       registradoPorUsuarioId: null
     });
+    await cliente.query(
+      `
+        UPDATE contatos
+        SET bloqueado_para_ligacoes = FALSE,
+            atualizado_em = CURRENT_TIMESTAMP
+        WHERE id = $1
+          AND bloqueado_para_campanhas = FALSE
+      `,
+      [contatoId]
+    );
   }
 }
 
@@ -354,17 +371,49 @@ async function registrarRespostaManual(
     return null;
   }
 
-  return consentimentoModel.registrarRespostaSeDiferente(cliente, contatoId, {
-    tipo,
-    resposta: estado === 'autorizado',
-    estado,
+  const registro = await consentimentoModel.registrarRespostaSeDiferente(
+    cliente,
+    contatoId,
+    {
+      tipo,
+      resposta: estado === 'autorizado',
+      estado,
     texto: texto.texto,
     versao: texto.versao,
     canal: 'cadastro_manual',
     origemRegistro: 'resposta_expressa',
     registradoPorUsuarioId: usuarioId,
-    origemId: origem.id
-  });
+      origemId: origem.id
+    }
+  );
+
+  if (estado === 'autorizado' && tipo === 'mensagens') {
+    await cliente.query(
+      `
+        UPDATE contatos
+        SET bloqueado_para_mensagens = FALSE,
+            atualizado_em = CURRENT_TIMESTAMP
+        WHERE id = $1
+          AND bloqueado_para_campanhas = FALSE
+      `,
+      [contatoId]
+    );
+  }
+
+  if (estado === 'autorizado' && tipo === 'ligacoes') {
+    await cliente.query(
+      `
+        UPDATE contatos
+        SET bloqueado_para_ligacoes = FALSE,
+            atualizado_em = CURRENT_TIMESTAMP
+        WHERE id = $1
+          AND bloqueado_para_campanhas = FALSE
+      `,
+      [contatoId]
+    );
+  }
+
+  return registro;
 }
 
 async function salvarCadastroManual(dadosDoContato, usuarioId) {
@@ -439,6 +488,244 @@ async function salvarCadastroManual(dadosDoContato, usuarioId) {
       id: contato.id,
       contatoCriado,
       camposAlterados
+    };
+  } catch (erro) {
+    await cliente.query('ROLLBACK');
+    throw erro;
+  } finally {
+    cliente.release();
+  }
+}
+
+function consentimentoEstaAutorizado(consentimento) {
+  return consentimento && (
+    consentimento.estado === 'autorizado' ||
+    (consentimento.estado === null && consentimento.resposta === true)
+  );
+}
+
+async function revogarConsentimentos(contatoId, tipos, motivo, usuarioId) {
+  const cliente = await banco.connect();
+
+  try {
+    await cliente.query('BEGIN');
+    const resultadoContato = await cliente.query(
+      `
+        SELECT
+          id,
+          origem_id,
+          bloqueado_para_mensagens,
+          bloqueado_para_ligacoes,
+          bloqueado_para_campanhas
+        FROM contatos
+        WHERE id = $1
+        FOR UPDATE
+      `,
+      [contatoId]
+    );
+    const contato = resultadoContato.rows[0];
+
+    if (!contato) {
+      await cliente.query('ROLLBACK');
+      return null;
+    }
+
+    const consentimentosAtivos = await consentimentoModel.buscarAtivosPorTipos(
+      cliente,
+      contatoId,
+      tipos
+    );
+    const consentimentosPorTipo = {};
+    const tiposRevogados = [];
+
+    consentimentosAtivos.forEach(function (consentimento) {
+      consentimentosPorTipo[consentimento.tipo] = consentimento;
+    });
+
+    let indice;
+    for (indice = 0; indice < tipos.length; indice += 1) {
+      const tipo = tipos[indice];
+      const consentimentoAtual = consentimentosPorTipo[tipo];
+
+      if (!consentimentoEstaAutorizado(consentimentoAtual)) {
+        continue;
+      }
+
+      const registro = await consentimentoModel.registrarRespostaSeDiferente(
+        cliente,
+        contatoId,
+        {
+          tipo,
+          resposta: false,
+          estado: 'revogado',
+          texto: consentimentoAtual.texto_apresentado,
+          versao: consentimentoAtual.versao_texto,
+          canal: 'area_administrativa',
+          origemRegistro: 'revogacao',
+          registradoPorUsuarioId: usuarioId,
+          origemId: consentimentoAtual.origem_id,
+          motivoRevogacao: motivo
+        }
+      );
+
+      if (registro) {
+        tiposRevogados.push(tipo);
+      }
+    }
+
+    const bloquearMensagens = tipos.includes('mensagens');
+    const bloquearLigacoes = tipos.includes('ligacoes');
+    const bloqueioMensagensAlterado = bloquearMensagens &&
+      contato.bloqueado_para_mensagens !== true;
+    const bloqueioLigacoesAlterado = bloquearLigacoes &&
+      contato.bloqueado_para_ligacoes !== true;
+    let contatoAtualizado = contato;
+
+    if (bloqueioMensagensAlterado || bloqueioLigacoesAlterado) {
+      const resultadoAtualizacao = await cliente.query(
+        `
+          UPDATE contatos
+          SET bloqueado_para_mensagens = CASE
+                WHEN $2 = TRUE THEN TRUE
+                ELSE bloqueado_para_mensagens
+              END,
+              bloqueado_para_ligacoes = CASE
+                WHEN $3 = TRUE THEN TRUE
+                ELSE bloqueado_para_ligacoes
+              END,
+              atualizado_em = CURRENT_TIMESTAMP
+          WHERE id = $1
+          RETURNING
+            bloqueado_para_mensagens,
+            bloqueado_para_ligacoes,
+            bloqueado_para_campanhas
+        `,
+        [contatoId, bloquearMensagens, bloquearLigacoes]
+      );
+      contatoAtualizado = resultadoAtualizacao.rows[0];
+    }
+
+    const houveAlteracao = tiposRevogados.length > 0 ||
+      bloqueioMensagensAlterado || bloqueioLigacoesAlterado;
+
+    if (houveAlteracao) {
+      await historicoContatoModel.registrar(cliente, contatoId, {
+        tipoEvento: 'revogacao_consentimentos',
+        dadosAnteriores: {
+          bloqueadoParaMensagens: contato.bloqueado_para_mensagens,
+          bloqueadoParaLigacoes: contato.bloqueado_para_ligacoes
+        },
+        dadosNovos: {
+          tiposSolicitados: tipos,
+          tiposRevogados,
+          motivo,
+          bloqueadoParaMensagens: contatoAtualizado.bloqueado_para_mensagens,
+          bloqueadoParaLigacoes: contatoAtualizado.bloqueado_para_ligacoes
+        },
+        origemId: contato.origem_id,
+        registradoPorUsuarioId: usuarioId
+      });
+    }
+
+    await cliente.query('COMMIT');
+
+    return {
+      alterado: houveAlteracao,
+      tiposRevogados,
+      bloqueadoParaMensagens: contatoAtualizado.bloqueado_para_mensagens,
+      bloqueadoParaLigacoes: contatoAtualizado.bloqueado_para_ligacoes
+    };
+  } catch (erro) {
+    await cliente.query('ROLLBACK');
+    throw erro;
+  } finally {
+    cliente.release();
+  }
+}
+
+async function solicitarExclusao(contatoId, usuarioId) {
+  const cliente = await banco.connect();
+
+  try {
+    await cliente.query('BEGIN');
+    const resultadoContato = await cliente.query(
+      `
+        SELECT
+          id,
+          origem_id,
+          bloqueado_para_mensagens,
+          bloqueado_para_ligacoes,
+          bloqueado_para_campanhas,
+          exclusao_solicitada_em,
+          exclusao_solicitada_por_usuario_id
+        FROM contatos
+        WHERE id = $1
+        FOR UPDATE
+      `,
+      [contatoId]
+    );
+    const contato = resultadoContato.rows[0];
+
+    if (!contato) {
+      await cliente.query('ROLLBACK');
+      return null;
+    }
+
+    if (contato.exclusao_solicitada_em) {
+      await cliente.query('COMMIT');
+
+      return {
+        alterado: false,
+        solicitadaEm: contato.exclusao_solicitada_em,
+        solicitadaPorUsuarioId: contato.exclusao_solicitada_por_usuario_id
+      };
+    }
+
+    const resultadoAtualizacao = await cliente.query(
+      `
+        UPDATE contatos
+        SET bloqueado_para_mensagens = TRUE,
+            bloqueado_para_ligacoes = TRUE,
+            bloqueado_para_campanhas = TRUE,
+            exclusao_solicitada_em = CURRENT_TIMESTAMP,
+            exclusao_solicitada_por_usuario_id = $2,
+            atualizado_em = CURRENT_TIMESTAMP
+        WHERE id = $1
+        RETURNING
+          bloqueado_para_mensagens,
+          bloqueado_para_ligacoes,
+          bloqueado_para_campanhas,
+          exclusao_solicitada_em,
+          exclusao_solicitada_por_usuario_id
+      `,
+      [contatoId, usuarioId]
+    );
+    const contatoAtualizado = resultadoAtualizacao.rows[0];
+
+    await historicoContatoModel.registrar(cliente, contatoId, {
+      tipoEvento: 'solicitacao_exclusao',
+      dadosAnteriores: {
+        bloqueadoParaMensagens: contato.bloqueado_para_mensagens,
+        bloqueadoParaLigacoes: contato.bloqueado_para_ligacoes,
+        bloqueadoParaCampanhas: contato.bloqueado_para_campanhas,
+        exclusaoSolicitadaEm: contato.exclusao_solicitada_em
+      },
+      dadosNovos: {
+        bloqueadoParaMensagens: contatoAtualizado.bloqueado_para_mensagens,
+        bloqueadoParaLigacoes: contatoAtualizado.bloqueado_para_ligacoes,
+        bloqueadoParaCampanhas: contatoAtualizado.bloqueado_para_campanhas,
+        exclusaoSolicitadaEm: contatoAtualizado.exclusao_solicitada_em
+      },
+      origemId: contato.origem_id,
+      registradoPorUsuarioId: usuarioId
+    });
+
+    await cliente.query('COMMIT');
+
+    return {
+      alterado: true,
+      solicitadaEm: contatoAtualizado.exclusao_solicitada_em,
+      solicitadaPorUsuarioId: contatoAtualizado.exclusao_solicitada_por_usuario_id
     };
   } catch (erro) {
     await cliente.query('ROLLBACK');
@@ -600,6 +887,10 @@ async function listar(filtros, pagina, limite) {
       contato.origem_atual,
       contato.status_contato,
       contato.bloqueado_para_mensagens,
+      contato.bloqueado_para_ligacoes,
+      contato.bloqueado_para_campanhas,
+      contato.exclusao_solicitada_em,
+      contato.exclusao_solicitada_por_usuario_id,
       contato.criado_em,
       COALESCE(origem.nome, contato.origem_atual) AS origem_nome,
       COALESCE((
@@ -659,9 +950,12 @@ async function buscarDetalhes(id) {
           contato.*,
           COALESCE(origem.nome, contato.origem_atual) AS origem_nome,
           origem.slug AS origem_slug,
-          origem.tipo AS origem_tipo
+          origem.tipo AS origem_tipo,
+          usuario_exclusao.nome AS exclusao_solicitada_por_usuario_nome
         FROM contatos AS contato
         LEFT JOIN origens AS origem ON origem.id = contato.origem_id
+        LEFT JOIN usuarios AS usuario_exclusao
+          ON usuario_exclusao.id = contato.exclusao_solicitada_por_usuario_id
         WHERE contato.id = $1
       `,
       [id]
@@ -680,9 +974,13 @@ async function buscarDetalhes(id) {
           consentimento.ativo,
           consentimento.criado_em,
           consentimento.revogado_em,
-          origem.nome AS origem_nome
+          consentimento.motivo_revogacao,
+          origem.nome AS origem_nome,
+          usuario.nome AS registrado_por_usuario_nome
         FROM consentimentos AS consentimento
         LEFT JOIN origens AS origem ON origem.id = consentimento.origem_id
+        LEFT JOIN usuarios AS usuario
+          ON usuario.id = consentimento.registrado_por_usuario_id
         WHERE consentimento.contato_id = $1
         ORDER BY consentimento.criado_em DESC, consentimento.id DESC
       `,
@@ -740,6 +1038,8 @@ async function buscarDetalhes(id) {
 module.exports = {
   salvarCadastroPublico,
   salvarCadastroManual,
+  revogarConsentimentos,
+  solicitarExclusao,
   listar,
   contar,
   buscarDetalhes

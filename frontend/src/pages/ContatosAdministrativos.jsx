@@ -175,7 +175,11 @@ function ContatosAdministrativos() {
   return (
     <main className="pagina-administrativa">
       <div className="conteudo-administrativo">
-        <CabecalhoAdministrativo aoSair={sair} />
+        <CabecalhoAdministrativo
+          aoSair={sair}
+          titulo="Contatos"
+          subtitulo="Consulte, filtre e acompanhe os cadastros da base."
+        />
 
         <section className="cartao painel-filtros" aria-labelledby="titulo-filtros">
           <div className="cabecalho-secao">

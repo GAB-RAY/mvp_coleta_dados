@@ -1,6 +1,5 @@
 const express = require('express');
 const multer = require('multer');
-const autenticarUsuario = require('../../middlewares/autenticarUsuario');
 const criarAppError = require('../../utils/AppError');
 const importacaoController = require('./importacaoController');
 
@@ -22,10 +21,9 @@ function receberArquivo(requisicao, resposta, proximo) {
 
 roteador.post(
   '/pre-visualizar',
-  autenticarUsuario,
   receberArquivo,
   importacaoController.preVisualizar
 );
-roteador.post('/:id/confirmar', autenticarUsuario, importacaoController.confirmar);
+roteador.post('/:id/confirmar', importacaoController.confirmar);
 
 module.exports = roteador;

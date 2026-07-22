@@ -4,6 +4,7 @@ const importacaoModel = require('./importacaoModel');
 const criarAppError = require('../../utils/AppError');
 const normalizarTelefone = require('../../utils/normalizarTelefone');
 const categoriasProblema = require('../../config/categoriasProblema');
+const bairroService = require('../bairros/bairroService');
 
 function normalizarCabecalho(valor) {
   return String(valor || '')
@@ -160,12 +161,15 @@ function normalizarParticipacao(valor) {
   return 'invalido';
 }
 
-function validarLinha(linha, telefonesDoArquivo) {
+function validarLinha(linha, telefonesDoArquivo, bairrosAtivos) {
   const valores = linha.valores;
   const telefone = buscarValor(valores, ['telefone', 'celular', 'whatsapp']);
   const telefoneNormalizado = normalizarTelefone(telefone);
   const nome = buscarValor(valores, ['nome', 'nome_completo']) || null;
-  const bairro = buscarValor(valores, ['bairro']) || null;
+  const bairroInformado = buscarValor(valores, ['bairro']) || null;
+  const bairro = bairroInformado
+    ? bairroService.encontrarNomeCanonico(bairroInformado, bairrosAtivos)
+    : null;
   const idadeTexto = buscarValor(valores, ['idade']);
   const problema = buscarValor(valores, ['categoria', 'categoria_problema', 'problema']) || null;
   const descricaoProblema = buscarValor(
@@ -191,8 +195,8 @@ function validarLinha(linha, telefonesDoArquivo) {
     erros.push('Nome inválido.');
   }
 
-  if (bairro && (bairro.length < 2 || bairro.length > 150)) {
-    erros.push('Bairro inválido.');
+  if (bairroInformado && !bairro) {
+    erros.push('Bairro não pertence ao catálogo oficial do Rio de Janeiro.');
   }
 
   if (idade !== null && (!Number.isInteger(idade) || idade < 16 || idade > 120)) {
@@ -266,8 +270,9 @@ async function preVisualizar(arquivo, nomeOrigem, usuario) {
   }
 
   const telefones = new Set();
+  const bairrosAtivos = await bairroService.listarNomesAtivos();
   const linhas = objetos.map(function (linha) {
-    return validarLinha(linha, telefones);
+    return validarLinha(linha, telefones, bairrosAtivos);
   });
   const origemTratada = nomeOrigem.trim();
   const importacao = await importacaoModel.criarPreVisualizacao({

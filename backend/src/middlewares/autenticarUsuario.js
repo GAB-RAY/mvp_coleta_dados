@@ -1,7 +1,8 @@
 const jwt = require('jsonwebtoken');
+const usuarioModel = require('../modules/usuarios/usuarioModel');
 const criarAppError = require('../utils/AppError');
 
-function autenticarUsuario(requisicao, resposta, proximo) {
+async function autenticarUsuario(requisicao, resposta, proximo) {
   const authorization = requisicao.headers.authorization;
 
   if (!authorization) {
@@ -28,14 +29,25 @@ function autenticarUsuario(requisicao, resposta, proximo) {
 
   try {
     const dadosDoToken = jwt.verify(token, segredoJwt);
+    const usuario = await usuarioModel.buscarPorId(dadosDoToken.id);
+
+    if (!usuario || usuario.ativo !== true) {
+      return proximo(criarAppError('Token inválido.', 401));
+    }
 
     requisicao.usuario = {
-      id: dadosDoToken.id,
-      email: dadosDoToken.email
+      id: usuario.id,
+      nome: usuario.nome,
+      email: usuario.email,
+      perfil: usuario.perfil
     };
 
     return proximo();
   } catch (erro) {
+    if (erro.statusHttp) {
+      return proximo(erro);
+    }
+
     return proximo(criarAppError('Token inválido.', 401));
   }
 }

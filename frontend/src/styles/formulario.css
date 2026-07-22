@@ -365,6 +365,36 @@
   background: #e55200;
 }
 
+.acoes-formulario-publico {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+}
+
+.botao-whatsapp-publico {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #d94c00;
+  border-radius: 4px;
+  padding: 0.52rem 0.8rem;
+  background: #ffffff;
+  color: #963600;
+  font-size: 0.8rem;
+  font-weight: 750;
+  text-decoration: none;
+  transition: background 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.botao-whatsapp-publico:hover {
+  background: #fff0e7;
+  color: #7a2b00;
+  transform: translateY(-1px);
+}
+
 .uso-dos-dados {
   display: grid;
   width: min(100%, 680px);
@@ -484,6 +514,15 @@
 
   .botao-enviar {
     width: 100%;
+  }
+
+  .acoes-formulario-publico {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .botao-whatsapp-publico {
+    align-self: center;
   }
 
   .uso-dos-dados {

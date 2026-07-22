@@ -12,12 +12,17 @@ async function cadastrar(requisicao, resposta, proximo) {
   }
 }
 
-function listarOpcoes(requisicao, resposta) {
-  const opcoes = contatoService.listarOpcoesFormulario();
+async function listarOpcoes(requisicao, resposta, proximo) {
+  try {
+    const opcoes = await contatoService.listarOpcoesFormulario();
 
-  return resposta.status(200).json({
-    categoriasProblema: opcoes.categoriasProblema
-  });
+    return resposta.status(200).json({
+      bairros: opcoes.bairros,
+      categoriasProblema: opcoes.categoriasProblema
+    });
+  } catch (erro) {
+    return proximo(erro);
+  }
 }
 
 async function listar(requisicao, resposta, proximo) {
@@ -70,10 +75,54 @@ async function cadastrarManual(requisicao, resposta, proximo) {
   }
 }
 
+async function revogarConsentimentos(requisicao, resposta, proximo) {
+  try {
+    const resultado = await contatoService.revogarConsentimentos(
+      requisicao.params.id,
+      requisicao.body,
+      requisicao.usuario
+    );
+
+    return resposta.status(200).json({
+      mensagem: resultado.alterado
+        ? 'Revogação de consentimentos registrada com sucesso.'
+        : 'Os bloqueios solicitados já estavam registrados.',
+      alterado: resultado.alterado,
+      tiposRevogados: resultado.tiposRevogados,
+      bloqueadoParaMensagens: resultado.bloqueadoParaMensagens,
+      bloqueadoParaLigacoes: resultado.bloqueadoParaLigacoes
+    });
+  } catch (erro) {
+    return proximo(erro);
+  }
+}
+
+async function solicitarExclusao(requisicao, resposta, proximo) {
+  try {
+    const resultado = await contatoService.solicitarExclusao(
+      requisicao.params.id,
+      requisicao.usuario
+    );
+
+    return resposta.status(200).json({
+      mensagem: resultado.alterado
+        ? 'Solicitação de exclusão registrada com sucesso.'
+        : 'A solicitação de exclusão já estava registrada.',
+      alterado: resultado.alterado,
+      solicitadaEm: resultado.solicitadaEm,
+      solicitadaPorUsuarioId: resultado.solicitadaPorUsuarioId
+    });
+  } catch (erro) {
+    return proximo(erro);
+  }
+}
+
 module.exports = {
   cadastrar,
   listar,
   listarOpcoes,
   detalhar,
-  cadastrarManual
+  cadastrarManual,
+  revogarConsentimentos,
+  solicitarExclusao
 };

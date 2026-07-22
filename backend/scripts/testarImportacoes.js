@@ -1,6 +1,7 @@
 require('dotenv').config({ quiet: true });
 
 const assert = require('assert');
+const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const ExcelJS = require('exceljs');
 const aplicacao = require('../src/app');
@@ -8,6 +9,7 @@ const banco = require('../src/config/banco');
 
 const PREFIXO = '21999985';
 const ORIGENS = ['Importação CSV Teste', 'Importação XLSX Teste'];
+const EMAIL_TESTE = 'importacoes.teste@invalid.local';
 
 async function requisitar(baseUrl, caminho, opcoes) {
   const resposta = await fetch(baseUrl + caminho, opcoes || {});
@@ -50,6 +52,9 @@ async function limpar() {
   if (idsOrigens.length > 0) {
     await banco.query('DELETE FROM origens WHERE id = ANY($1::bigint[])', [idsOrigens]);
   }
+
+  await banco.query('DELETE FROM tentativas_login WHERE email_informado = $1', [EMAIL_TESTE]);
+  await banco.query('DELETE FROM usuarios WHERE email = $1', [EMAIL_TESTE]);
 }
 
 async function executar() {
@@ -57,7 +62,15 @@ async function executar() {
 
   try {
     await limpar();
-    const usuario = await banco.query('SELECT id, email FROM usuarios ORDER BY id LIMIT 1');
+    const senhaHash = await bcrypt.hash('SenhaImportacoes123!', 4);
+    const usuario = await banco.query(
+      `
+        INSERT INTO usuarios (nome, email, senha_hash, perfil)
+        VALUES ('Operador Importações', $1, $2, 'operador')
+        RETURNING id, email, perfil
+      `,
+      [EMAIL_TESTE, senhaHash]
+    );
     const segredo = process.env.JWT_SECRET || process.env.JWT_SEGREDO;
     const token = jwt.sign(usuario.rows[0], segredo, { expiresIn: '10m' });
     const cabecalhos = { Authorization: 'Bearer ' + token };
@@ -87,6 +100,7 @@ async function executar() {
       PREFIXO + '001;Contato CSV;Vila Kennedy;32;Saúde;Linha válida;sim',
       '123;Inválido;Centro;30;Saúde;;nao',
       PREFIXO + '001;Duplicado;Centro;33;Educação;;sim',
+      PREFIXO + '005;Bairro inválido;Bairro inventado;30;Saúde;;sim',
       PREFIXO + '002;;;;;;',
       PREFIXO + '003;Complementado;Centro;50;Educação;Campo preenchido;prefiro_nao_informar'
     ].join('\n');
@@ -96,9 +110,12 @@ async function executar() {
       body: criarFormulario(csv, 'contatos.csv', ORIGENS[0], 'text/csv')
     });
     assert.strictEqual(visualizacao.status, 201);
-    assert.strictEqual(visualizacao.corpo.importacao.totalRecebido, 5);
+    assert.strictEqual(visualizacao.corpo.importacao.totalRecebido, 6);
     assert.strictEqual(visualizacao.corpo.importacao.validos, 3);
-    assert.strictEqual(visualizacao.corpo.importacao.invalidos, 2);
+    assert.strictEqual(visualizacao.corpo.importacao.invalidos, 3);
+    assert.ok(visualizacao.corpo.importacao.linhas.some(function (linha) {
+      return linha.erro && linha.erro.includes('catálogo oficial');
+    }));
 
     const confirmacao = await requisitar(
       baseUrl,
@@ -109,7 +126,7 @@ async function executar() {
     assert.strictEqual(confirmacao.corpo.relatorio.criados, 2);
     assert.strictEqual(confirmacao.corpo.relatorio.complementados, 1);
     assert.strictEqual(confirmacao.corpo.relatorio.duplicados, 1);
-    assert.strictEqual(confirmacao.corpo.relatorio.invalidos, 1);
+    assert.strictEqual(confirmacao.corpo.relatorio.invalidos, 2);
     assert.strictEqual((await requisitar(
       baseUrl,
       '/api/admin/importacoes/' + visualizacao.corpo.importacao.importacaoId + '/confirmar',
@@ -191,7 +208,7 @@ async function executar() {
     );
     assert.strictEqual(repetida.corpo.relatorio.ignorados, 1);
 
-    console.log('Importações: 20 verificações aprovadas.');
+    console.log('Importações: 21 verificações aprovadas.');
     console.log('CSV, XLSX, inválidos, duplicados, complementação e reimportação aprovados.');
   } finally {
     if (servidor) {

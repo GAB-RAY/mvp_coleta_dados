@@ -35,6 +35,7 @@ async function limpar() {
       await cliente.query('DELETE FROM contatos WHERE id = $1', [id]);
     }
 
+    await cliente.query('DELETE FROM tentativas_login WHERE email_informado = $1', [EMAIL_TESTE]);
     await cliente.query('DELETE FROM usuarios WHERE email = $1', [EMAIL_TESTE]);
     await cliente.query('COMMIT');
   } catch (erro) {

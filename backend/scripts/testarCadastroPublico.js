@@ -14,7 +14,6 @@ function criarDados(sufixo, alteracoes) {
     idade: 35,
     bairro: 'Vila Kennedy',
     problema: 'Saúde',
-    descricaoProblema: 'Descrição temporária de teste',
     participouEleicaoAnterior: 'sim',
     aceitePrivacidade: true,
     autorizacaoMensagens: false,
@@ -118,6 +117,13 @@ async function executar() {
     const opcoes = await requisitar(baseUrl, '/api/publico/contatos/opcoes');
     assert.strictEqual(opcoes.status, 200);
     assert.ok(opcoes.corpo.categoriasProblema.includes('Saúde'));
+    assert.strictEqual(opcoes.corpo.bairros.length, 166);
+    assert.ok(opcoes.corpo.bairros.includes('Argentino'));
+    assert.ok(opcoes.corpo.bairros.includes('São Cristóvão'));
+
+    assert.strictEqual((await requisitar(baseUrl, '/api/publico/contatos', {
+      method: 'POST', body: JSON.stringify(criarDados('000', { bairro: 'Bairro inventado' }))
+    })).status, 400);
 
     const semIdade = criarDados('001');
     delete semIdade.idade;
@@ -138,7 +144,7 @@ async function executar() {
     })).status, 400);
 
     const semAutorizacoes = await requisitar(baseUrl, '/api/publico/contatos', {
-      method: 'POST', body: JSON.stringify(criarDados('010'))
+      method: 'POST', body: JSON.stringify(criarDados('010', { bairro: 'vila kennedy' }))
     });
     assert.strictEqual(semAutorizacoes.status, 201);
     assert.strictEqual(
@@ -148,6 +154,8 @@ async function executar() {
     let resumo = await buscarResumoContato(PREFIXO_TELEFONE + '010');
     assert.strictEqual(resumo.aceites, 1);
     assert.strictEqual(resumo.autorizacoes, 0);
+    assert.strictEqual(resumo.bairro, 'Vila Kennedy');
+    assert.strictEqual(resumo.descricao_problema, null);
 
     assert.strictEqual((await requisitar(baseUrl, '/api/publico/contatos', {
       method: 'POST', body: JSON.stringify(criarDados('011', { autorizacaoMensagens: true }))
@@ -193,7 +201,7 @@ async function executar() {
       [
         'Nome preservado',
         PREFIXO_TELEFONE + '020',
-        'Bairro preservado',
+        'Bangu',
         'Educação',
         origemLegada.rows[0].id
       ]
@@ -203,7 +211,6 @@ async function executar() {
       bairro: 'Vila Kennedy',
       problema: 'Saúde',
       idade: 44,
-      descricaoProblema: 'Campo antes vazio',
       participouEleicaoAnterior: 'nao'
     });
     assert.strictEqual((await requisitar(baseUrl, '/api/publico/contatos', {
@@ -211,22 +218,22 @@ async function executar() {
     })).status, 201);
     resumo = await buscarResumoContato(PREFIXO_TELEFONE + '020');
     assert.strictEqual(resumo.nome, 'Nome preservado');
-    assert.strictEqual(resumo.bairro, 'Bairro preservado');
+    assert.strictEqual(resumo.bairro, 'Bangu');
     assert.strictEqual(resumo.problema, 'Educação');
     assert.strictEqual(resumo.idade, 44);
-    assert.strictEqual(resumo.descricao_problema, 'Campo antes vazio');
+    assert.strictEqual(resumo.descricao_problema, null);
     assert.strictEqual(resumo.participou_eleicao_anterior, 'nao');
     assert.strictEqual(resumo.historicos, 1);
     assert.strictEqual((await requisitar(baseUrl, '/api/publico/contatos', {
       method: 'POST', body: JSON.stringify(Object.assign({}, complemento, {
         idade: 60,
-        descricaoProblema: 'Tentativa de sobrescrita',
+        descricaoProblema: 'Campo removido enviado por cliente antigo',
         participouEleicaoAnterior: 'sim'
       }))
     })).status, 201);
     resumo = await buscarResumoContato(PREFIXO_TELEFONE + '020');
     assert.strictEqual(resumo.idade, 44);
-    assert.strictEqual(resumo.descricao_problema, 'Campo antes vazio');
+    assert.strictEqual(resumo.descricao_problema, null);
     assert.strictEqual(resumo.participou_eleicao_anterior, 'nao');
     assert.strictEqual(resumo.historicos, 1);
 
@@ -239,7 +246,6 @@ async function executar() {
         idade: 121,
         bairro: 'Vila Kennedy',
         problema: 'Saúde',
-        descricaoProblema: null,
         participouEleicaoAnterior: null,
         aceitePrivacidade: true,
         autorizacaoMensagens: true,
@@ -262,7 +268,7 @@ async function executar() {
     );
     assert.deepStrictEqual(legadosDepois.rows, legadosAntes.rows);
 
-    console.log('Cadastro público: 22 verificações aprovadas.');
+    console.log('Cadastro público: 27 verificações aprovadas.');
     console.log('Legados preservados: ' + legadosDepois.rowCount + ' registros.');
     console.log('Rollback: contato inválido não persistido.');
   } finally {

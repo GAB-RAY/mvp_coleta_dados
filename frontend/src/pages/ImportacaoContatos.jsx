@@ -76,7 +76,11 @@ function ImportacaoContatos() {
   return (
     <main className="pagina-administrativa">
       <div className="conteudo-administrativo">
-        <CabecalhoAdministrativo aoSair={sair} />
+        <CabecalhoAdministrativo
+          aoSair={sair}
+          titulo="Importações"
+          subtitulo="Valide e importe listas de contatos com segurança."
+        />
         <Link className="link-voltar" to="/admin/contatos">← Voltar para contatos</Link>
 
         <section className="cartao painel-filtros">

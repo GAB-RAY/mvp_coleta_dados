@@ -1,22 +1,26 @@
 require('dotenv').config({ quiet: true });
 
 const assert = require('assert');
+const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const aplicacao = require('../src/app');
 const banco = require('../src/config/banco');
 
 const TELEFONE = '21999984001';
+const EMAIL_TESTE = 'relatorios.teste@invalid.local';
 
 async function limpar() {
   const resultado = await banco.query('SELECT id FROM contatos WHERE telefone_normalizado = $1', [TELEFONE]);
-  if (!resultado.rows[0]) {
-    return;
+  if (resultado.rows[0]) {
+    const id = resultado.rows[0].id;
+    await banco.query('DELETE FROM aceites_privacidade WHERE contato_id = $1', [id]);
+    await banco.query('DELETE FROM consentimentos WHERE contato_id = $1', [id]);
+    await banco.query('DELETE FROM historico_contatos WHERE contato_id = $1', [id]);
+    await banco.query('DELETE FROM contatos WHERE id = $1', [id]);
   }
-  const id = resultado.rows[0].id;
-  await banco.query('DELETE FROM aceites_privacidade WHERE contato_id = $1', [id]);
-  await banco.query('DELETE FROM consentimentos WHERE contato_id = $1', [id]);
-  await banco.query('DELETE FROM historico_contatos WHERE contato_id = $1', [id]);
-  await banco.query('DELETE FROM contatos WHERE id = $1', [id]);
+
+  await banco.query('DELETE FROM tentativas_login WHERE email_informado = $1', [EMAIL_TESTE]);
+  await banco.query('DELETE FROM usuarios WHERE email = $1', [EMAIL_TESTE]);
 }
 
 async function executar() {
@@ -24,7 +28,15 @@ async function executar() {
 
   try {
     await limpar();
-    const usuario = await banco.query('SELECT id, email FROM usuarios ORDER BY id LIMIT 1');
+    const senhaHash = await bcrypt.hash('SenhaRelatorios123!', 4);
+    const usuario = await banco.query(
+      `
+        INSERT INTO usuarios (nome, email, senha_hash, perfil)
+        VALUES ('Operador Relatórios', $1, $2, 'operador')
+        RETURNING id, email, perfil
+      `,
+      [EMAIL_TESTE, senhaHash]
+    );
     const token = jwt.sign(
       usuario.rows[0],
       process.env.JWT_SECRET || process.env.JWT_SEGREDO,
