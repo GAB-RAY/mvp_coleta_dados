@@ -43,7 +43,24 @@ async function redefinirSenha(requisicao, resposta, proximo) {
   }
 }
 
+async function atualizarProprioNome(requisicao, resposta, proximo) {
+  try {
+    const usuario = await usuarioService.atualizarProprioNome(
+      requisicao.body,
+      requisicao.usuario
+    );
+
+    return resposta.status(200).json({
+      mensagem: 'Nome atualizado com sucesso.',
+      usuario
+    });
+  } catch (erro) {
+    return proximo(erro);
+  }
+}
+
 module.exports = {
+  atualizarProprioNome,
   criar,
   listar,
   redefinirSenha

@@ -96,13 +96,13 @@ async function executar() {
     });
     const baseUrl = 'http://127.0.0.1:' + servidor.address().port;
     const csv = [
-      'telefone;nome;bairro;idade;categoria;descricao;eleicao',
-      PREFIXO + '001;Contato CSV;Vila Kennedy;32;Saúde;Linha válida;sim',
-      '123;Inválido;Centro;30;Saúde;;nao',
-      PREFIXO + '001;Duplicado;Centro;33;Educação;;sim',
-      PREFIXO + '005;Bairro inválido;Bairro inventado;30;Saúde;;sim',
+      'telefone;nome;bairro;idade;categoria;descricao',
+      PREFIXO + '001;Contato CSV;Vila Kennedy;32;Saúde;Linha válida',
+      '123;Inválido;Centro;30;Saúde;',
+      PREFIXO + '001;Duplicado;Centro;33;Educação;',
+      PREFIXO + '005;Bairro inválido;Bairro inventado;30;Saúde;',
       PREFIXO + '002;;;;;;',
-      PREFIXO + '003;Complementado;Centro;50;Educação;Campo preenchido;prefiro_nao_informar'
+      PREFIXO + '003;Complementado;Centro;50;Educação;Campo preenchido'
     ].join('\n');
     const visualizacao = await requisitar(baseUrl, '/api/admin/importacoes/pre-visualizar', {
       method: 'POST',
@@ -135,8 +135,7 @@ async function executar() {
 
     const contatoComplementado = await banco.query(
       `
-        SELECT nome, bairro, idade, problema, descricao_problema,
-          participou_eleicao_anterior
+        SELECT nome, bairro, idade, problema, descricao_problema
         FROM contatos WHERE telefone_normalizado = $1
       `,
       [PREFIXO + '003']

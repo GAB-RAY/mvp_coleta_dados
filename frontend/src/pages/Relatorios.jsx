@@ -16,26 +16,16 @@ const FILTROS_INICIAIS = {
   origem: '',
   idadeMinima: '',
   idadeMaxima: '',
-  participouEleicaoAnterior: '',
   dataInicial: '',
   dataFinal: '',
   eventoId: ''
 };
 
-const OPCOES_ELEICAO = [
-  { valor: 'sim', rotulo: 'Sim' },
-  { valor: 'nao', rotulo: 'Não' },
-  { valor: 'prefiro_nao_informar', rotulo: 'Prefiro não informar' }
-];
-
 const ROTULOS_RELATORIO = {
   autorizado: 'Autorizado',
   nao_informado: 'Não informado',
   recusado: 'Recusado',
-  revogado: 'Revogado',
-  sim: 'Sim',
-  nao: 'Não',
-  prefiro_nao_informar: 'Prefiro não informar'
+  revogado: 'Revogado'
 };
 
 function formatarRotulo(nome) {
@@ -225,7 +215,6 @@ function Relatorios() {
               <CampoFormulario id="origem" rotulo="Origem" valor={filtros.origem} aoAlterar={alterar} />
               <CampoFormulario id="idadeMinima" rotulo="Idade mínima" tipo="number" valor={filtros.idadeMinima} aoAlterar={alterar} minimo={16} maximo={120} />
               <CampoFormulario id="idadeMaxima" rotulo="Idade máxima" tipo="number" valor={filtros.idadeMaxima} aoAlterar={alterar} minimo={16} maximo={120} />
-              <CampoSelecao id="participouEleicaoAnterior" rotulo="Votou na última eleição" valor={filtros.participouEleicaoAnterior} aoAlterar={alterar} opcoes={OPCOES_ELEICAO} placeholder="Todos" />
               <CampoFormulario id="dataInicial" rotulo="Data inicial" tipo="date" valor={filtros.dataInicial} aoAlterar={alterar} />
               <CampoFormulario id="dataFinal" rotulo="Data final" tipo="date" valor={filtros.dataFinal} aoAlterar={alterar} />
               <CampoSelecao id="eventoId" rotulo="Evento" valor={filtros.eventoId} aoAlterar={alterar} opcoes={[{ valor: 'sem_evento', rotulo: 'Cadastro geral (sem evento)' }].concat(eventos.map(function (item) { return { valor: String(item.id), rotulo: item.nome }; }))} placeholder="Todos" />
@@ -260,7 +249,6 @@ function Relatorios() {
 
             <div className="grade-graficos-relatorio">
               <GraficoResumo titulo="Faixa etária" subtitulo="Perfil dos contatos" itens={resumo.porFaixaEtaria} limite={8} />
-              <GraficoResumo titulo="Participação eleitoral" subtitulo="Última eleição" itens={resumo.porParticipacaoEleitoral} limite={8} />
               <GraficoResumo titulo="Origem dos contatos" subtitulo="Canais de entrada" itens={resumo.porOrigem} limite={8} />
               <GraficoResumo titulo="Mensagens" subtitulo="Autorizações" itens={resumo.porAutorizacaoMensagens} limite={8} />
               <GraficoResumo titulo="Ligações" subtitulo="Autorizações" itens={resumo.porAutorizacaoLigacoes} limite={8} />

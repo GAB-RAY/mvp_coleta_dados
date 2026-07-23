@@ -92,6 +92,28 @@ async function executar() {
       Authorization: 'Bearer ' + loginOperador.corpo.token
     };
 
+    assert.strictEqual((await requisitar(baseUrl, '/api/admin/usuarios/meu-perfil', {
+      method: 'PATCH',
+      body: JSON.stringify({ nome: 'Admin sem token' })
+    })).status, 401);
+    assert.strictEqual((await requisitar(baseUrl, '/api/admin/usuarios/meu-perfil', {
+      method: 'PATCH',
+      headers: cabecalhosOperador,
+      body: JSON.stringify({ nome: 'Operador sem permissão' })
+    })).status, 403);
+    assert.strictEqual((await requisitar(baseUrl, '/api/admin/usuarios/meu-perfil', {
+      method: 'PATCH',
+      headers: cabecalhosAdmin,
+      body: JSON.stringify({ nome: 'A' })
+    })).status, 400);
+    const nomeAtualizado = await requisitar(baseUrl, '/api/admin/usuarios/meu-perfil', {
+      method: 'PATCH',
+      headers: cabecalhosAdmin,
+      body: JSON.stringify({ nome: 'Gabriel Administrador' })
+    });
+    assert.strictEqual(nomeAtualizado.status, 200);
+    assert.strictEqual(nomeAtualizado.corpo.usuario.nome, 'Gabriel Administrador');
+
     assert.strictEqual((await requisitar(baseUrl, '/api/admin/usuarios', {
       headers: cabecalhosOperador
     })).status, 403);
@@ -259,9 +281,9 @@ async function executar() {
         headers: cabecalhosAdmin,
         body: JSON.stringify({ novaSenha: NOVA_SENHA_ADMIN })
       }
-    )).status, 200);
+    )).status, 403);
     assert.strictEqual(
-      (await login(baseUrl, EMAIL_NOVO_ADMIN, NOVA_SENHA_ADMIN)).status,
+      (await login(baseUrl, EMAIL_NOVO_ADMIN, SENHA)).status,
       200
     );
 
@@ -316,7 +338,7 @@ async function executar() {
     }
     assert.strictEqual((await login(baseUrl, EMAIL_DESCONHECIDO, 'SenhaIncorreta!')).status, 429);
 
-    console.log('Segurança e usuários: 49 verificações aprovadas.');
+    console.log('Segurança e usuários: 54 verificações aprovadas.');
     console.log('Perfis, redefinição de senha, permissões, auditoria e bloqueio aprovados.');
   } finally {
     if (servidor) {

@@ -116,9 +116,9 @@ function ImportacaoContatos() {
                     return (
                       <tr key={linha.numeroLinha}>
                         <td>{linha.numeroLinha}</td>
-                        <td>{linha.dados.telefone || '—'}</td>
-                        <td>{linha.dados.nome || '—'}</td>
-                        <td>{linha.dados.bairro || '—'}</td>
+                        <td>{linha.dados.telefone || 'Não informado'}</td>
+                        <td>{linha.dados.nome || 'Não informado'}</td>
+                        <td>{linha.dados.bairro || 'Não informado'}</td>
                         <td>{linha.valida ? 'Válida' : linha.erro}</td>
                       </tr>
                     );

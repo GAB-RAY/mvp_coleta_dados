@@ -11,7 +11,7 @@ async function cadastrar(requisicao, resposta, proximo) {
         : null,
       contextoCadastro: resultado.eventoAtivo
         ? 'Cadastro vinculado ao evento ' + resultado.eventoAtivo.nome + '.'
-        : 'Cadastro geral do projeto A Voz do Bairro, sem vínculo com evento.'
+        : null
     });
   } catch (erro) {
     return proximo(erro);

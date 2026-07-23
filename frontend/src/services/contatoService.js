@@ -56,10 +56,6 @@ async function listarContatos(filtros, pagina, limite, sinal) {
     parametros.set('idadeMaxima', filtros.idadeMaxima);
   }
 
-  if (filtros.participouEleicaoAnterior) {
-    parametros.set('participouEleicaoAnterior', filtros.participouEleicaoAnterior);
-  }
-
   if (filtros.autorizacaoMensagens) {
     parametros.set('autorizacaoMensagens', filtros.autorizacaoMensagens);
   }

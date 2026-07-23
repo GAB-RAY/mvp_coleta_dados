@@ -14,7 +14,6 @@ function criarDados(sufixo, alteracoes) {
     idade: 35,
     bairro: 'Vila Kennedy',
     problema: 'Saúde',
-    participouEleicaoAnterior: 'sim',
     aceitePrivacidade: true,
     autorizacaoMensagens: false,
     autorizacaoLigacoes: false
@@ -45,7 +44,6 @@ async function buscarResumoContato(telefone) {
         contato.problema,
         contato.idade,
         contato.descricao_problema,
-        contato.participou_eleicao_anterior,
         (SELECT COUNT(*)::integer FROM historico_contatos WHERE contato_id = contato.id) AS historicos,
         (SELECT COUNT(*)::integer FROM aceites_privacidade WHERE contato_id = contato.id) AS aceites,
         (
@@ -210,8 +208,7 @@ async function executar() {
       nome: 'Nome novo ignorado',
       bairro: 'Vila Kennedy',
       problema: 'Saúde',
-      idade: 44,
-      participouEleicaoAnterior: 'nao'
+      idade: 44
     });
     assert.strictEqual((await requisitar(baseUrl, '/api/publico/contatos', {
       method: 'POST', body: JSON.stringify(complemento)
@@ -222,19 +219,16 @@ async function executar() {
     assert.strictEqual(resumo.problema, 'Educação');
     assert.strictEqual(resumo.idade, 44);
     assert.strictEqual(resumo.descricao_problema, null);
-    assert.strictEqual(resumo.participou_eleicao_anterior, 'nao');
     assert.strictEqual(resumo.historicos, 1);
     assert.strictEqual((await requisitar(baseUrl, '/api/publico/contatos', {
       method: 'POST', body: JSON.stringify(Object.assign({}, complemento, {
         idade: 60,
-        descricaoProblema: 'Campo removido enviado por cliente antigo',
-        participouEleicaoAnterior: 'sim'
+        descricaoProblema: 'Campo removido enviado por cliente antigo'
       }))
     })).status, 201);
     resumo = await buscarResumoContato(PREFIXO_TELEFONE + '020');
     assert.strictEqual(resumo.idade, 44);
     assert.strictEqual(resumo.descricao_problema, null);
-    assert.strictEqual(resumo.participou_eleicao_anterior, 'nao');
     assert.strictEqual(resumo.historicos, 1);
 
     let falhaEsperada = false;
@@ -246,7 +240,6 @@ async function executar() {
         idade: 121,
         bairro: 'Vila Kennedy',
         problema: 'Saúde',
-        participouEleicaoAnterior: null,
         aceitePrivacidade: true,
         autorizacaoMensagens: true,
         autorizacaoLigacoes: true

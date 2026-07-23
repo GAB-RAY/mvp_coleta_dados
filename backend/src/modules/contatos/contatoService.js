@@ -91,20 +91,6 @@ function validarCampoOpcional(valor, nomeCampo, tamanhoMaximo) {
   return textoTratado;
 }
 
-function validarParticipacaoEleitoral(valor) {
-  const valoresValidos = ['sim', 'nao', 'prefiro_nao_informar'];
-
-  if (valor === undefined || valor === null || valor === '') {
-    return null;
-  }
-
-  if (typeof valor !== 'string' || !valoresValidos.includes(valor)) {
-    throw criarAppError('Participação na última eleição é inválida.', 400);
-  }
-
-  return valor;
-}
-
 async function validarDadosDoContato(dadosRecebidos) {
   if (!dadosRecebidos || typeof dadosRecebidos !== 'object' || Array.isArray(dadosRecebidos)) {
     throw criarAppError('Os dados do contato são obrigatórios.', 400);
@@ -165,9 +151,6 @@ async function validarDadosDoContato(dadosRecebidos) {
     idade: validarIdade(dadosRecebidos.idade),
     bairro,
     problema,
-    participouEleicaoAnterior: validarParticipacaoEleitoral(
-      dadosRecebidos.participouEleicaoAnterior
-    ),
     aceitePrivacidade,
     autorizacaoMensagens,
     autorizacaoLigacoes
@@ -183,7 +166,6 @@ function transformarContatoParaResposta(contato) {
     problema: contato.problema,
     idade: contato.idade,
     descricaoProblema: contato.descricao_problema,
-    participouEleicaoAnterior: contato.participou_eleicao_anterior,
     consentimentoArmazenamento: contato.consentimento_tratamento_dados,
     consentimentoMensagens: contato.consentimento_whatsapp,
     consentimentoTratamentoDados: contato.consentimento_tratamento_dados,
@@ -240,7 +222,7 @@ async function listarOpcoesFormulario() {
       : null,
     contextoCadastro: eventoAtivo
       ? 'Este cadastro será vinculado ao evento ' + eventoAtivo.nome + '.'
-      : 'Cadastro geral do projeto A Voz do Bairro, sem vínculo com evento.'
+      : null
   };
 }
 
@@ -298,9 +280,6 @@ async function validarDadosCadastroManual(dadosRecebidos) {
       dadosRecebidos.descricaoProblema,
       'Descrição do problema',
       1000
-    ),
-    participouEleicaoAnterior: validarParticipacaoEleitoral(
-      dadosRecebidos.participouEleicaoAnterior
     ),
     origemId,
     status: validarCampoTexto(dadosRecebidos.status, 'Status', 2, 50),
@@ -448,11 +427,6 @@ function prepararFiltros(parametrosRecebidos) {
   );
   const idadeMinima = tratarIdadeFiltro(parametrosRecebidos.idadeMinima, 'idadeMinima');
   const idadeMaxima = tratarIdadeFiltro(parametrosRecebidos.idadeMaxima, 'idadeMaxima');
-  const participouEleicaoAnterior = tratarOpcaoFiltro(
-    parametrosRecebidos.participouEleicaoAnterior,
-    'participouEleicaoAnterior',
-    ['sim', 'nao', 'prefiro_nao_informar']
-  );
   const autorizacaoMensagens = tratarOpcaoFiltro(
     parametrosRecebidos.autorizacaoMensagens,
     'autorizacaoMensagens',
@@ -516,7 +490,6 @@ function prepararFiltros(parametrosRecebidos) {
     status,
     idadeMinima,
     idadeMaxima,
-    participouEleicaoAnterior,
     autorizacaoMensagens,
     autorizacaoLigacoes,
     dataInicial,

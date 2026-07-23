@@ -134,6 +134,10 @@ async function redefinirSenha(idRecebido, dadosRecebidos, usuarioResponsavel) {
     throw criarAppError('Usuário não encontrado.', 404);
   }
 
+  if (usuarioExistente.perfil === 'administrador') {
+    throw criarAppError('Não é permitido alterar a senha de outro administrador.', 403);
+  }
+
   const senhaHash = await bcrypt.hash(novaSenha, 12);
   const usuario = await usuarioModel.redefinirSenha(usuarioId, senhaHash);
 
@@ -144,7 +148,27 @@ async function redefinirSenha(idRecebido, dadosRecebidos, usuarioResponsavel) {
   return transformarUsuario(usuario);
 }
 
+async function atualizarProprioNome(dadosRecebidos, usuarioResponsavel) {
+  if (!usuarioResponsavel || usuarioResponsavel.perfil !== 'administrador') {
+    throw criarAppError('Acesso permitido somente para administradores.', 403);
+  }
+
+  if (!dadosRecebidos || typeof dadosRecebidos !== 'object' || Array.isArray(dadosRecebidos)) {
+    throw criarAppError('O nome é obrigatório.', 400);
+  }
+
+  const nome = validarTexto(dadosRecebidos.nome, 'Nome', 2, 150);
+  const usuario = await usuarioModel.atualizarNome(usuarioResponsavel.id, nome);
+
+  if (!usuario) {
+    throw criarAppError('Usuário não encontrado.', 404);
+  }
+
+  return transformarUsuario(usuario);
+}
+
 module.exports = {
+  atualizarProprioNome,
   criarUsuario,
   listarUsuarios,
   redefinirSenha

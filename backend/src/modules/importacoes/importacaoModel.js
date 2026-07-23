@@ -110,14 +110,14 @@ async function criarContatoImportado(cliente, dados, origem) {
         consentimento_tratamento_dados, consentimento_whatsapp,
         consentimento_ligacoes, origem_atual, status_contato,
         bloqueado_para_mensagens, atualizado_em,
-        origem_id, idade, descricao_problema, participou_eleicao_anterior
+        origem_id, idade, descricao_problema
       )
       VALUES (
         $1, $2, $3, $4, $5,
         TRUE, FALSE, CURRENT_TIMESTAMP, NULL,
         NULL, NULL, NULL, $6, 'importado',
         FALSE, CURRENT_TIMESTAMP,
-        $7, $8, $9, $10
+        $7, $8, $9
       )
       ON CONFLICT (telefone_normalizado) DO NOTHING
       RETURNING id
@@ -131,8 +131,7 @@ async function criarContatoImportado(cliente, dados, origem) {
       origem.nome,
       origem.id,
       dados.idade,
-      dados.descricaoProblema,
-      dados.participouEleicaoAnterior
+      dados.descricaoProblema
     ]
   );
 
@@ -145,8 +144,7 @@ async function complementarContatoImportado(cliente, contato, dados, origem, usu
     { coluna: 'bairro', propriedade: 'bairro' },
     { coluna: 'problema', propriedade: 'problema' },
     { coluna: 'idade', propriedade: 'idade' },
-    { coluna: 'descricao_problema', propriedade: 'descricaoProblema' },
-    { coluna: 'participou_eleicao_anterior', propriedade: 'participouEleicaoAnterior' }
+    { coluna: 'descricao_problema', propriedade: 'descricaoProblema' }
   ];
   const atribuicoes = [];
   const valores = [];

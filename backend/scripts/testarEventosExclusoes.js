@@ -77,6 +77,7 @@ async function limparDadosTeste() {
 
 async function executar() {
   let servidor;
+  let idsEventosAtivosPreservados = [];
   const emailAdmin = 'eventos.admin@invalid.local';
   const emailOperador = 'eventos.operador@invalid.local';
   const telefoneEvento = '21999001122';
@@ -84,6 +85,18 @@ async function executar() {
 
   try {
     await limparDadosTeste();
+    const eventosAtivos = await banco.query(
+      "SELECT id FROM eventos WHERE status = 'ativo' ORDER BY id"
+    );
+    idsEventosAtivosPreservados = eventosAtivos.rows.map(function (evento) {
+      return evento.id;
+    });
+    if (idsEventosAtivosPreservados.length > 0) {
+      await banco.query(
+        "UPDATE eventos SET status = 'rascunho' WHERE id = ANY($1::bigint[])",
+        [idsEventosAtivosPreservados]
+      );
+    }
     const senhaHash = await bcrypt.hash(SENHA, 4);
     await banco.query(
       `INSERT INTO usuarios (nome, email, senha_hash, perfil)
@@ -168,7 +181,7 @@ async function executar() {
 
     verificar((await requisitar(baseUrl, '/api/admin/eventos/' + eventoId + '/encerrar', { method: 'POST', headers: adminHeaders })).status === 200, 'Evento não foi encerrado.');
     const opcoesGerais = await requisitar(baseUrl, '/api/publico/contatos/opcoes');
-    verificar(opcoesGerais.corpo.eventoAtivo === null && opcoesGerais.corpo.contextoCadastro.includes('Cadastro geral'), 'Formulário sem evento não informou cadastro geral.');
+    verificar(opcoesGerais.corpo.eventoAtivo === null && opcoesGerais.corpo.contextoCadastro === null, 'Formulário sem evento exibiu contexto desnecessário.');
     const cadastroGeral = await requisitar(baseUrl, '/api/publico/contatos', {
       method: 'POST',
       body: JSON.stringify({ nome: 'Contato Geral', telefone: telefoneGeral, idade: 40, bairro: 'Vila Kennedy', problema: 'Educação', aceitePrivacidade: true, autorizacaoMensagens: false, autorizacaoLigacoes: false })
@@ -183,6 +196,12 @@ async function executar() {
       await new Promise(function (resolver) { servidor.close(resolver); });
     }
     await limparDadosTeste();
+    if (idsEventosAtivosPreservados.length > 0) {
+      await banco.query(
+        "UPDATE eventos SET status = 'ativo' WHERE id = ANY($1::bigint[])",
+        [idsEventosAtivosPreservados]
+      );
+    }
     await banco.end();
   }
 }

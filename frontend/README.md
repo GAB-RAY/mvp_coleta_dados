@@ -23,7 +23,7 @@ O WhatsApp deve conter país, DDD e número, somente com dígitos. Reinicie o Vi
 
 | Rota | Acesso | Função |
 |---|---|---|
-| `/participar` | público | Formulário responsivo e contexto do evento ativo ou cadastro geral. |
+| `/participar` | público | Formulário responsivo; o contexto adicional aparece somente com evento ativo. |
 | `/login` | público | Login administrativo. |
 | `/admin` | JWT | Visão geral. |
 | `/admin/contatos` | operador/admin | Busca, filtros, evento e paginação. |
@@ -34,7 +34,7 @@ O WhatsApp deve conter país, DDD e número, somente com dígitos. Reinicie o Vi
 | `/admin/backups` | admin | Geração, download e histórico auditado de backups do PostgreSQL. |
 | `/admin/eventos` | admin | Criar, editar rascunho, ativar e encerrar eventos. |
 | `/admin/solicitacoes-exclusao` | admin | Aprovar com exclusão física ou rejeitar pedidos. |
-| `/admin/usuarios` | admin | Criar usuários e redefinir senhas. |
+| `/admin/usuarios` | admin | Definir o próprio nome, criar operadores/administradores e redefinir senhas de operadores. |
 
 ## Formulário público
 
@@ -49,11 +49,15 @@ Campos atuais:
 - autorização opcional para ligações;
 - aceite obrigatório do Aviso de Privacidade.
 
-O formulário não exibe descrição do problema nem pergunta eleitoral. O mesmo link é usado sempre. Quando existe evento ativo, a tela informa o vínculo; sem evento, informa que é um cadastro geral do projeto e continua aceitando o envio.
+O formulário não exibe descrição do problema. O mesmo link é usado sempre. Quando existe evento ativo, a tela informa o vínculo; sem evento, continua aceitando o envio normalmente e não mostra aviso adicional.
 
 ## Painel e permissões
 
 Operadores e administradores podem cadastrar, editar, consultar, revogar consentimentos e solicitar exclusão. Somente administradores veem gestão de eventos, usuários, fila de exclusões e backups. Os botões de exportação CSV e Excel também aparecem somente para administrador.
+
+Na gestão de usuários, o administrador pode atualizar o próprio nome e criar contas com perfil de operador ou administrador. Outros administradores aparecem protegidos e não podem ter seus dados ou senha alterados; a redefinição administrativa de senha fica disponível somente para operadores.
+
+Contatos importados somente com telefone mantêm nome, bairro, idade e categoria como `NULL` no banco. Na listagem, nos detalhes e na pré-visualização da importação, esses valores ausentes aparecem visualmente como “Não informado”, permitindo complementação futura sem confundir o texto com um dado real.
 
 Ao gerar um backup, o frontend baixa o arquivo retornado pelo backend e exibe o hash SHA-256. O histórico informa responsável, data, estado, tamanho e hash, sem expor credenciais do banco.
 

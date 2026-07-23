@@ -19,19 +19,12 @@ const DADOS_INICIAIS = {
   bairro: '',
   idade: '',
   problema: '',
-  participouEleicaoAnterior: '',
   origemId: '',
   status: 'ativo',
   aceitePrivacidade: false,
   autorizacaoMensagens: 'nao_informado',
   autorizacaoLigacoes: 'nao_informado'
 };
-
-const OPCOES_ELEICAO = [
-  { valor: 'sim', rotulo: 'Sim' },
-  { valor: 'nao', rotulo: 'Não' },
-  { valor: 'prefiro_nao_informar', rotulo: 'Prefiro não informar' }
-];
 
 const OPCOES_AUTORIZACAO = [
   { valor: 'nao_informado', rotulo: 'Não informado' },
@@ -95,8 +88,6 @@ function CadastroManual() {
             bairro: detalhes.contato.bairro,
             idade: String(detalhes.contato.idade || ''),
             problema: detalhes.contato.problema,
-            participouEleicaoAnterior:
-              detalhes.contato.participouEleicaoAnterior || '',
             origemId: detalhes.contato.origem && detalhes.contato.origem.id
               ? String(detalhes.contato.origem.id)
               : '',
@@ -170,8 +161,7 @@ function CadastroManual() {
     try {
       const resposta = await cadastrarContatoManual(Object.assign({}, dados, {
         idade: Number(dados.idade),
-        origemId: Number(dados.origemId),
-        participouEleicaoAnterior: dados.participouEleicaoAnterior || null
+        origemId: Number(dados.origemId)
       }));
       navegacao('/admin/contatos/' + resposta.contatoId, { replace: true });
     } catch (erro) {
@@ -231,7 +221,6 @@ function CadastroManual() {
               <CampoFormulario id="idade" rotulo="Idade" tipo="number" valor={dados.idade} aoAlterar={alterar} minimo={16} maximo={120} passo={1} obrigatorio />
               <CampoSelecaoPesquisavel id="bairro" rotulo="Bairro" valor={dados.bairro} aoAlterar={alterarBairro} aoSelecionar={selecionarBairro} opcoes={bairros} obrigatorio />
               <CampoSelecao id="problema" rotulo="Categoria" valor={dados.problema} aoAlterar={alterar} opcoes={categoriasProblema} placeholder="Selecione" obrigatorio />
-              <CampoSelecao id="participouEleicaoAnterior" rotulo="Votou na última eleição" valor={dados.participouEleicaoAnterior} aoAlterar={alterar} opcoes={OPCOES_ELEICAO} placeholder="Não informado" />
               <CampoSelecao id="origemId" rotulo="Origem" valor={dados.origemId} aoAlterar={alterar} opcoes={origens} placeholder="Selecione" desabilitado={editando} obrigatorio />
               <CampoFormulario id="status" rotulo="Status" valor={dados.status} aoAlterar={alterar} obrigatorio />
               <CampoSelecao id="autorizacaoMensagens" rotulo="Autorização de mensagens" valor={dados.autorizacaoMensagens} aoAlterar={alterar} opcoes={OPCOES_AUTORIZACAO} />

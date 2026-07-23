@@ -101,7 +101,9 @@ function FormularioPublico() {
         if (paginaAtiva) {
           setBairros(bairrosRecebidos);
           setCategoriasProblema(categoriasRecebidas);
-          setContextoCadastro(resposta.contextoCadastro || 'Cadastro geral do projeto A Voz do Bairro.');
+          setContextoCadastro(
+            resposta.eventoAtivo ? resposta.contextoCadastro || '' : ''
+          );
         }
       } catch (erro) {
         if (paginaAtiva) {

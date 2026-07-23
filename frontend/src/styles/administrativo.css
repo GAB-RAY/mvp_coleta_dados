@@ -1680,3 +1680,13 @@
   font-family: Consolas, monospace;
   font-size: 0.72rem;
 }
+
+.separador-usuarios {
+  border: 0;
+  border-top: 1px solid var(--cor-borda, #e5e7eb);
+  margin: 1.75rem 0;
+}
+
+.formulario-meu-perfil .botao {
+  justify-self: start;
+}

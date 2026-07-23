@@ -50,15 +50,14 @@ async function criarContatoPublico(cliente, dadosDoContato, origem) {
       bloqueado_para_mensagens,
       atualizado_em,
       origem_id,
-      idade,
-      participou_eleicao_anterior
+      idade
     )
     VALUES (
       $1, $2, $3, $4, $5,
       TRUE, FALSE, CURRENT_TIMESTAMP, NULL,
       NULL, NULL, NULL, NULL,
       $6, 'ativo', FALSE, CURRENT_TIMESTAMP,
-      $7, $8, $9
+      $7, $8
     )
     ON CONFLICT (telefone_normalizado) DO NOTHING
     RETURNING *
@@ -71,8 +70,7 @@ async function criarContatoPublico(cliente, dadosDoContato, origem) {
     dadosDoContato.problema,
     origem.nome,
     origem.id,
-    dadosDoContato.idade,
-    dadosDoContato.participouEleicaoAnterior
+    dadosDoContato.idade
   ];
   const resultado = await cliente.query(consulta, valores);
 
@@ -99,11 +97,7 @@ async function complementarCamposVazios(cliente, contato, dadosDoContato, origem
     { coluna: 'nome', propriedade: 'nome' },
     { coluna: 'bairro', propriedade: 'bairro' },
     { coluna: 'problema', propriedade: 'problema' },
-    { coluna: 'idade', propriedade: 'idade' },
-    {
-      coluna: 'participou_eleicao_anterior',
-      propriedade: 'participouEleicaoAnterior'
-    }
+    { coluna: 'idade', propriedade: 'idade' }
   ];
   const atribuicoes = [];
   const valores = [];
@@ -292,14 +286,14 @@ async function criarContatoManual(cliente, dadosDoContato, origem) {
         consentimento_tratamento_dados, consentimento_whatsapp,
         consentimento_ligacoes, origem_atual, status_contato,
         bloqueado_para_mensagens, atualizado_em,
-        origem_id, idade, descricao_problema, participou_eleicao_anterior
+        origem_id, idade, descricao_problema
       )
       VALUES (
         $1, $2, $3, $4, $5,
         TRUE, FALSE, CURRENT_TIMESTAMP, NULL,
         NULL, NULL, NULL, $6, $7,
         FALSE, CURRENT_TIMESTAMP,
-        $8, $9, $10, $11
+        $8, $9, $10
       )
       ON CONFLICT (telefone_normalizado) DO NOTHING
       RETURNING *
@@ -314,8 +308,7 @@ async function criarContatoManual(cliente, dadosDoContato, origem) {
       dadosDoContato.status,
       origem.id,
       dadosDoContato.idade,
-      dadosDoContato.descricaoProblema,
-      dadosDoContato.participouEleicaoAnterior
+      dadosDoContato.descricaoProblema
     ]
   );
 
@@ -329,7 +322,6 @@ async function atualizarContatoManual(cliente, contato, dadosDoContato, origem, 
     { coluna: 'problema', propriedade: 'problema' },
     { coluna: 'idade', propriedade: 'idade' },
     { coluna: 'descricao_problema', propriedade: 'descricaoProblema' },
-    { coluna: 'participou_eleicao_anterior', propriedade: 'participouEleicaoAnterior' },
     { coluna: 'status_contato', propriedade: 'status' }
   ];
   const atribuicoes = [];
@@ -720,11 +712,6 @@ function construirFiltros(filtros) {
     condicoes.push('contato.idade <= $' + valores.length);
   }
 
-  if (filtros.participouEleicaoAnterior) {
-    valores.push(filtros.participouEleicaoAnterior);
-    condicoes.push('contato.participou_eleicao_anterior = $' + valores.length);
-  }
-
   if (filtros.autorizacaoMensagens) {
     valores.push(filtros.autorizacaoMensagens);
     condicoes.push(`
@@ -819,7 +806,6 @@ async function listar(filtros, pagina, limite) {
       contato.problema,
       contato.idade,
       contato.descricao_problema,
-      contato.participou_eleicao_anterior,
       contato.consentimento_tratamento_dados,
       contato.consentimento_whatsapp,
       contato.consentimento_ligacoes,

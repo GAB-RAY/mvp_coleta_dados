@@ -78,7 +78,6 @@ async function gerarResumo(parametros) {
   const bairro = {};
   const problema = {};
   const faixaEtaria = {};
-  const eleicao = {};
   const origem = {};
   const mensagens = {};
   const ligacoes = {};
@@ -88,7 +87,6 @@ async function gerarResumo(parametros) {
     adicionarContagem(bairro, contato.bairro);
     adicionarContagem(problema, contato.problema);
     adicionarContagem(faixaEtaria, obterFaixaEtaria(contato.idade));
-    adicionarContagem(eleicao, contato.participouEleicaoAnterior);
     adicionarContagem(origem, contato.origemAtual);
     adicionarContagem(mensagens, contato.autorizacaoMensagens);
     adicionarContagem(ligacoes, contato.autorizacaoLigacoes);
@@ -100,7 +98,6 @@ async function gerarResumo(parametros) {
     porBairro: transformarMapa(bairro),
     porProblema: transformarMapa(problema),
     porFaixaEtaria: transformarMapa(faixaEtaria),
-    porParticipacaoEleitoral: transformarMapa(eleicao),
     porOrigem: transformarMapa(origem),
     porAutorizacaoMensagens: transformarMapa(mensagens),
     porAutorizacaoLigacoes: transformarMapa(ligacoes),
@@ -118,7 +115,7 @@ async function gerarCsv(parametros) {
   const contatos = await buscarContatos(parametros);
   const cabecalho = [
     'id', 'nome', 'telefone', 'idade', 'bairro', 'categoria_problema',
-    'descricao_problema', 'participou_eleicao_anterior', 'origem', 'status',
+    'descricao_problema', 'origem', 'status',
     'autorizacao_mensagens', 'autorizacao_ligacoes', 'aceite_privacidade',
     'criado_em'
   ];
@@ -133,7 +130,6 @@ async function gerarCsv(parametros) {
       contato.bairro,
       contato.problema,
       contato.descricaoProblema,
-      contato.participouEleicaoAnterior,
       contato.origemAtual,
       contato.statusContato,
       contato.autorizacaoMensagens,
@@ -163,7 +159,6 @@ async function gerarExcel(parametros) {
     { header: 'Bairro', key: 'bairro', width: 24 },
     { header: 'Categoria do problema', key: 'problema', width: 30 },
     { header: 'Descrição do problema', key: 'descricaoProblema', width: 38 },
-    { header: 'Participação eleitoral', key: 'participouEleicaoAnterior', width: 24 },
     { header: 'Origem', key: 'origemAtual', width: 24 },
     { header: 'Evento(s)', key: 'eventos', width: 34 },
     { header: 'Status', key: 'statusContato', width: 18 },
@@ -182,7 +177,6 @@ async function gerarExcel(parametros) {
       bairro: contato.bairro,
       problema: contato.problema,
       descricaoProblema: contato.descricaoProblema,
-      participouEleicaoAnterior: contato.participouEleicaoAnterior,
       origemAtual: contato.origemAtual,
       eventos: (contato.eventos || []).map(function (evento) {
         return evento.nome;

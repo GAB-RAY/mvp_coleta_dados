@@ -6,11 +6,12 @@ import CampoSelecao from '../components/CampoSelecao';
 import Carregando from '../components/Carregando';
 import MensagemRetorno from '../components/MensagemRetorno';
 import {
+  atualizarProprioNome,
   criarUsuario,
   listarUsuarios,
   redefinirSenhaUsuario
 } from '../services/usuarioService';
-import { obterUsuario, removerToken } from '../utils/armazenamentoToken';
+import { obterUsuario, removerToken, salvarUsuario } from '../utils/armazenamentoToken';
 
 const DADOS_INICIAIS = {
   nome: '',
@@ -41,7 +42,12 @@ function formatarData(valor) {
 
 function UsuariosAdministrativos() {
   const navegacao = useNavigate();
-  const usuarioAtual = obterUsuario();
+  const usuarioInicial = obterUsuario();
+  const [usuarioAtual, setUsuarioAtual] = useState(usuarioInicial);
+  const [nomeProprio, setNomeProprio] = useState(usuarioInicial ? usuarioInicial.nome : '');
+  const [salvandoNome, setSalvandoNome] = useState(false);
+  const [mensagemNome, setMensagemNome] = useState('');
+  const [tipoMensagemNome, setTipoMensagemNome] = useState('informacao');
   const [dados, setDados] = useState(DADOS_INICIAIS);
   const [usuarios, setUsuarios] = useState([]);
   const [carregando, setCarregando] = useState(true);
@@ -98,6 +104,34 @@ function UsuariosAdministrativos() {
     setDados(Object.assign({}, dados, {
       [evento.target.name]: evento.target.value
     }));
+  }
+
+  async function salvarNomeProprio(evento) {
+    evento.preventDefault();
+    setMensagemNome('');
+    setSalvandoNome(true);
+
+    try {
+      const resposta = await atualizarProprioNome(nomeProprio.trim());
+      const usuarioAtualizado = Object.assign({}, usuarioAtual, resposta.usuario);
+      salvarUsuario(usuarioAtualizado);
+      setUsuarioAtual(usuarioAtualizado);
+      setNomeProprio(usuarioAtualizado.nome);
+      setTipoMensagemNome('sucesso');
+      setMensagemNome(resposta.mensagem);
+      setVersaoLista(versaoLista + 1);
+    } catch (erro) {
+      if (erro.statusHttp === 401) {
+        removerToken();
+        navegacao('/login', { replace: true });
+        return;
+      }
+
+      setTipoMensagemNome('erro');
+      setMensagemNome(erro.message);
+    } finally {
+      setSalvandoNome(false);
+    }
   }
 
   async function enviar(evento) {
@@ -211,6 +245,34 @@ function UsuariosAdministrativos() {
           <section className="cartao painel-usuario-formulario">
             <div className="cabecalho-secao">
               <div>
+                <span className="etiqueta-pagina">Meu perfil</span>
+                <h2>Nome no sistema</h2>
+              </div>
+            </div>
+
+            <MensagemRetorno mensagem={mensagemNome} tipo={tipoMensagemNome} />
+
+            <form className="formulario-filtros formulario-meu-perfil" onSubmit={salvarNomeProprio}>
+              <CampoFormulario
+                id="nomeProprio"
+                nome="nomeProprio"
+                rotulo="Seu nome"
+                valor={nomeProprio}
+                aoAlterar={function (evento) { setNomeProprio(evento.target.value); }}
+                obrigatorio
+                desabilitado={salvandoNome}
+                tamanhoMinimo={2}
+                tamanhoMaximo={150}
+              />
+              <button className="botao botao-secundario" type="submit" disabled={salvandoNome}>
+                {salvandoNome ? 'Salvando...' : 'Salvar meu nome'}
+              </button>
+            </form>
+
+            <hr className="separador-usuarios" />
+
+            <div className="cabecalho-secao">
+              <div>
                 <span className="etiqueta-pagina">Acesso interno</span>
                 <h2>Novo usuário</h2>
               </div>
@@ -227,6 +289,7 @@ function UsuariosAdministrativos() {
               <div className="explicacao-perfis">
                 <p><strong>Operador:</strong> acessa contatos, cadastros, importações e relatórios.</p>
                 <p><strong>Administrador:</strong> possui os mesmos acessos e também gerencia usuários.</p>
+                <p>Administradores podem criar outros administradores, mas não podem alterar contas administrativas de outras pessoas.</p>
               </div>
 
               <button className="botao botao-primario" type="submit" disabled={salvando}>
@@ -313,6 +376,8 @@ function UsuariosAdministrativos() {
                           <td>
                             {usuarioAtual && Number(usuarioAtual.id) === Number(usuario.id) ? (
                               <span className="texto-conta-atual">Conta atual</span>
+                            ) : usuario.perfil === 'administrador' ? (
+                              <span className="texto-conta-atual">Administrador protegido</span>
                             ) : (
                               <button
                                 className="botao botao-secundario botao-redefinir-senha"

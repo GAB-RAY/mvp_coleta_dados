@@ -54,7 +54,7 @@ As colunas anteriores de compatibilidade em `contatos` foram mantidas apenas qua
 
 - O formulário aceita cadastro com ou sem evento ativo.
 - Quando há evento ativo dentro do período, o backend cria automaticamente o vínculo em `contato_eventos`; o frontend não escolhe o evento.
-- Sem evento ativo, o retorno informa “Cadastro geral do projeto A Voz do Bairro, sem vínculo com evento”.
+- Sem evento ativo, o formulário continua funcionando normalmente e não exibe aviso adicional.
 - Um telefone não sobrescreve silenciosamente dados existentes; somente campos vazios podem ser complementados no fluxo público.
 - Consentimentos de mensagens e ligações são explícitos e versionados.
 - Revogar cria um novo registro ligado ao anterior por `registro_anterior_id`; nenhuma rota apaga revogações.
@@ -98,7 +98,8 @@ Administrativas com JWT:
 | GET | `/api/admin/backups` | admin |
 | POST | `/api/admin/backups/banco` | admin |
 | GET/POST | `/api/admin/usuarios` | admin |
-| PATCH | `/api/admin/usuarios/:id/senha` | admin |
+| PATCH | `/api/admin/usuarios/meu-perfil` | admin, somente o próprio nome |
+| PATCH | `/api/admin/usuarios/:id/senha` | admin, somente senha de operador |
 | POST | `/api/admin/importacoes/pre-visualizar` | operador/admin |
 | POST | `/api/admin/importacoes/:id/confirmar` | operador/admin |
 
@@ -112,7 +113,7 @@ Para criar o primeiro administrador em banco sem usuário:
 npm run criar-admin -- "Nome" "email@dominio.com" "SenhaForte123!"
 ```
 
-Depois, somente um administrador autenticado cria operadores ou outros administradores e redefine senhas pelo painel.
+Depois, somente um administrador autenticado cria operadores ou outros administradores. Cada administrador pode atualizar o próprio nome e redefinir senhas de operadores, mas não pode alterar a conta de outro administrador.
 
 ## Operação do banco
 
@@ -146,7 +147,7 @@ node --check src/app.js
 npm run testar:schema-vazio
 ```
 
-Resultado de 23/07/2026: 252 verificações aprovadas.
+Resultado de 23/07/2026: 257 verificações aprovadas.
 
 - estrutura, 166 bairros e proteções ManyChat: 26;
 - cadastro público: 27;
@@ -154,14 +155,14 @@ Resultado de 23/07/2026: 252 verificações aprovadas.
 - cadastro manual: 24;
 - importações: 21;
 - relatórios e permissões CSV/Excel: 23;
-- segurança e usuários: 49;
+- segurança e usuários: 54;
 - privacidade: 15;
 - eventos, permissões e exclusão física: 28;
 - backups, permissões, integridade e auditoria: 18.
 
 O teste de schema cria um banco temporário vazio, aplica `database/criar_banco.sql`, valida 22 tabelas e 166 bairros e remove o banco temporário ao final.
 
-O backup imediatamente anterior à recriação está fora do repositório em `C:\Users\gabriellindo\Backups\A_Voz_do_Bairro\criar_banco\2026-07-23_004714\`, com SHA-256 `38E328297998DAFB969A87BBF09ED8E55FDA80093B8D3F2D524E9EBE80E763C2`. A restauração validada `criar_banco_backup_correcao_20260723` foi mantida para conferência.
+O backup mais recente anterior à atualização estrutural está fora do repositório em `C:\Users\gabriellindo\Backups\A_Voz_do_Bairro\criar_banco\2026-07-23_170901\`, com SHA-256 `E2E3B6C244B64D989BD0B1FD5EA261F5E386B4704504BE8A792AD4A51741A9A3`. A restauração validada `criar_banco_backup_20260723_170901` foi mantida para conferência.
 
 ## Pendências reais
 

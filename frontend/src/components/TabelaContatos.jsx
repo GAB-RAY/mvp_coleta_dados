@@ -51,8 +51,12 @@ function exibirConsentimento(valor) {
   );
 }
 
-function exibirTextoOuNaoInformado(valor) {
-  if (typeof valor !== 'string' || !valor.trim()) {
+function exibirValorOuNaoInformado(valor) {
+  if (
+    valor === null ||
+    valor === undefined ||
+    (typeof valor === 'string' && !valor.trim())
+  ) {
     return 'Não informado';
   }
 
@@ -83,16 +87,16 @@ function TabelaContatos(propriedades) {
           {propriedades.contatos.map(function (contato) {
             return (
               <tr key={contato.id}>
-                <td>{contato.nome}</td>
+                <td>{exibirValorOuNaoInformado(contato.nome)}</td>
                 <td className="texto-sem-quebra">{formatarTelefone(contato.telefone)}</td>
-                <td>{contato.idade || '—'}</td>
-                <td>{contato.bairro}</td>
-                <td className="coluna-problema">{contato.problema}</td>
+                <td>{exibirValorOuNaoInformado(contato.idade)}</td>
+                <td>{exibirValorOuNaoInformado(contato.bairro)}</td>
+                <td className="coluna-problema">{exibirValorOuNaoInformado(contato.problema)}</td>
                 <td>{exibirConsentimento(contato.autorizacaoMensagens)}</td>
                 <td>{exibirConsentimento(contato.autorizacaoLigacoes)}</td>
-                <td>{exibirTextoOuNaoInformado(contato.origemAtual)}</td>
+                <td>{exibirValorOuNaoInformado(contato.origemAtual)}</td>
                 <td>{contato.eventos && contato.eventos.length > 0 ? contato.eventos.map(function (evento) { return evento.nome + ' · ' + formatarData(evento.cadastradoEm); }).join(', ') : 'Cadastro geral'}</td>
-                <td>{exibirTextoOuNaoInformado(contato.statusContato)}</td>
+                <td>{exibirValorOuNaoInformado(contato.statusContato)}</td>
                 <td className="texto-sem-quebra">{formatarData(contato.criadoEm)}</td>
                 <td>
                   <Link className="link-detalhes" to={'/admin/contatos/' + contato.id}>

@@ -7,6 +7,11 @@ const roteador = express.Router();
 roteador.get('/', autorizarAdministrador, usuarioController.listar);
 roteador.post('/', autorizarAdministrador, usuarioController.criar);
 roteador.patch(
+  '/meu-perfil',
+  autorizarAdministrador,
+  usuarioController.atualizarProprioNome
+);
+roteador.patch(
   '/:id/senha',
   autorizarAdministrador,
   usuarioController.redefinirSenha

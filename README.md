@@ -44,6 +44,8 @@ Sistema real de coleta e gestão de contatos comunitários. O projeto possui for
 
 Não existem rotas para apagar diretamente contatos, revogações ou históricos. Ao aprovar um pedido, o administrador confirma uma exclusão física. O registro do pedido e os registros de consentimento/revogação permanecem sem os dados pessoais do contato.
 
+Administradores podem definir o próprio nome, criar operadores e outros administradores e redefinir senhas de operadores. Contas de outros administradores são protegidas contra alterações.
+
 ## Banco de dados
 
 Banco novo e vazio:
@@ -113,7 +115,7 @@ Em 23/07/2026:
 - schema criado em banco vazio de teste: 22 tabelas;
 - banco principal recriado exclusivamente pelo schema completo, sem migrations;
 - backup prévio restaurado e validado em banco separado;
-- `npm test`: 252 verificações aprovadas;
+- `npm test`: 257 verificações aprovadas;
 - `npm run build`: 61 módulos transformados;
-- banco principal recriado com 166 bairros, zero contatos e o administrador Gabriel preservado como ID 1;
+- banco principal validado com 166 bairros, 1 contato, 1 evento ativo e o administrador Gabriel preservado como ID 1;
 - sequências das 22 tabelas sincronizadas.

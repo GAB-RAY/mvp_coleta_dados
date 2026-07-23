@@ -20,7 +20,6 @@ const FILTROS_INICIAIS = {
   status: '',
   idadeMinima: '',
   idadeMaxima: '',
-  participouEleicaoAnterior: '',
   autorizacaoMensagens: '',
   autorizacaoLigacoes: '',
   dataInicial: '',
@@ -34,12 +33,6 @@ const OPCOES_CONSENTIMENTO = [
   { valor: 'nao_informado', rotulo: 'Não informado' },
   { valor: 'recusado', rotulo: 'Recusado' },
   { valor: 'revogado', rotulo: 'Revogado' }
-];
-
-const OPCOES_ELEICAO = [
-  { valor: 'sim', rotulo: 'Sim' },
-  { valor: 'nao', rotulo: 'Não' },
-  { valor: 'prefiro_nao_informar', rotulo: 'Prefiro não informar' }
 ];
 
 const OPCOES_ORDENACAO = [
@@ -66,7 +59,6 @@ function prepararFiltros(filtros) {
     status: filtros.status.trim(),
     idadeMinima: filtros.idadeMinima,
     idadeMaxima: filtros.idadeMaxima,
-    participouEleicaoAnterior: filtros.participouEleicaoAnterior,
     autorizacaoMensagens: filtros.autorizacaoMensagens,
     autorizacaoLigacoes: filtros.autorizacaoLigacoes,
     dataInicial: filtros.dataInicial,
@@ -269,17 +261,6 @@ function ContatosAdministrativos() {
                 aoAlterar={alterarFiltro}
                 minimo={16}
                 maximo={120}
-                desabilitado={carregando}
-              />
-
-              <CampoSelecao
-                id="filtro-eleicao"
-                nome="participouEleicaoAnterior"
-                rotulo="Votou na última eleição"
-                valor={filtrosFormulario.participouEleicaoAnterior}
-                aoAlterar={alterarFiltro}
-                opcoes={OPCOES_ELEICAO}
-                placeholder="Todos"
                 desabilitado={carregando}
               />
 

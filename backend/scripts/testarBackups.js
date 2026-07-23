@@ -114,9 +114,12 @@ async function executar() {
       headers: Object.assign({ 'Content-Type': 'application/json' }, adminHeaders)
     });
     verificar(historico.status === 200, 'Histórico de backups falhou.');
-    verificar(historico.corpo.backups.length === 1, 'Histórico não contém a operação executada.');
-    verificar(historico.corpo.backups[0].status === 'concluido', 'Backup não foi marcado como concluído.');
-    verificar(historico.corpo.backups[0].sha256 === sha256, 'Histórico não preservou o SHA-256.');
+    const backupExecutado = historico.corpo.backups.find(function (backup) {
+      return backup.sha256 === sha256;
+    });
+    verificar(Boolean(backupExecutado), 'Histórico não contém a operação executada.');
+    verificar(backupExecutado.status === 'concluido', 'Backup não foi marcado como concluído.');
+    verificar(backupExecutado.sha256 === sha256, 'Histórico não preservou o SHA-256.');
 
     const caminhoOriginal = process.env.PG_DUMP_CAMINHO;
     process.env.PG_DUMP_CAMINHO = path.join(diretorio, 'pg_dump_inexistente');

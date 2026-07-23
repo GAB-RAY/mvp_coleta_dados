@@ -107,7 +107,6 @@ async function executar() {
       idade: 40,
       problema: 'Educação',
       descricaoProblema: 'Registro manual temporário',
-      participouEleicaoAnterior: 'nao',
       origemId: origemManual.id,
       status: 'ativo',
       aceitePrivacidade: true,

@@ -89,7 +89,6 @@ async function executar() {
         bairro: 'Vila Kennedy',
         problema: 'Saúde',
         descricaoProblema: 'Teste da tela administrativa',
-        participouEleicaoAnterior: 'sim',
         aceitePrivacidade: true,
         autorizacaoMensagens: true,
         autorizacaoLigacoes: false
@@ -105,7 +104,6 @@ async function executar() {
       problema: 'Saú',
       idadeMinima: '40',
       idadeMaxima: '45',
-      participouEleicaoAnterior: 'sim',
       origem: 'Formulário',
       autorizacaoMensagens: 'autorizado',
       autorizacaoLigacoes: 'nao_informado',

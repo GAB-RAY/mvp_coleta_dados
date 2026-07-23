@@ -139,28 +139,6 @@ function buscarValor(objeto, aliases) {
   return '';
 }
 
-function normalizarParticipacao(valor) {
-  const normalizado = normalizarCabecalho(valor);
-
-  if (!normalizado) {
-    return null;
-  }
-
-  if (normalizado === 'sim') {
-    return 'sim';
-  }
-
-  if (normalizado === 'nao') {
-    return 'nao';
-  }
-
-  if (normalizado === 'prefiro_nao_informar') {
-    return 'prefiro_nao_informar';
-  }
-
-  return 'invalido';
-}
-
 function validarLinha(linha, telefonesDoArquivo, bairrosAtivos) {
   const valores = linha.valores;
   const telefone = buscarValor(valores, ['telefone', 'celular', 'whatsapp']);
@@ -176,10 +154,6 @@ function validarLinha(linha, telefonesDoArquivo, bairrosAtivos) {
     valores,
     ['descricao', 'descricao_problema', 'detalhes']
   ) || null;
-  const eleicao = normalizarParticipacao(buscarValor(
-    valores,
-    ['participou_eleicao_anterior', 'eleicao', 'votou_ultima_eleicao']
-  ));
   const idade = idadeTexto === '' ? null : Number(idadeTexto);
   const erros = [];
 
@@ -211,10 +185,6 @@ function validarLinha(linha, telefonesDoArquivo, bairrosAtivos) {
     erros.push('Descrição possui mais de 1000 caracteres.');
   }
 
-  if (eleicao === 'invalido') {
-    erros.push('Participação eleitoral inválida.');
-  }
-
   if (telefoneNormalizado) {
     telefonesDoArquivo.add(telefoneNormalizado);
   }
@@ -228,8 +198,7 @@ function validarLinha(linha, telefonesDoArquivo, bairrosAtivos) {
       bairro,
       idade,
       problema,
-      descricaoProblema,
-      participouEleicaoAnterior: eleicao === 'invalido' ? null : eleicao
+      descricaoProblema
     },
     valida: erros.length === 0,
     erroValidacao: erros.length > 0 ? erros.join(' ') : null,

@@ -58,7 +58,6 @@ async function executar() {
         idade: 37,
         bairro: 'Vila Kennedy',
         problema: 'Saúde',
-        participouEleicaoAnterior: 'sim',
         aceitePrivacidade: true,
         autorizacaoMensagens: true,
         autorizacaoLigacoes: false
@@ -80,7 +79,7 @@ async function executar() {
     assert.strictEqual(resumo.porBairro[0].nome, 'Vila Kennedy');
     assert.strictEqual(resumo.porProblema[0].nome, 'Saúde');
     assert.strictEqual(resumo.porFaixaEtaria[0].nome, '35 a 44');
-    assert.strictEqual(resumo.porParticipacaoEleitoral[0].nome, 'sim');
+    assert.strictEqual(Array.isArray(resumo.porOrigem), true);
     assert.strictEqual(resumo.porAutorizacaoMensagens[0].nome, 'autorizado');
     assert.strictEqual(resumo.porAutorizacaoLigacoes[0].nome, 'nao_informado');
     assert.ok(/^\d{4}-\d{2}-\d{2}$/.test(resumo.porPeriodo[0].nome));

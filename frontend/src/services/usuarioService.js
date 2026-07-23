@@ -16,6 +16,14 @@ async function criarUsuario(dadosDoUsuario) {
   });
 }
 
+async function atualizarProprioNome(nome) {
+  return requisitar('/api/admin/usuarios/meu-perfil', {
+    method: 'PATCH',
+    autenticado: true,
+    body: JSON.stringify({ nome })
+  });
+}
+
 async function redefinirSenhaUsuario(usuarioId, novaSenha) {
   return requisitar('/api/admin/usuarios/' + usuarioId + '/senha', {
     method: 'PATCH',
@@ -25,6 +33,7 @@ async function redefinirSenhaUsuario(usuarioId, novaSenha) {
 }
 
 export {
+  atualizarProprioNome,
   criarUsuario,
   listarUsuarios,
   redefinirSenhaUsuario

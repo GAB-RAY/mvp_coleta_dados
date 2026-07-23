@@ -185,13 +185,12 @@ function DetalhesContato() {
                 </Link>
               </div>
               <dl className="lista-detalhes">
-                <div><dt>Nome</dt><dd>{dados.contato.nome}</dd></div>
+                <div><dt>Nome</dt><dd>{formatarValor(dados.contato.nome)}</dd></div>
                 <div><dt>Telefone</dt><dd>{formatarTelefone(dados.contato.telefone)}</dd></div>
                 <div><dt>Idade</dt><dd>{formatarValor(dados.contato.idade)}</dd></div>
-                <div><dt>Bairro</dt><dd>{dados.contato.bairro}</dd></div>
-                <div><dt>Categoria</dt><dd>{dados.contato.problema}</dd></div>
+                <div><dt>Bairro</dt><dd>{formatarValor(dados.contato.bairro)}</dd></div>
+                <div><dt>Categoria</dt><dd>{formatarValor(dados.contato.problema)}</dd></div>
                 <div><dt>Descrição</dt><dd>{formatarValor(dados.contato.descricaoProblema)}</dd></div>
-                <div><dt>Votou na última eleição</dt><dd>{formatarValor(dados.contato.participouEleicaoAnterior)}</dd></div>
                 <div><dt>Origem</dt><dd>{formatarValor(dados.contato.origemAtual)}</dd></div>
                 <div><dt>Evento(s)</dt><dd>{dados.contato.eventos && dados.contato.eventos.length > 0 ? dados.contato.eventos.map(function (evento) { return evento.nome + ' (' + formatarData(evento.cadastradoEm) + ')'; }).join(', ') : 'Cadastro geral, sem evento'}</dd></div>
                 <div><dt>Status</dt><dd>{formatarValor(dados.contato.statusContato)}</dd></div>

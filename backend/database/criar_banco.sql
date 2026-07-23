@@ -179,7 +179,6 @@ CREATE TABLE public.contatos (
   origem_id BIGINT,
   idade SMALLINT,
   descricao_problema TEXT,
-  participou_eleicao_anterior VARCHAR(30),
   bloqueado_para_ligacoes BOOLEAN NOT NULL DEFAULT FALSE,
   bloqueado_para_campanhas BOOLEAN NOT NULL DEFAULT FALSE,
   manychat_contact_id VARCHAR(255),
@@ -203,10 +202,6 @@ CREATE TABLE public.contatos (
   ),
   CONSTRAINT contatos_nome_nao_vazio CHECK (
     LENGTH(TRIM(nome)) >= 2
-  ),
-  CONSTRAINT contatos_participou_eleicao_anterior_valida CHECK (
-    participou_eleicao_anterior IS NULL
-    OR participou_eleicao_anterior IN ('sim', 'nao', 'prefiro_nao_informar')
   ),
   CONSTRAINT contatos_problema_nao_vazio CHECK (
     LENGTH(TRIM(problema)) >= 3
@@ -1123,9 +1118,6 @@ COMMENT ON COLUMN public.contatos.idade IS
 
 COMMENT ON COLUMN public.contatos.descricao_problema IS
   'Descrição opcional complementar à categoria do problema.';
-
-COMMENT ON COLUMN public.contatos.participou_eleicao_anterior IS
-  'Resposta opcional à pergunta: Você votou na última eleição?';
 
 COMMENT ON TABLE public.usuarios IS
   'Usuários internos autorizados a acessar o painel administrativo.';

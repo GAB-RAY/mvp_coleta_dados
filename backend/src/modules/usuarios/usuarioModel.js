@@ -92,6 +92,21 @@ async function redefinirSenha(usuarioId, senhaHash) {
   return resultado.rows[0] || null;
 }
 
+async function atualizarNome(usuarioId, nome) {
+  const resultado = await banco.query(
+    `
+      UPDATE usuarios
+      SET nome = $2,
+          atualizado_em = CURRENT_TIMESTAMP
+      WHERE id = $1
+      RETURNING ${CAMPOS_PUBLICOS}
+    `,
+    [usuarioId, nome]
+  );
+
+  return resultado.rows[0] || null;
+}
+
 async function contarFalhasRecentesPorIp(enderecoIp, janelaMinutos) {
   const resultado = await banco.query(
     `
@@ -204,6 +219,7 @@ async function registrarLoginBemSucedido(usuarioId) {
 }
 
 module.exports = {
+  atualizarNome,
   buscarPorEmail,
   buscarPorId,
   contarFalhasRecentesPorEmail,
