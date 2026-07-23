@@ -2,10 +2,16 @@ const contatoService = require('./contatoService');
 
 async function cadastrar(requisicao, resposta, proximo) {
   try {
-    await contatoService.cadastrarContato(requisicao.body);
+    const resultado = await contatoService.cadastrarContato(requisicao.body);
 
     return resposta.status(201).json({
-      mensagem: 'Cadastro realizado com sucesso. Obrigado por contribuir com o projeto A Voz do Bairro.'
+      mensagem: 'Cadastro realizado com sucesso. Obrigado por contribuir com o projeto A Voz do Bairro.',
+      evento: resultado.eventoAtivo
+        ? { id: resultado.eventoAtivo.id, nome: resultado.eventoAtivo.nome }
+        : null,
+      contextoCadastro: resultado.eventoAtivo
+        ? 'Cadastro vinculado ao evento ' + resultado.eventoAtivo.nome + '.'
+        : 'Cadastro geral do projeto A Voz do Bairro, sem vínculo com evento.'
     });
   } catch (erro) {
     return proximo(erro);
@@ -18,7 +24,9 @@ async function listarOpcoes(requisicao, resposta, proximo) {
 
     return resposta.status(200).json({
       bairros: opcoes.bairros,
-      categoriasProblema: opcoes.categoriasProblema
+      categoriasProblema: opcoes.categoriasProblema,
+      eventoAtivo: opcoes.eventoAtivo,
+      contextoCadastro: opcoes.contextoCadastro
     });
   } catch (erro) {
     return proximo(erro);
@@ -101,6 +109,7 @@ async function solicitarExclusao(requisicao, resposta, proximo) {
   try {
     const resultado = await contatoService.solicitarExclusao(
       requisicao.params.id,
+      requisicao.body,
       requisicao.usuario
     );
 
@@ -109,6 +118,7 @@ async function solicitarExclusao(requisicao, resposta, proximo) {
         ? 'Solicitação de exclusão registrada com sucesso.'
         : 'A solicitação de exclusão já estava registrada.',
       alterado: resultado.alterado,
+      solicitacaoId: resultado.id,
       solicitadaEm: resultado.solicitadaEm,
       solicitadaPorUsuarioId: resultado.solicitadaPorUsuarioId
     });

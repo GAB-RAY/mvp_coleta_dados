@@ -74,19 +74,19 @@ async function executar() {
     const segredo = process.env.JWT_SECRET || process.env.JWT_SEGREDO;
     const token = jwt.sign(usuario.rows[0], segredo, { expiresIn: '10m' });
     const cabecalhos = { Authorization: 'Bearer ' + token };
-    const origemLegada = await banco.query("SELECT id FROM origens WHERE slug = 'cadastro-legado'");
+    const origemExistente = await banco.query("SELECT id FROM origens WHERE slug = 'cadastro-manual'");
     await banco.query(
       `
         INSERT INTO contatos (
           nome, telefone, telefone_normalizado, bairro, problema,
           consentimento_armazenamento, consentimento_mensagens,
           consentimento_armazenamento_em, origem_atual, status_contato,
-          bloqueado_para_mensagens, excluido_logicamente, origem_id
+          bloqueado_para_mensagens, origem_id
         )
         VALUES (NULL, $1, $1, NULL, NULL, TRUE, FALSE, CURRENT_TIMESTAMP,
-          'Cadastro legado', 'ativo', FALSE, FALSE, $2)
+          'Cadastro manual', 'ativo', FALSE, $2)
       `,
-      [PREFIXO + '003', origemLegada.rows[0].id]
+      [PREFIXO + '003', origemExistente.rows[0].id]
     );
 
     servidor = aplicacao.listen(0);

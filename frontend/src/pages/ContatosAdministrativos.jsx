@@ -8,6 +8,7 @@ import MensagemRetorno from '../components/MensagemRetorno';
 import Paginacao from '../components/Paginacao';
 import TabelaContatos from '../components/TabelaContatos';
 import { listarContatos } from '../services/contatoService';
+import { listarEventos } from '../services/eventoService';
 import { removerToken } from '../utils/armazenamentoToken';
 
 const FILTROS_INICIAIS = {
@@ -24,7 +25,8 @@ const FILTROS_INICIAIS = {
   autorizacaoLigacoes: '',
   dataInicial: '',
   dataFinal: '',
-  ordenacao: 'mais_recentes'
+  ordenacao: 'mais_recentes',
+  eventoId: ''
 };
 
 const OPCOES_CONSENTIMENTO = [
@@ -69,7 +71,8 @@ function prepararFiltros(filtros) {
     autorizacaoLigacoes: filtros.autorizacaoLigacoes,
     dataInicial: filtros.dataInicial,
     dataFinal: filtros.dataFinal,
-    ordenacao: filtros.ordenacao
+    ordenacao: filtros.ordenacao,
+    eventoId: filtros.eventoId
   };
 }
 
@@ -84,6 +87,15 @@ function ContatosAdministrativos() {
   const [carregando, setCarregando] = useState(true);
   const [mensagemErro, setMensagemErro] = useState('');
   const [versaoConsulta, setVersaoConsulta] = useState(0);
+  const [eventos, setEventos] = useState([]);
+
+  useEffect(function () {
+    listarEventos().then(function (resposta) {
+      setEventos(resposta.eventos || []);
+    }).catch(function () {
+      setEventos([]);
+    });
+  }, []);
 
   useEffect(function () {
     const controlador = new AbortController();
@@ -340,6 +352,17 @@ function ContatosAdministrativos() {
                 valor={filtrosFormulario.status}
                 aoAlterar={alterarFiltro}
                 placeholder="Status ou parte dele"
+                desabilitado={carregando}
+              />
+
+              <CampoSelecao
+                id="filtro-evento"
+                nome="eventoId"
+                rotulo="Evento"
+                valor={filtrosFormulario.eventoId}
+                aoAlterar={alterarFiltro}
+                opcoes={[{ valor: 'sem_evento', rotulo: 'Cadastro geral (sem evento)' }].concat(eventos.map(function (item) { return { valor: String(item.id), rotulo: item.nome }; }))}
+                placeholder="Todos"
                 desabilitado={carregando}
               />
             </fieldset>

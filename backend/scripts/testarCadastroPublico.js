@@ -184,8 +184,8 @@ async function executar() {
     assert.strictEqual(resumo.autorizacoes, 2);
     assert.strictEqual(resumo.historicos, 0);
 
-    const origemLegada = await banco.query(
-      "SELECT id FROM origens WHERE slug = 'cadastro-legado'"
+    const origemExistente = await banco.query(
+      "SELECT id FROM origens WHERE slug = 'cadastro-manual'"
     );
     await banco.query(
       `
@@ -193,17 +193,17 @@ async function executar() {
           nome, telefone, telefone_normalizado, bairro, problema,
           consentimento_armazenamento, consentimento_mensagens,
           consentimento_armazenamento_em, origem_atual, status_contato,
-          bloqueado_para_mensagens, excluido_logicamente, origem_id
+          bloqueado_para_mensagens, origem_id
         )
         VALUES ($1, $2, $2, $3, $4, TRUE, FALSE, CURRENT_TIMESTAMP,
-          'Cadastro legado', 'ativo', FALSE, FALSE, $5)
+          'Cadastro manual', 'ativo', FALSE, $5)
       `,
       [
         'Nome preservado',
         PREFIXO_TELEFONE + '020',
         'Bangu',
         'Educação',
-        origemLegada.rows[0].id
+        origemExistente.rows[0].id
       ]
     );
     const complemento = criarDados('020', {
@@ -269,7 +269,7 @@ async function executar() {
     assert.deepStrictEqual(legadosDepois.rows, legadosAntes.rows);
 
     console.log('Cadastro público: 27 verificações aprovadas.');
-    console.log('Legados preservados: ' + legadosDepois.rowCount + ' registros.');
+    console.log('Consentimentos anteriores preservados: ' + legadosDepois.rowCount + ' registros.');
     console.log('Rollback: contato inválido não persistido.');
   } finally {
     if (servidor) {

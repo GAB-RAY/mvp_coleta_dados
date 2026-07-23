@@ -9,6 +9,9 @@ const origemRoutes = require('./modules/origens/origemRoutes');
 const importacaoRoutes = require('./modules/importacoes/importacaoRoutes');
 const relatorioRoutes = require('./modules/relatorios/relatorioRoutes');
 const usuarioRoutes = require('./modules/usuarios/usuarioRoutes');
+const eventoRoutes = require('./modules/eventos/eventoRoutes');
+const solicitacaoExclusaoRoutes = require('./modules/exclusoes/solicitacaoExclusaoRoutes');
+const backupRoutes = require('./modules/backups/backupRoutes');
 const autenticarUsuario = require('./middlewares/autenticarUsuario');
 const rotaNaoEncontrada = require('./middlewares/rotaNaoEncontrada');
 const tratarErro = require('./middlewares/tratarErro');
@@ -22,7 +25,10 @@ if (Number.isInteger(saltosProxy) && saltosProxy > 0) {
 }
 
 aplicacao.use(helmet());
-aplicacao.use(cors({ origin: process.env.FRONTEND_URL }));
+aplicacao.use(cors({
+  origin: process.env.FRONTEND_URL,
+  exposedHeaders: ['Content-Disposition', 'X-Backup-SHA256']
+}));
 aplicacao.use(express.json());
 aplicacao.use('/api', testeRoutes);
 aplicacao.use('/api/publico/contatos', contatoPublicoRoutes);
@@ -33,6 +39,9 @@ aplicacao.use('/api/admin/origens', origemRoutes);
 aplicacao.use('/api/admin/importacoes', importacaoRoutes);
 aplicacao.use('/api/admin/relatorios', relatorioRoutes);
 aplicacao.use('/api/admin/usuarios', usuarioRoutes);
+aplicacao.use('/api/admin/eventos', eventoRoutes);
+aplicacao.use('/api/admin/solicitacoes-exclusao', solicitacaoExclusaoRoutes);
+aplicacao.use('/api/admin/backups', backupRoutes);
 aplicacao.use(rotaNaoEncontrada);
 aplicacao.use(tratarErro);
 

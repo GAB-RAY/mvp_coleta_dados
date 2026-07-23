@@ -1,8 +1,10 @@
 const contatoModel = require('./contatoModel');
+const solicitacaoExclusaoService = require('../exclusoes/solicitacaoExclusaoService');
 const criarAppError = require('../../utils/AppError');
 const normalizarTelefone = require('../../utils/normalizarTelefone');
 const categoriasProblema = require('../../config/categoriasProblema');
 const bairroService = require('../bairros/bairroService');
+const eventoModel = require('../eventos/eventoModel');
 
 function validarCampoTexto(valor, nomeCampo, tamanhoMinimo, tamanhoMaximo) {
   if (typeof valor !== 'string' || valor.trim() === '') {
@@ -202,20 +204,43 @@ function transformarContatoParaResposta(contato) {
           nome: contato.exclusao_solicitada_por_usuario_nome || null
         }
       : null,
-    criadoEm: contato.criado_em
+    criadoEm: contato.criado_em,
+    eventos: Array.isArray(contato.eventos_vinculados)
+      ? contato.eventos_vinculados.map(function (evento) {
+          return {
+            id: evento.id,
+            nome: evento.nome,
+            cadastradoEm: evento.cadastrado_em
+          };
+        })
+      : []
   };
 }
 
 async function cadastrarContato(dadosRecebidos) {
   const dadosDoContato = await validarDadosDoContato(dadosRecebidos);
 
-  await contatoModel.salvarCadastroPublico(dadosDoContato);
+  return contatoModel.salvarCadastroPublico(dadosDoContato);
 }
 
 async function listarOpcoesFormulario() {
+  const eventoAtivo = await eventoModel.buscarAtivo();
+
   return {
     bairros: await bairroService.listarNomesAtivos(),
-    categoriasProblema: categoriasProblema.slice()
+    categoriasProblema: categoriasProblema.slice(),
+    eventoAtivo: eventoAtivo
+      ? {
+          id: eventoAtivo.id,
+          nome: eventoAtivo.nome,
+          motivo: eventoAtivo.motivo,
+          dataInicial: eventoAtivo.data_inicial,
+          dataFinal: eventoAtivo.data_final
+        }
+      : null,
+    contextoCadastro: eventoAtivo
+      ? 'Este cadastro será vinculado ao evento ' + eventoAtivo.nome + '.'
+      : 'Cadastro geral do projeto A Voz do Bairro, sem vínculo com evento.'
   };
 }
 
@@ -445,7 +470,24 @@ function prepararFiltros(parametrosRecebidos) {
     'ordenacao',
     ['mais_recentes', 'mais_antigos', 'nome_asc', 'nome_desc']
   );
+  let eventoId = '';
   let telefone = '';
+
+  if (parametrosRecebidos.eventoId === 'sem_evento') {
+    eventoId = 'sem_evento';
+  } else if (
+    parametrosRecebidos.eventoId !== undefined &&
+    parametrosRecebidos.eventoId !== null &&
+    parametrosRecebidos.eventoId !== ''
+  ) {
+    const eventoRecebido = Number(parametrosRecebidos.eventoId);
+
+    if (!Number.isInteger(eventoRecebido) || eventoRecebido < 1) {
+      throw criarAppError('O filtro eventoId é inválido.', 400);
+    }
+
+    eventoId = eventoRecebido;
+  }
 
   if (idadeMinima !== null && idadeMaxima !== null && idadeMinima > idadeMaxima) {
     throw criarAppError('A idade mínima não pode ser maior que a idade máxima.', 400);
@@ -479,7 +521,8 @@ function prepararFiltros(parametrosRecebidos) {
     autorizacaoLigacoes,
     dataInicial,
     dataFinal,
-    ordenacao
+    ordenacao,
+    eventoId
   };
 }
 
@@ -498,7 +541,8 @@ function transformarConsentimento(consentimento) {
     criadoEm: consentimento.criado_em,
     revogadoEm: consentimento.revogado_em,
     registradoPor: consentimento.registrado_por_usuario_nome || null,
-    motivoRevogacao: consentimento.motivo_revogacao || null
+    motivoRevogacao: consentimento.motivo_revogacao || null,
+    registroAnteriorId: consentimento.registro_anterior_id || null
   };
 }
 
@@ -555,16 +599,9 @@ async function revogarConsentimentos(idRecebido, dadosRecebidos, usuario) {
   return resultado;
 }
 
-async function solicitarExclusao(idRecebido, usuario) {
+async function solicitarExclusao(idRecebido, dadosRecebidos, usuario) {
   validarUsuarioResponsavel(usuario);
-  const id = validarIdentificadorContato(idRecebido);
-  const resultado = await contatoModel.solicitarExclusao(id, usuario.id);
-
-  if (!resultado) {
-    throw criarAppError('Contato não encontrado.', 404);
-  }
-
-  return resultado;
+  return solicitacaoExclusaoService.solicitar(idRecebido, dadosRecebidos, usuario);
 }
 
 async function detalharContato(idRecebido) {
@@ -641,12 +678,12 @@ async function listarContatos(parametrosRecebidos) {
   };
 }
 
-async function listarContatosParaRelatorio(parametrosRecebidos) {
+async function listarContatosParaRelatorio(parametrosRecebidos, limite) {
   const filtros = prepararFiltros(parametrosRecebidos || {});
   const contatosEncontrados = await contatoModel.listar(
     filtros,
     1,
-    2147483647
+    limite
   );
 
   return contatosEncontrados.map(function (contato) {

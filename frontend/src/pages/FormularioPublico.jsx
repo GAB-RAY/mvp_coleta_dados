@@ -77,6 +77,7 @@ function FormularioPublico() {
   const [bairros, setBairros] = useState([]);
   const [categoriasProblema, setCategoriasProblema] = useState([]);
   const [carregandoOpcoes, setCarregandoOpcoes] = useState(true);
+  const [contextoCadastro, setContextoCadastro] = useState('');
 
   useEffect(function () {
     let paginaAtiva = true;
@@ -100,6 +101,7 @@ function FormularioPublico() {
         if (paginaAtiva) {
           setBairros(bairrosRecebidos);
           setCategoriasProblema(categoriasRecebidas);
+          setContextoCadastro(resposta.contextoCadastro || 'Cadastro geral do projeto A Voz do Bairro.');
         }
       } catch (erro) {
         if (paginaAtiva) {
@@ -208,6 +210,10 @@ function FormularioPublico() {
             as demandas dos bairros do Rio de Janeiro.
           </p>
         </div>
+
+        {contextoCadastro && (
+          <p className="contexto-cadastro-publico">{contextoCadastro}</p>
+        )}
 
         <MensagemRetorno mensagem={mensagem} tipo={tipoMensagem} />
 

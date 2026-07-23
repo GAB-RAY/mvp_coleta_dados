@@ -11,6 +11,9 @@ import Relatorios from './pages/Relatorios';
 import DashboardAdministrativo from './pages/DashboardAdministrativo';
 import UsuariosAdministrativos from './pages/UsuariosAdministrativos';
 import PaginaNaoEncontrada from './pages/PaginaNaoEncontrada';
+import EventosAdministrativos from './pages/EventosAdministrativos';
+import SolicitacoesExclusao from './pages/SolicitacoesExclusao';
+import BackupsAdministrativos from './pages/BackupsAdministrativos';
 
 function App() {
   return (
@@ -28,6 +31,9 @@ function App() {
         <Route path="/admin/relatorios" element={<Relatorios />} />
         <Route element={<RotaAdministrador />}>
           <Route path="/admin/usuarios" element={<UsuariosAdministrativos />} />
+          <Route path="/admin/eventos" element={<EventosAdministrativos />} />
+          <Route path="/admin/solicitacoes-exclusao" element={<SolicitacoesExclusao />} />
+          <Route path="/admin/backups" element={<BackupsAdministrativos />} />
         </Route>
       </Route>
 

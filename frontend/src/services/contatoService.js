@@ -80,6 +80,10 @@ async function listarContatos(filtros, pagina, limite, sinal) {
     parametros.set('ordenacao', filtros.ordenacao);
   }
 
+  if (filtros.eventoId) {
+    parametros.set('eventoId', filtros.eventoId);
+  }
+
   parametros.set('pagina', String(pagina));
   parametros.set('limite', String(limite));
 

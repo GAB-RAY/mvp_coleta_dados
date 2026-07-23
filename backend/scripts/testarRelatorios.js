@@ -3,6 +3,7 @@ require('dotenv').config({ quiet: true });
 const assert = require('assert');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const ExcelJS = require('exceljs');
 const aplicacao = require('../src/app');
 const banco = require('../src/config/banco');
 
@@ -88,16 +89,54 @@ async function executar() {
       baseUrl + '/api/admin/relatorios/exportar.csv?telefone=' + TELEFONE,
       { headers: cabecalhos }
     );
-    assert.strictEqual(respostaCsv.status, 200);
-    assert.ok(respostaCsv.headers.get('content-type').includes('text/csv'));
-    const csv = await respostaCsv.text();
+    assert.strictEqual(respostaCsv.status, 403);
+    const respostaExcelOperador = await fetch(
+      baseUrl + '/api/admin/relatorios/exportar.xlsx?telefone=' + TELEFONE,
+      { headers: cabecalhos }
+    );
+    assert.strictEqual(respostaExcelOperador.status, 403);
+    await banco.query('UPDATE usuarios SET perfil = \'administrador\' WHERE id = $1', [usuario.rows[0].id]);
+    const tokenAdministrador = jwt.sign(
+      Object.assign({}, usuario.rows[0], { perfil: 'administrador' }),
+      process.env.JWT_SECRET || process.env.JWT_SEGREDO,
+      { expiresIn: '10m' }
+    );
+    const respostaCsvAdministrador = await fetch(
+      baseUrl + '/api/admin/relatorios/exportar.csv?telefone=' + TELEFONE,
+      { headers: { Authorization: 'Bearer ' + tokenAdministrador } }
+    );
+    assert.strictEqual(respostaCsvAdministrador.status, 200);
+    assert.ok(respostaCsvAdministrador.headers.get('content-type').includes('text/csv'));
+    assert.match(
+      respostaCsvAdministrador.headers.get('content-disposition') || '',
+      /^attachment; filename="a-voz-do-bairro-contatos-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.csv"$/
+    );
+    const csv = await respostaCsvAdministrador.text();
     assert.ok(csv.includes('Relatório Teste'));
     assert.ok(csv.includes(TELEFONE));
     assert.ok(csv.includes('autorizado'));
     assert.strictEqual(csv.includes('telefone_normalizado'), false);
 
-    console.log('Relatórios: 15 verificações aprovadas.');
-    console.log('Agregações filtradas e exportação CSV autenticada aprovadas.');
+    const respostaExcel = await fetch(
+      baseUrl + '/api/admin/relatorios/exportar.xlsx?telefone=' + TELEFONE,
+      { headers: { Authorization: 'Bearer ' + tokenAdministrador } }
+    );
+    assert.strictEqual(respostaExcel.status, 200);
+    assert.ok(respostaExcel.headers.get('content-type').includes('spreadsheetml.sheet'));
+    assert.match(
+      respostaExcel.headers.get('content-disposition') || '',
+      /^attachment; filename="a-voz-do-bairro-contatos-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.xlsx"$/
+    );
+    const pasta = new ExcelJS.Workbook();
+    await pasta.xlsx.load(Buffer.from(await respostaExcel.arrayBuffer()));
+    const planilha = pasta.getWorksheet('Contatos');
+    assert.ok(planilha, 'A planilha Contatos não foi encontrada.');
+    assert.strictEqual(planilha.rowCount, 2);
+    assert.strictEqual(planilha.getCell('B2').value, 'Relatório Teste');
+    assert.strictEqual(planilha.getCell('C2').value, TELEFONE);
+
+    console.log('Relatórios: 23 verificações aprovadas.');
+    console.log('Agregações e exportações CSV/XLSX autenticadas aprovadas.');
   } finally {
     if (servidor) {
       await new Promise(function (resolver) { servidor.close(resolver); });

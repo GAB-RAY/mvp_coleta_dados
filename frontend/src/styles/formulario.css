@@ -577,3 +577,13 @@
     padding-bottom: 1.5rem;
   }
 }
+.contexto-cadastro-publico {
+  margin: 0 0 1rem;
+  border-left: 4px solid #ff5c00;
+  border-radius: 0 6px 6px 0;
+  padding: 0.7rem 0.85rem;
+  background: #fff4ed;
+  color: #71300c;
+  font-size: 0.9rem;
+  font-weight: 650;
+}

@@ -55,14 +55,12 @@ async function criarContato(cliente, origemId, usuarioId, telefone, opcoes) {
         idade,
         bloqueado_para_mensagens,
         bloqueado_para_ligacoes,
-        bloqueado_para_campanhas,
-        exclusao_solicitada_em,
-        exclusao_solicitada_por_usuario_id
+        bloqueado_para_campanhas
       )
         VALUES (
         $1, $2, $2, 'Vila Kennedy', 'Saúde', TRUE, FALSE,
         CURRENT_TIMESTAMP, 'Cadastro manual', 'teste', $3, 30,
-        $4, FALSE, $5, $6, $7
+        $4, FALSE, $5
       )
       RETURNING id
     `,
@@ -71,13 +69,22 @@ async function criarContato(cliente, origemId, usuarioId, telefone, opcoes) {
       telefone,
       origemId,
       configuracao.bloqueadoParaMensagens === true,
-      configuracao.bloqueadoParaCampanhas === true,
-      configuracao.exclusaoSolicitada === true ? new Date() : null,
-      configuracao.exclusaoSolicitada === true ? usuarioId : null
+      configuracao.bloqueadoParaCampanhas === true
     ]
   );
 
-  return resultado.rows[0].id;
+  const contatoId = resultado.rows[0].id;
+
+  if (configuracao.exclusaoSolicitada === true) {
+    await cliente.query(
+      `INSERT INTO solicitacoes_exclusao (
+        contato_id, contato_id_original, solicitada_por_usuario_id
+      ) VALUES ($1, $1, $2)`,
+      [contatoId, usuarioId]
+    );
+  }
+
+  return contatoId;
 }
 
 async function registrarConsentimentoMensagens(cliente, contatoId, origemId, usuarioId, estado) {
@@ -87,6 +94,7 @@ async function registrarConsentimentoMensagens(cliente, contatoId, origemId, usu
     `
       INSERT INTO consentimentos (
         contato_id,
+        contato_id_original,
         tipo,
         resposta,
         texto_apresentado,
@@ -98,7 +106,7 @@ async function registrarConsentimentoMensagens(cliente, contatoId, origemId, usu
         origem_id
       )
       VALUES (
-        $1, 'mensagens', $2,
+        $1, $1, 'mensagens', $2,
         'Texto técnico de consentimento utilizado somente pelo teste estrutural.',
         'teste_v1', 'cadastro_manual', 'resposta_expressa', $3, $4, $5
       )
@@ -110,19 +118,24 @@ async function registrarConsentimentoMensagens(cliente, contatoId, origemId, usu
 async function validarCatalogo(cliente) {
   const tabelasEsperadas = [
     'aceites_privacidade',
+    'backups_banco',
     'bairros',
     'campanha_contatos',
     'campanhas',
     'consentimentos',
+    'contato_eventos',
     'contatos',
     'envios_campanha',
+    'eventos',
     'eventos_manychat',
     'historico_contatos',
+    'historico_eventos',
     'importacao_linhas',
     'importacoes',
     'origens',
     'respostas_campanha',
     'sincronizacoes_manychat',
+    'solicitacoes_exclusao',
     'tentativas_login',
     'textos_formulario',
     'usuarios'
@@ -207,7 +220,7 @@ async function validarCatalogo(cliente) {
     return linha.tgname;
   });
 
-  verificar(nomesGatilhos.length === 10, 'A quantidade de triggers é diferente da esperada.');
+  verificar(nomesGatilhos.length === 11, 'A quantidade de triggers é diferente da esperada.');
   verificar(
     nomesGatilhos.includes('bairros_atualizar_data'),
     'O trigger de atualização do catálogo de bairros não existe.'
@@ -232,7 +245,7 @@ async function validarCatalogo(cliente) {
   );
 
   verificar(configuracoes.rows[0].bairros === 166, 'Os 166 bairros ativos não existem.');
-  verificar(configuracoes.rows[0].origens === 3, 'As três origens iniciais não existem.');
+  verificar(configuracoes.rows[0].origens === 2, 'As duas origens iniciais não existem.');
   verificar(configuracoes.rows[0].textos === 3, 'Os três textos ativos não existem.');
   verificar(
     configuracoes.rows[0].sem_ledger_antigo === true,

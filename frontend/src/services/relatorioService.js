@@ -1,6 +1,12 @@
 import requisitar from './api';
 import { obterToken } from '../utils/armazenamentoToken';
 
+function obterNomeArquivo(resposta, nomePadrao) {
+  const disposicao = resposta.headers.get('Content-Disposition') || '';
+  const resultado = disposicao.match(/filename="?([^";]+)"?/i);
+  return resultado ? resultado[1] : nomePadrao;
+}
+
 function criarParametros(filtros) {
   const parametros = new URLSearchParams();
 
@@ -22,25 +28,40 @@ async function buscarResumo(filtros, sinal) {
   });
 }
 
-async function baixarCsv(filtros) {
+async function baixarArquivo(filtros, formato) {
   const urlBase = import.meta.env.VITE_API_URL.replace(/\/+$/, '');
   const resposta = await fetch(
-    urlBase + '/api/admin/relatorios/exportar.csv?' + criarParametros(filtros),
+    urlBase + '/api/admin/relatorios/exportar.' + formato + '?' + criarParametros(filtros),
     {
       headers: { Authorization: 'Bearer ' + obterToken() }
     }
   );
 
   if (!resposta.ok) {
-    const erro = new Error('Não foi possível exportar o relatório.');
+    const erro = new Error('Não foi possível exportar o relatório em ' + formato.toUpperCase() + '.');
     erro.statusHttp = resposta.status;
     throw erro;
   }
 
-  return resposta.blob();
+  return {
+    arquivo: await resposta.blob(),
+    nomeArquivo: obterNomeArquivo(
+      resposta,
+      'a-voz-do-bairro-contatos.' + formato
+    )
+  };
+}
+
+async function baixarCsv(filtros) {
+  return baixarArquivo(filtros, 'csv');
+}
+
+async function baixarExcel(filtros) {
+  return baixarArquivo(filtros, 'xlsx');
 }
 
 export {
   baixarCsv,
+  baixarExcel,
   buscarResumo
 };

@@ -109,14 +109,14 @@ async function criarContatoImportado(cliente, dados, origem) {
         consentimento_armazenamento_em, consentimento_mensagens_em,
         consentimento_tratamento_dados, consentimento_whatsapp,
         consentimento_ligacoes, origem_atual, status_contato,
-        bloqueado_para_mensagens, excluido_logicamente, atualizado_em,
+        bloqueado_para_mensagens, atualizado_em,
         origem_id, idade, descricao_problema, participou_eleicao_anterior
       )
       VALUES (
         $1, $2, $3, $4, $5,
         TRUE, FALSE, CURRENT_TIMESTAMP, NULL,
         NULL, NULL, NULL, $6, 'importado',
-        FALSE, FALSE, CURRENT_TIMESTAMP,
+        FALSE, CURRENT_TIMESTAMP,
         $7, $8, $9, $10
       )
       ON CONFLICT (telefone_normalizado) DO NOTHING

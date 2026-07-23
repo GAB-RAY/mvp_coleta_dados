@@ -193,6 +193,7 @@ function DetalhesContato() {
                 <div><dt>Descrição</dt><dd>{formatarValor(dados.contato.descricaoProblema)}</dd></div>
                 <div><dt>Votou na última eleição</dt><dd>{formatarValor(dados.contato.participouEleicaoAnterior)}</dd></div>
                 <div><dt>Origem</dt><dd>{formatarValor(dados.contato.origemAtual)}</dd></div>
+                <div><dt>Evento(s)</dt><dd>{dados.contato.eventos && dados.contato.eventos.length > 0 ? dados.contato.eventos.map(function (evento) { return evento.nome + ' (' + formatarData(evento.cadastradoEm) + ')'; }).join(', ') : 'Cadastro geral, sem evento'}</dd></div>
                 <div><dt>Status</dt><dd>{formatarValor(dados.contato.statusContato)}</dd></div>
                 <div><dt>Cadastrado em</dt><dd>{formatarData(dados.contato.criadoEm)}</dd></div>
               </dl>

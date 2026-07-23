@@ -1,0 +1,84 @@
+require('dotenv').config({ quiet: true });
+
+const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
+const pg = require('pg');
+
+const NOME_BANCO = 'criar_banco_schema_teste_' + process.pid;
+
+function criarConfiguracao(nomeBanco) {
+  if (process.env.DATABASE_URL) {
+    const endereco = new URL(process.env.DATABASE_URL);
+    endereco.pathname = '/' + nomeBanco;
+    return { connectionString: endereco.toString() };
+  }
+  return {
+    host: process.env.BANCO_HOST,
+    port: Number(process.env.BANCO_PORTA) || 5432,
+    user: process.env.BANCO_USUARIO,
+    password: process.env.BANCO_SENHA,
+    database: nomeBanco,
+    ssl: process.env.BANCO_SSL === 'true'
+  };
+}
+
+async function removerBanco(cliente) {
+  await cliente.query(
+    'SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1',
+    [NOME_BANCO]
+  );
+  await cliente.query('DROP DATABASE IF EXISTS "' + NOME_BANCO + '"');
+}
+
+async function executar() {
+  const administracao = new pg.Client(criarConfiguracao('postgres'));
+  let bancoTeste;
+  let administracaoConectada = false;
+
+  try {
+    await administracao.connect();
+    administracaoConectada = true;
+    await removerBanco(administracao);
+    await administracao.query('CREATE DATABASE "' + NOME_BANCO + '"');
+
+    bancoTeste = new pg.Client(criarConfiguracao(NOME_BANCO));
+    await bancoTeste.connect();
+    const schema = fs.readFileSync(
+      path.join(__dirname, '..', 'database', 'criar_banco.sql'),
+      'utf8'
+    );
+    await bancoTeste.query(schema);
+    const resultado = await bancoTeste.query(
+      `SELECT
+        (SELECT COUNT(*)::integer FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE') AS tabelas,
+        (SELECT COUNT(*)::integer FROM bairros WHERE ativo = TRUE) AS bairros,
+        (SELECT COUNT(*)::integer FROM origens WHERE ativa = TRUE) AS origens,
+        (SELECT COUNT(*)::integer FROM textos_formulario WHERE ativo = TRUE) AS textos,
+        (SELECT COUNT(*)::integer FROM usuarios) AS usuarios,
+        (SELECT COUNT(*)::integer FROM contatos) AS contatos`
+    );
+    assert.deepStrictEqual(resultado.rows[0], {
+      tabelas: 22,
+      bairros: 166,
+      origens: 2,
+      textos: 3,
+      usuarios: 0,
+      contatos: 0
+    });
+    console.log('Schema final validado em banco vazio: 22 tabelas e 166 bairros.');
+  } finally {
+    if (bancoTeste) {
+      await bancoTeste.end();
+    }
+    if (administracaoConectada) {
+      await removerBanco(administracao);
+      await administracao.end();
+    }
+  }
+}
+
+executar().catch(function (erro) {
+  console.error(erro.stack || erro.message);
+  process.exitCode = 1;
+});

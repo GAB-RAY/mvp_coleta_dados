@@ -8,7 +8,8 @@ async function registrarRespostaSeDiferente(cliente, contatoId, autorizacao) {
       canal,
       origem_id,
       estado,
-      motivo_revogacao
+      motivo_revogacao,
+      registro_anterior_id
     FROM consentimentos
     WHERE contato_id = $1
       AND tipo = $2
@@ -52,6 +53,7 @@ async function registrarRespostaSeDiferente(cliente, contatoId, autorizacao) {
   const consultaInsercao = `
     INSERT INTO consentimentos (
       contato_id,
+      contato_id_original,
       tipo,
       resposta,
       texto_apresentado,
@@ -62,9 +64,10 @@ async function registrarRespostaSeDiferente(cliente, contatoId, autorizacao) {
       ativo,
       estado,
       origem_id,
-      motivo_revogacao
+      motivo_revogacao,
+      registro_anterior_id
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE, $9, $10, $11)
+    VALUES ($1, $1, $2, $3, $4, $5, $6, $7, $8, TRUE, $9, $10, $11, $12)
     RETURNING id
   `;
   const valores = [
@@ -78,7 +81,8 @@ async function registrarRespostaSeDiferente(cliente, contatoId, autorizacao) {
     autorizacao.registradoPorUsuarioId,
     autorizacao.estado,
     autorizacao.origemId,
-    autorizacao.motivoRevogacao || null
+    autorizacao.motivoRevogacao || null,
+    atual ? atual.id : null
   ];
   const resultado = await cliente.query(consultaInsercao, valores);
 

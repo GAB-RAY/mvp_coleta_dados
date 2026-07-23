@@ -5,9 +5,10 @@
   "description": "Backend do MVP de coleta de dados",
   "main": "src/server.js",
   "scripts": {
-    "test": "npm run testar:banco && npm run testar:publico && npm run testar:admin && npm run testar:manual && npm run testar:importacoes && npm run testar:relatorios && npm run testar:seguranca && npm run testar:privacidade",
+    "test": "npm run testar:banco && npm run testar:publico && npm run testar:admin && npm run testar:manual && npm run testar:importacoes && npm run testar:relatorios && npm run testar:seguranca && npm run testar:privacidade && npm run testar:eventos-exclusoes && npm run testar:backups",
     "start": "node src/server.js",
     "criar-admin": "node scripts/criarAdministrador.js",
+    "banco:sincronizar-sequencias": "node scripts/sincronizarSequencias.js",
     "testar:banco": "node scripts/testarEstruturaBanco.js",
     "testar:publico": "node scripts/testarCadastroPublico.js",
     "testar:admin": "node scripts/testarAdministracao.js",
@@ -15,7 +16,10 @@
     "testar:importacoes": "node scripts/testarImportacoes.js",
     "testar:relatorios": "node scripts/testarRelatorios.js",
     "testar:seguranca": "node scripts/testarSegurancaUsuarios.js",
-    "testar:privacidade": "node scripts/testarPrivacidadeAdministrativa.js"
+    "testar:privacidade": "node scripts/testarPrivacidadeAdministrativa.js",
+    "testar:eventos-exclusoes": "node scripts/testarEventosExclusoes.js",
+    "testar:backups": "node scripts/testarBackups.js",
+    "testar:schema-vazio": "node scripts/testarSchemaVazio.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",

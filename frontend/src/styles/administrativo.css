@@ -1672,3 +1672,11 @@
     animation-duration: 1.5s;
   }
 }
+.texto-hash-backup {
+  max-width: 18rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: Consolas, monospace;
+  font-size: 0.72rem;
+}

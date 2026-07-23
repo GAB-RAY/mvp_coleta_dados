@@ -3,6 +3,7 @@ const consentimentoModel = require('./consentimentoModel');
 const aceitePrivacidadeModel = require('./aceitePrivacidadeModel');
 const historicoContatoModel = require('./historicoContatoModel');
 const textoFormularioModel = require('./textoFormularioModel');
+const eventoModel = require('../eventos/eventoModel');
 
 async function buscarOrigemFormularioPublico(cliente) {
   const resultado = await cliente.query(
@@ -47,7 +48,6 @@ async function criarContatoPublico(cliente, dadosDoContato, origem) {
       origem_atual,
       status_contato,
       bloqueado_para_mensagens,
-      excluido_logicamente,
       atualizado_em,
       origem_id,
       idade,
@@ -57,7 +57,7 @@ async function criarContatoPublico(cliente, dadosDoContato, origem) {
       $1, $2, $3, $4, $5,
       TRUE, FALSE, CURRENT_TIMESTAMP, NULL,
       NULL, NULL, NULL, NULL,
-      $6, 'ativo', FALSE, FALSE, CURRENT_TIMESTAMP,
+      $6, 'ativo', FALSE, CURRENT_TIMESTAMP,
       $7, $8, $9
     )
     ON CONFLICT (telefone_normalizado) DO NOTHING
@@ -210,6 +210,7 @@ async function salvarCadastroPublico(dadosDoContato) {
     await cliente.query('BEGIN');
     const origem = await buscarOrigemFormularioPublico(cliente);
     const textos = await textoFormularioModel.buscarAtivos(cliente);
+    const eventoAtivo = await eventoModel.buscarAtivo(cliente);
 
     if (!textos.aviso_privacidade || !textos.mensagens || !textos.ligacoes) {
       throw new Error('Os textos ativos do formulário não estão completos.');
@@ -246,11 +247,23 @@ async function salvarCadastroPublico(dadosDoContato) {
       textos
     );
 
+    if (eventoAtivo) {
+      await cliente.query(
+        `
+          INSERT INTO contato_eventos (contato_id, evento_id)
+          VALUES ($1, $2)
+          ON CONFLICT (contato_id, evento_id) DO NOTHING
+        `,
+        [contato.id, eventoAtivo.id]
+      );
+    }
+
     await cliente.query('COMMIT');
 
     return {
       contatoCriado,
-      camposComplementados
+      camposComplementados,
+      eventoAtivo
     };
   } catch (erro) {
     await cliente.query('ROLLBACK');
@@ -278,14 +291,14 @@ async function criarContatoManual(cliente, dadosDoContato, origem) {
         consentimento_armazenamento_em, consentimento_mensagens_em,
         consentimento_tratamento_dados, consentimento_whatsapp,
         consentimento_ligacoes, origem_atual, status_contato,
-        bloqueado_para_mensagens, excluido_logicamente, atualizado_em,
+        bloqueado_para_mensagens, atualizado_em,
         origem_id, idade, descricao_problema, participou_eleicao_anterior
       )
       VALUES (
         $1, $2, $3, $4, $5,
         TRUE, FALSE, CURRENT_TIMESTAMP, NULL,
         NULL, NULL, NULL, $6, $7,
-        FALSE, FALSE, CURRENT_TIMESTAMP,
+        FALSE, CURRENT_TIMESTAMP,
         $8, $9, $10, $11
       )
       ON CONFLICT (telefone_normalizado) DO NOTHING
@@ -643,98 +656,6 @@ async function revogarConsentimentos(contatoId, tipos, motivo, usuarioId) {
   }
 }
 
-async function solicitarExclusao(contatoId, usuarioId) {
-  const cliente = await banco.connect();
-
-  try {
-    await cliente.query('BEGIN');
-    const resultadoContato = await cliente.query(
-      `
-        SELECT
-          id,
-          origem_id,
-          bloqueado_para_mensagens,
-          bloqueado_para_ligacoes,
-          bloqueado_para_campanhas,
-          exclusao_solicitada_em,
-          exclusao_solicitada_por_usuario_id
-        FROM contatos
-        WHERE id = $1
-        FOR UPDATE
-      `,
-      [contatoId]
-    );
-    const contato = resultadoContato.rows[0];
-
-    if (!contato) {
-      await cliente.query('ROLLBACK');
-      return null;
-    }
-
-    if (contato.exclusao_solicitada_em) {
-      await cliente.query('COMMIT');
-
-      return {
-        alterado: false,
-        solicitadaEm: contato.exclusao_solicitada_em,
-        solicitadaPorUsuarioId: contato.exclusao_solicitada_por_usuario_id
-      };
-    }
-
-    const resultadoAtualizacao = await cliente.query(
-      `
-        UPDATE contatos
-        SET bloqueado_para_mensagens = TRUE,
-            bloqueado_para_ligacoes = TRUE,
-            bloqueado_para_campanhas = TRUE,
-            exclusao_solicitada_em = CURRENT_TIMESTAMP,
-            exclusao_solicitada_por_usuario_id = $2,
-            atualizado_em = CURRENT_TIMESTAMP
-        WHERE id = $1
-        RETURNING
-          bloqueado_para_mensagens,
-          bloqueado_para_ligacoes,
-          bloqueado_para_campanhas,
-          exclusao_solicitada_em,
-          exclusao_solicitada_por_usuario_id
-      `,
-      [contatoId, usuarioId]
-    );
-    const contatoAtualizado = resultadoAtualizacao.rows[0];
-
-    await historicoContatoModel.registrar(cliente, contatoId, {
-      tipoEvento: 'solicitacao_exclusao',
-      dadosAnteriores: {
-        bloqueadoParaMensagens: contato.bloqueado_para_mensagens,
-        bloqueadoParaLigacoes: contato.bloqueado_para_ligacoes,
-        bloqueadoParaCampanhas: contato.bloqueado_para_campanhas,
-        exclusaoSolicitadaEm: contato.exclusao_solicitada_em
-      },
-      dadosNovos: {
-        bloqueadoParaMensagens: contatoAtualizado.bloqueado_para_mensagens,
-        bloqueadoParaLigacoes: contatoAtualizado.bloqueado_para_ligacoes,
-        bloqueadoParaCampanhas: contatoAtualizado.bloqueado_para_campanhas,
-        exclusaoSolicitadaEm: contatoAtualizado.exclusao_solicitada_em
-      },
-      origemId: contato.origem_id,
-      registradoPorUsuarioId: usuarioId
-    });
-
-    await cliente.query('COMMIT');
-
-    return {
-      alterado: true,
-      solicitadaEm: contatoAtualizado.exclusao_solicitada_em,
-      solicitadaPorUsuarioId: contatoAtualizado.exclusao_solicitada_por_usuario_id
-    };
-  } catch (erro) {
-    await cliente.query('ROLLBACK');
-    throw erro;
-  } finally {
-    cliente.release();
-  }
-}
-
 function construirFiltros(filtros) {
   const condicoes = [];
   const valores = [];
@@ -844,6 +765,24 @@ function construirFiltros(filtros) {
     );
   }
 
+  if (filtros.eventoId === 'sem_evento') {
+    condicoes.push(`
+      NOT EXISTS (
+        SELECT 1 FROM contato_eventos AS contato_evento_filtro
+        WHERE contato_evento_filtro.contato_id = contato.id
+      )
+    `);
+  } else if (filtros.eventoId) {
+    valores.push(filtros.eventoId);
+    condicoes.push(`
+      EXISTS (
+        SELECT 1 FROM contato_eventos AS contato_evento_filtro
+        WHERE contato_evento_filtro.contato_id = contato.id
+          AND contato_evento_filtro.evento_id = $${valores.length}
+      )
+    `);
+  }
+
   const clausulaWhere = condicoes.length > 0
     ? 'WHERE ' + condicoes.join(' AND ')
     : '';
@@ -889,10 +828,22 @@ async function listar(filtros, pagina, limite) {
       contato.bloqueado_para_mensagens,
       contato.bloqueado_para_ligacoes,
       contato.bloqueado_para_campanhas,
-      contato.exclusao_solicitada_em,
-      contato.exclusao_solicitada_por_usuario_id,
+      solicitacao_pendente.solicitada_em AS exclusao_solicitada_em,
+      solicitacao_pendente.solicitada_por_usuario_id AS exclusao_solicitada_por_usuario_id,
       contato.criado_em,
       COALESCE(origem.nome, contato.origem_atual) AS origem_nome,
+      COALESCE((
+        SELECT JSONB_AGG(
+          JSONB_BUILD_OBJECT(
+            'id', evento.id,
+            'nome', evento.nome,
+            'cadastrado_em', contato_evento.cadastrado_em
+          ) ORDER BY contato_evento.cadastrado_em DESC
+        )
+        FROM contato_eventos AS contato_evento
+        INNER JOIN eventos AS evento ON evento.id = contato_evento.evento_id
+        WHERE contato_evento.contato_id = contato.id
+      ), '[]'::jsonb) AS eventos_vinculados,
       COALESCE((
         SELECT consentimento.estado
         FROM consentimentos AS consentimento
@@ -917,6 +868,12 @@ async function listar(filtros, pagina, limite) {
       ) AS aceite_privacidade
     FROM contatos AS contato
     LEFT JOIN origens AS origem ON origem.id = contato.origem_id
+    LEFT JOIN LATERAL (
+      SELECT solicitacao.solicitada_em, solicitacao.solicitada_por_usuario_id
+      FROM solicitacoes_exclusao AS solicitacao
+      WHERE solicitacao.contato_id = contato.id AND solicitacao.status = 'pendente'
+      LIMIT 1
+    ) AS solicitacao_pendente ON TRUE
     ${filtrosSql.clausulaWhere}
     ORDER BY ${ordem}
     LIMIT $${posicaoLimite}
@@ -951,11 +908,31 @@ async function buscarDetalhes(id) {
           COALESCE(origem.nome, contato.origem_atual) AS origem_nome,
           origem.slug AS origem_slug,
           origem.tipo AS origem_tipo,
+          solicitacao_pendente.solicitada_em AS exclusao_solicitada_em,
+          solicitacao_pendente.solicitada_por_usuario_id AS exclusao_solicitada_por_usuario_id,
           usuario_exclusao.nome AS exclusao_solicitada_por_usuario_nome
+          ,COALESCE((
+            SELECT JSONB_AGG(
+              JSONB_BUILD_OBJECT(
+                'id', evento.id,
+                'nome', evento.nome,
+                'cadastrado_em', contato_evento.cadastrado_em
+              ) ORDER BY contato_evento.cadastrado_em DESC
+            )
+            FROM contato_eventos AS contato_evento
+            INNER JOIN eventos AS evento ON evento.id = contato_evento.evento_id
+            WHERE contato_evento.contato_id = contato.id
+          ), '[]'::jsonb) AS eventos_vinculados
         FROM contatos AS contato
         LEFT JOIN origens AS origem ON origem.id = contato.origem_id
+        LEFT JOIN LATERAL (
+          SELECT solicitacao.solicitada_em, solicitacao.solicitada_por_usuario_id
+          FROM solicitacoes_exclusao AS solicitacao
+          WHERE solicitacao.contato_id = contato.id AND solicitacao.status = 'pendente'
+          LIMIT 1
+        ) AS solicitacao_pendente ON TRUE
         LEFT JOIN usuarios AS usuario_exclusao
-          ON usuario_exclusao.id = contato.exclusao_solicitada_por_usuario_id
+          ON usuario_exclusao.id = solicitacao_pendente.solicitada_por_usuario_id
         WHERE contato.id = $1
       `,
       [id]
@@ -975,6 +952,7 @@ async function buscarDetalhes(id) {
           consentimento.criado_em,
           consentimento.revogado_em,
           consentimento.motivo_revogacao,
+          consentimento.registro_anterior_id,
           origem.nome AS origem_nome,
           usuario.nome AS registrado_por_usuario_nome
         FROM consentimentos AS consentimento
@@ -1039,7 +1017,6 @@ module.exports = {
   salvarCadastroPublico,
   salvarCadastroManual,
   revogarConsentimentos,
-  solicitarExclusao,
   listar,
   contar,
   buscarDetalhes

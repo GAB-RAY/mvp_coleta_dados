@@ -1,246 +1,78 @@
-# Frontend — A Voz do Bairro
+# Frontend — Central de Comunicação
 
-Interface React/Vite do formulário público e da administração do projeto. Todas as telas usam a API real; não há dados simulados nem integração com ManyChat ou WhatsApp.
-
-## Tecnologias e dependências
-
-| Dependência | Função |
-| --- | --- |
-| React | Componentes e estado das telas. |
-| React DOM | Renderização no navegador. |
-| React Router DOM | Rotas públicas, protegidas e administrativas. |
-| Vite | Desenvolvimento e build de produção. |
-
-O frontend usa JavaScript, CSS responsivo e a API Fetch nativa. Não usa TypeScript nem dados simulados.
+Interface React/Vite do projeto A Voz do Bairro. O frontend consome somente rotas reais do backend e não usa dados simulados.
 
 ## Instalação
 
-```bash
+```powershell
 npm install
+Copy-Item .env.example .env
+npm run dev
 ```
 
-Crie `.env`:
+Variáveis:
 
 ```env
 VITE_API_URL=http://localhost:3000
 VITE_WHATSAPP_NUMERO=5521999999999
 ```
 
-`VITE_WHATSAPP_NUMERO` deve conter somente o número com código do país e DDD. Não use `+`, espaços, parênteses ou hífen. Quando estiver ausente ou inválido, o link não é exibido. Reinicie o Vite depois de alterar o `.env`.
+O WhatsApp deve conter país, DDD e número, somente com dígitos. Reinicie o Vite após mudar o `.env`. O botão abre `wa.me` em nova aba e não envia o formulário automaticamente.
 
-No backend, mantenha `FRONTEND_URL=http://localhost:5173`. `localhost` e `127.0.0.1` são origens CORS diferentes.
-
-## Executar
-
-```bash
-npm run dev -- --host localhost --port 5173 --strictPort
-```
-
-Acesse `http://localhost:5173/participar`.
-
-Build:
-
-```bash
-npm run build
-```
-
-## Rotas
+## Páginas
 
 | Rota | Acesso | Função |
-| --- | --- | --- |
-| `/` | Público | Redireciona para `/participar`. |
-| `/participar` | Público | Formulário A Voz do Bairro. |
-| `/login` | Público | Login administrativo. |
-| `/admin` | JWT | Visão geral da Central de Comunicação. |
-| `/admin/contatos` | JWT | Listagem, filtros, ordenação e paginação. |
-| `/admin/contatos/novo` | JWT | Cadastro manual ou edição preenchida por query string. |
-| `/admin/contatos/:id` | JWT | Detalhes, históricos, revogações e pedido de exclusão. |
-| `/admin/importacoes` | JWT | Pré-visualização e confirmação CSV/XLSX. |
-| `/admin/relatorios` | JWT | Agregações e exportação CSV. |
-| `/admin/usuarios` | Administrador | Cadastro, listagem e redefinição de senhas da equipe. |
-| `*` | Público | Página não encontrada. |
+|---|---|---|
+| `/participar` | público | Formulário responsivo e contexto do evento ativo ou cadastro geral. |
+| `/login` | público | Login administrativo. |
+| `/admin` | JWT | Visão geral. |
+| `/admin/contatos` | operador/admin | Busca, filtros, evento e paginação. |
+| `/admin/contatos/:id` | operador/admin | Dados, eventos, histórico, revogações e pedido de exclusão. |
+| `/admin/contatos/novo` | operador/admin | Cadastro e edição manual. |
+| `/admin/importacoes` | operador/admin | Pré-visualização e confirmação CSV/XLSX. |
+| `/admin/relatorios` | operador/admin | Indicadores e gráficos; CSV e Excel aparecem somente para admin. |
+| `/admin/backups` | admin | Geração, download e histórico auditado de backups do PostgreSQL. |
+| `/admin/eventos` | admin | Criar, editar rascunho, ativar e encerrar eventos. |
+| `/admin/solicitacoes-exclusao` | admin | Aprovar com exclusão física ou rejeitar pedidos. |
+| `/admin/usuarios` | admin | Criar usuários e redefinir senhas. |
 
 ## Formulário público
 
-O layout mantém a identidade **A VOZ DO BAIRRO**, Laranja Neon `#FF5C00`, apresenta Diogo Ventura como responsável e usa uma coluna para preenchimento rápido.
+Campos atuais:
 
-Campos:
-
-- nome completo;
+- nome;
 - telefone;
-- idade obrigatória de 16 a 120;
-- bairro pesquisável, com seleção entre os 166 bairros retornados pelo backend;
-- categoria da principal necessidade;
-- aceite obrigatório do Aviso de Privacidade;
-- autorizações independentes e opcionais para mensagens e ligações.
+- bairro selecionado no catálogo carregado do backend;
+- idade entre 16 e 120;
+- categoria do problema;
+- autorização opcional para mensagens;
+- autorização opcional para ligações;
+- aceite obrigatório do Aviso de Privacidade.
 
-Todos os checkboxes iniciam desmarcados. Autorizações desmarcadas não impedem o envio e não são presumidas como recusa.
+O formulário não exibe descrição do problema nem pergunta eleitoral. O mesmo link é usado sempre. Quando existe evento ativo, a tela informa o vínculo; sem evento, informa que é um cadastro geral do projeto e continua aceitando o envio.
 
-Os bairros e as categorias são carregados de `GET /api/publico/contatos/opcoes`. Não existe lista duplicada no frontend: se o catálogo da API estiver indisponível, o envio fica bloqueado e a tela informa o erro. O backend e o relacionamento no PostgreSQL são as validações definitivas.
+## Painel e permissões
 
-O formulário mostra carregamento, sucesso e erro sem recarregar a página. A mensagem oficial de sucesso vem da API. Para telefone existente, a tela recebe a mesma resposta neutra e não expõe dados anteriores.
+Operadores e administradores podem cadastrar, editar, consultar, revogar consentimentos e solicitar exclusão. Somente administradores veem gestão de eventos, usuários, fila de exclusões e backups. Os botões de exportação CSV e Excel também aparecem somente para administrador.
 
-O botão pequeno “Falar pelo WhatsApp” abre uma conversa em nova aba usando exclusivamente o número configurado em `VITE_WHATSAPP_NUMERO`. Ele não envia dados do formulário nem mensagens automaticamente.
+Ao gerar um backup, o frontend baixa o arquivo retornado pelo backend e exibe o hash SHA-256. O histórico informa responsável, data, estado, tamanho e hash, sem expor credenciais do banco.
 
-## Login e sessão
+Os arquivos possuem nomes distintos: o backup restaurável usa `a-voz-do-bairro-backup-completo-postgresql-AAAA-MM-DD_HH-mm-ss.backup`; as planilhas usam `a-voz-do-bairro-contatos-AAAA-MM-DD_HH-mm-ss.xlsx` ou `.csv`.
 
-O login envia email e senha para `/api/autenticacao/login`. O JWT é guardado em `localStorage` pela chave `tokenAdministrativo` e anexado como Bearer nas chamadas protegidas.
+Sessões expiradas removem o token local e redirecionam ao login. O frontend esconde ações sem permissão, mas a autorização definitiva é sempre conferida pelo backend.
 
-Uma resposta `401` remove o token e redireciona para `/login`. O botão Sair remove a sessão local.
+## Build
 
-O formulário público não mostra link para o login. A equipe acessa `/login` diretamente. Respostas `429` informam bloqueio temporário por excesso de tentativas. O frontend guarda também os dados básicos do usuário para apresentar nome, perfil e opções permitidas; a autorização definitiva permanece no backend.
-
-## Administração
-
-A área administrativa usa a identidade **Central de Comunicação**: menu lateral laranja, fundo claro, cartões compactos e navegação responsiva. O menu também oferece acesso ao formulário público em uma nova aba. A visão geral consome exclusivamente as APIs reais e apresenta total de contatos, bairros alcançados, autorizações de mensagens, distribuições por bairro e necessidade, contatos recentes e atalhos operacionais.
-
-Em notebooks, a navegação permanece na lateral. Em telas menores, o menu passa para o topo com rolagem horizontal e os indicadores, gráficos e painéis são reorganizados em uma coluna.
-
-### Listagem
-
-A listagem exibe telefone, idade, bairro, categoria, autorizações, origem, status e data. Cada linha possui acesso aos detalhes.
-
-Filtros:
-
-- nome e telefone;
-- bairro e categoria;
-- idade mínima e máxima;
-- participação na última eleição;
-- origem e status;
-- autorização de mensagens e ligações;
-- período de cadastro;
-- ordenação por data ou nome.
-
-A paginação usa 20 registros. Existem estados de carregamento, vazio, erro e nova tentativa.
-
-### Detalhes
-
-A página de detalhe mostra:
-
-- dados cadastrais e origem;
-- aceites de privacidade com texto e versão;
-- consentimentos legados e autorizações novas;
-- histórico com campos alterados, origem, usuário e data.
-
-Na mesma tela, o usuário autenticado pode revogar mensagens, ligações ou ambas. Cada ação pede confirmação, registra responsável, data e hora e atualiza os bloqueios do contato. Também é possível registrar um pedido de exclusão; o contato não é apagado, mas fica bloqueado para mensagens, ligações e campanhas. Repetir uma ação já registrada não cria histórico duplicado.
-
-O campo “Motivo da revogação” é opcional e aceita até 500 caracteres. Quando preenchido, aparece junto do evento no histórico de consentimentos.
-
-O botão **Editar contato** abre o cadastro manual já preenchido. Operadores e administradores podem editar; telefone e origem ficam desabilitados para evitar duplicidade acidental.
-
-### Cadastro manual
-
-Operadores e administradores podem criar ou atualizar contato. A tela exige origem e status e não solicita descrição complementar do problema. As autorizações aceitam “Não informado”, “Autorizado” e “Recusado explicitamente”. O aceite de privacidade possui checkbox separado.
-
-Ao salvar, a interface abre o detalhe do contato. O backend registra alterações de dados preenchidos no histórico.
-
-### Importação
-
-A tela aceita CSV/XLSX de até 5 MB e 5000 linhas, exige o nome da origem da lista e apresenta até 100 linhas da validação antes da confirmação.
-
-Depois da confirmação, mostra totais recebidos, criados, complementados, ignorados, duplicados e inválidos. Bairro preenchido fora do catálogo oficial torna a linha inválida; bairro vazio continua permitido na importação. A importação não possui campos de consentimento.
-
-### Relatórios
-
-A página agrega os resultados filtrados por:
-
-- bairro;
-- categoria;
-- faixa etária;
-- participação eleitoral;
-- origem;
-- autorizações;
-- dia de cadastro.
-
-Os resultados são apresentados em indicadores e gráficos de barras responsivos, com quantidade e percentual. Bairros e categorias exibem os dez maiores resultados; os cartões menores mostram os principais segmentos e a evolução recente. Todos os gráficos usam a resposta real do resumo administrativo e são atualizados pelos mesmos filtros da exportação.
-
-O botão Exportar CSV baixa os mesmos contatos filtrados usando a rota autenticada.
-
-### Usuários
-
-Somente administradores visualizam **Usuários** no menu. A tela permite:
-
-- consultar nome, email, perfil, status e data de criação;
-- criar um operador;
-- criar outro administrador;
-- validar email duplicado;
-- exigir senha inicial com pelo menos 12 caracteres;
-- redefinir a senha de operadores e de outros administradores.
-
-Cada usuário diferente da conta atual possui a ação **Redefinir senha**, com nova senha e confirmação. A conta administrativa atual aparece identificada e não pode redefinir a própria senha por essa tela. Operadores que tentem acessar a rota diretamente são redirecionados no frontend e recebem `403` na API. O frontend nunca recebe nem exibe hashes de senha.
-
-## Estrutura principal
-
-```text
-src/
-  components/
-  data/
-  pages/
-    CadastroManual.jsx
-    ContatosAdministrativos.jsx
-    DashboardAdministrativo.jsx
-    DetalhesContato.jsx
-    FormularioPublico.jsx
-    ImportacaoContatos.jsx
-    Login.jsx
-    PaginaNaoEncontrada.jsx
-    Relatorios.jsx
-    UsuariosAdministrativos.jsx
-  services/
-    api.js
-    autenticacaoService.js
-    contatoService.js
-    relatorioService.js
-    usuarioService.js
-  styles/
-  utils/
-  App.jsx
-  main.jsx
+```powershell
+npm run build
 ```
 
-## Responsividade e acessibilidade
+Resultado de 23/07/2026: Vite 8.1.5, 61 módulos transformados e build concluído.
 
-- formulário público em uma coluna;
-- filtros em 4, 2 ou 1 coluna conforme a largura;
-- detalhes e relatórios em 2 colunas no notebook e 1 no celular;
-- tabelas com rolagem horizontal;
-- labels associados, foco visível, `aria-live` e navegação por teclado no bairro;
-- respeito a `prefers-reduced-motion`;
-- textos longos com quebra segura.
+## Vercel
 
-## APIs consumidas
-
-- cadastro/opções públicas;
-- login;
-- listagem e detalhe de contatos;
-- revogação de consentimentos e solicitação de exclusão;
-- origens;
-- cadastro manual;
-- pré-visualização/confirmação de importação;
-- resumo e exportação de relatórios.
-- listagem, criação e redefinição de senha de usuários por administradores.
-
-O cliente compartilhado envia JSON ou `FormData`, injeta o Bearer token, trata respostas não JSON, falhas de conexão e `AbortController`.
-
-## Publicação na Vercel
-
-Use:
-
-- Root Directory: `frontend`;
-- Framework: Vite;
-- Build Command: `npm run build`;
-- Output Directory: `dist`;
-- `VITE_API_URL`: URL HTTPS do backend;
-- `VITE_WHATSAPP_NUMERO`: país, DDD e número somente com dígitos.
-
-O arquivo `vercel.json` contém o rewrite de SPA necessário para abrir rotas como `/participar`, `/login` e `/admin/contatos/1` diretamente. Variáveis `VITE_*` são aplicadas durante o build; depois de alterá-las na Vercel, faça um novo deploy.
-
-O procedimento completo, incluindo PostgreSQL e App Platform, está no [README principal](../README.md#publicação-passo-a-passo).
-
-## Validação executada
-
-O build final foi aprovado com Vite 8.1.5 e 55 módulos transformados. A regressão do backend no banco consolidado aprovou 233 verificações, incluindo catálogo de bairros, redefinição administrativa de senha e as proteções estruturais preparadas para campanhas futuras. Não foram encontrados arquivos TypeScript.
-
-## Fora do escopo
-
-O frontend ainda não possui ManyChat, API do WhatsApp/Meta, webhook, telas de campanhas, disparos, SMS, email, chatbox ou recuperação de senha. O banco possui apenas a preparação estrutural para integração futura. O WhatsApp disponível é somente um link público configurável.
+1. Publique a pasta `frontend`.
+2. Configure `VITE_API_URL` com a URL HTTPS do backend.
+3. Configure `VITE_WHATSAPP_NUMERO`.
+4. Faça novo deploy após alterar variáveis.
+5. Configure `FRONTEND_URL` no backend com o domínio final da Vercel.

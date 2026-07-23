@@ -5,8 +5,10 @@ import CampoFormulario from '../components/CampoFormulario';
 import CampoSelecao from '../components/CampoSelecao';
 import Carregando from '../components/Carregando';
 import MensagemRetorno from '../components/MensagemRetorno';
-import { baixarCsv, buscarResumo } from '../services/relatorioService';
+import { baixarCsv, baixarExcel, buscarResumo } from '../services/relatorioService';
 import { removerToken } from '../utils/armazenamentoToken';
+import { obterUsuario } from '../utils/armazenamentoToken';
+import { listarEventos } from '../services/eventoService';
 
 const FILTROS_INICIAIS = {
   bairro: '',
@@ -16,7 +18,8 @@ const FILTROS_INICIAIS = {
   idadeMaxima: '',
   participouEleicaoAnterior: '',
   dataInicial: '',
-  dataFinal: ''
+  dataFinal: '',
+  eventoId: ''
 };
 
 const OPCOES_ELEICAO = [
@@ -121,6 +124,17 @@ function Relatorios() {
   const [resumo, setResumo] = useState(null);
   const [carregando, setCarregando] = useState(true);
   const [mensagem, setMensagem] = useState('');
+  const [eventos, setEventos] = useState([]);
+  const usuario = obterUsuario();
+  const podeExportar = usuario && usuario.perfil === 'administrador';
+
+  useEffect(function () {
+    listarEventos().then(function (resposta) {
+      setEventos(resposta.eventos || []);
+    }).catch(function () {
+      setEventos([]);
+    });
+  }, []);
 
   useEffect(function () {
     const controlador = new AbortController();
@@ -161,13 +175,15 @@ function Relatorios() {
     setFiltrosAplicados(Object.assign({}, filtros));
   }
 
-  async function exportar() {
+  async function exportar(formato) {
     try {
-      const arquivo = await baixarCsv(filtrosAplicados);
-      const url = URL.createObjectURL(arquivo);
+      const resultado = formato === 'xlsx'
+        ? await baixarExcel(filtrosAplicados)
+        : await baixarCsv(filtrosAplicados);
+      const url = URL.createObjectURL(resultado.arquivo);
       const link = document.createElement('a');
       link.href = url;
-      link.download = 'contatos-a-voz-do-bairro.csv';
+      link.download = resultado.nomeArquivo;
       link.click();
       URL.revokeObjectURL(url);
     } catch (erro) {
@@ -212,10 +228,16 @@ function Relatorios() {
               <CampoSelecao id="participouEleicaoAnterior" rotulo="Votou na última eleição" valor={filtros.participouEleicaoAnterior} aoAlterar={alterar} opcoes={OPCOES_ELEICAO} placeholder="Todos" />
               <CampoFormulario id="dataInicial" rotulo="Data inicial" tipo="date" valor={filtros.dataInicial} aoAlterar={alterar} />
               <CampoFormulario id="dataFinal" rotulo="Data final" tipo="date" valor={filtros.dataFinal} aoAlterar={alterar} />
+              <CampoSelecao id="eventoId" rotulo="Evento" valor={filtros.eventoId} aoAlterar={alterar} opcoes={[{ valor: 'sem_evento', rotulo: 'Cadastro geral (sem evento)' }].concat(eventos.map(function (item) { return { valor: String(item.id), rotulo: item.nome }; }))} placeholder="Todos" />
             </fieldset>
             <div className="acoes-filtros">
               <button className="botao botao-primario" type="submit">Atualizar gráficos</button>
-              <button className="botao botao-secundario" type="button" onClick={exportar}>Exportar CSV</button>
+              {podeExportar && (
+                <>
+                  <button className="botao botao-secundario" type="button" onClick={function () { exportar('csv'); }}>Exportar CSV</button>
+                  <button className="botao botao-secundario" type="button" onClick={function () { exportar('xlsx'); }}>Exportar Excel</button>
+                </>
+              )}
             </div>
           </form>
         </section>

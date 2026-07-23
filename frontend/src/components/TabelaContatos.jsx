@@ -73,6 +73,7 @@ function TabelaContatos(propriedades) {
             <th scope="col">Mensagens</th>
             <th scope="col">Ligações</th>
             <th scope="col">Origem</th>
+            <th scope="col">Evento</th>
             <th scope="col">Status</th>
             <th scope="col">Data de cadastro</th>
             <th scope="col">Ações</th>
@@ -90,6 +91,7 @@ function TabelaContatos(propriedades) {
                 <td>{exibirConsentimento(contato.autorizacaoMensagens)}</td>
                 <td>{exibirConsentimento(contato.autorizacaoLigacoes)}</td>
                 <td>{exibirTextoOuNaoInformado(contato.origemAtual)}</td>
+                <td>{contato.eventos && contato.eventos.length > 0 ? contato.eventos.map(function (evento) { return evento.nome + ' · ' + formatarData(evento.cadastradoEm); }).join(', ') : 'Cadastro geral'}</td>
                 <td>{exibirTextoOuNaoInformado(contato.statusContato)}</td>
                 <td className="texto-sem-quebra">{formatarData(contato.criadoEm)}</td>
                 <td>
