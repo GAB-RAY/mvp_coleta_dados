@@ -6,6 +6,7 @@ const banco = require('../src/config/banco');
 const contatoModel = require('../src/modules/contatos/contatoModel');
 
 const PREFIXO_TELEFONE = '2199998';
+let eventoIdExibidoTeste;
 
 function criarDados(sufixo, alteracoes) {
   return Object.assign({
@@ -16,7 +17,8 @@ function criarDados(sufixo, alteracoes) {
     problema: 'Saúde',
     aceitePrivacidade: true,
     autorizacaoMensagens: false,
-    autorizacaoLigacoes: false
+    autorizacaoLigacoes: false,
+    eventoIdExibido: eventoIdExibidoTeste
   }, alteracoes || {});
 }
 
@@ -93,6 +95,7 @@ async function limparDadosTemporarios() {
 async function executar() {
   let servidor;
   let baseUrl;
+  let idsEventosAtivosPreservados = [];
   const legadosAntes = await banco.query(
     `
       SELECT id, contato_id, tipo, resposta, texto_apresentado, versao_texto,
@@ -105,6 +108,20 @@ async function executar() {
 
   try {
     await limparDadosTemporarios();
+    const eventosAtivos = await banco.query(
+      "SELECT id FROM eventos WHERE status = 'ativo' ORDER BY id"
+    );
+    idsEventosAtivosPreservados = eventosAtivos.rows.map(function (evento) {
+      return evento.id;
+    });
+
+    if (idsEventosAtivosPreservados.length > 0) {
+      await banco.query(
+        "UPDATE eventos SET status = 'rascunho' WHERE id = ANY($1::bigint[])",
+        [idsEventosAtivosPreservados]
+      );
+    }
+
     servidor = aplicacao.listen(0);
     await new Promise(function (resolver, rejeitar) {
       servidor.once('listening', resolver);
@@ -113,6 +130,9 @@ async function executar() {
     baseUrl = 'http://127.0.0.1:' + servidor.address().port;
 
     const opcoes = await requisitar(baseUrl, '/api/publico/contatos/opcoes');
+    eventoIdExibidoTeste = opcoes.corpo.eventoAtivo
+      ? opcoes.corpo.eventoAtivo.id
+      : null;
     assert.strictEqual(opcoes.status, 200);
     assert.ok(opcoes.corpo.categoriasProblema.includes('Saúde'));
     assert.strictEqual(opcoes.corpo.bairros.length, 166);
@@ -272,6 +292,12 @@ async function executar() {
     }
 
     await limparDadosTemporarios();
+    if (idsEventosAtivosPreservados.length > 0) {
+      await banco.query(
+        "UPDATE eventos SET status = 'ativo' WHERE id = ANY($1::bigint[])",
+        [idsEventosAtivosPreservados]
+      );
+    }
     await banco.end();
   }
 }

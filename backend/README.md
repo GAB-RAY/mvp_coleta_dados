@@ -93,8 +93,17 @@ As colunas anteriores de compatibilidade em `contatos` foram mantidas apenas qua
 
 - O formulário aceita cadastro com ou sem evento ativo.
 - Quando há evento ativo dentro do período, o backend cria automaticamente o vínculo em `contato_eventos`; o frontend não escolhe o evento.
+- O frontend envia `eventoIdExibido`. Se o evento ativo mudar antes do envio, o backend não persiste o cadastro e retorna `409` para atualização do contexto.
+- Um advisory lock transacional compartilhado/exclusivo impede que ativação, encerramento ou edição de evento atravessem uma submissão pública já em processamento.
+- Com evento ativo, o formulário começa solicitando nome completo e telefone. Se o telefone não existir, o preenchimento completo é liberado.
+- Se o telefone existir, nome completo e telefone precisam corresponder ao cadastro. A API não devolve os dados pessoais armazenados.
+- Depois da confirmação, o contato original recebe somente o vínculo com o evento. A origem e o tipo de entrada não mudam.
+- A restrição única `(contato_id, evento_id)` e o `ON CONFLICT` impedem duas inscrições do mesmo contato no mesmo evento.
+- O índice parcial único `eventos_apenas_um_ativo` garante no PostgreSQL que apenas um evento tenha status `ativo`, inclusive diante de ativações simultâneas.
+- Um reenvio para o mesmo evento retorna `200` e informa que a inscrição já está registrada, sem duplicar o vínculo.
 - Sem evento ativo, o formulário continua funcionando normalmente e não exibe aviso adicional.
 - Um telefone não sobrescreve silenciosamente dados existentes; somente campos vazios podem ser complementados no fluxo público.
+- A opção `Meus dados mudaram` somente é liberada após a correspondência de nome completo e telefone. As alterações declaradas são aplicadas com o evento em contexto e registradas como `atualizacao_cadastro_publico_evento`.
 - Consentimentos de mensagens e ligações são explícitos e versionados.
 - Revogar cria um novo registro ligado ao anterior por `registro_anterior_id`; nenhuma rota apaga revogações.
 - Pedido pendente bloqueia mensagens, ligações e campanhas.
@@ -115,6 +124,8 @@ Públicas:
 | GET | `/api/saude/vivo` | Liveness sem depender do banco. |
 | GET | `/api/saude/pronto` | Readiness com consulta ao PostgreSQL. |
 | GET | `/api/publico/contatos/opcoes` | Bairros, categorias e contexto do evento ativo. |
+| POST | `/api/publico/contatos/verificar-evento` | Verifica nome completo e telefone sem retornar dados pessoais. |
+| POST | `/api/publico/contatos/inscrever-evento` | Confirma o vínculo de um contato existente com o evento ativo. |
 | POST | `/api/publico/contatos` | Cadastro público e vínculo automático ao evento. |
 | POST | `/api/autenticacao/login` | Login e emissão do JWT. |
 
@@ -144,7 +155,7 @@ Administrativas com JWT:
 | POST | `/api/admin/importacoes/pre-visualizar` | operador/admin |
 | POST | `/api/admin/importacoes/:id/confirmar` | operador/admin |
 
-A listagem e os relatórios aceitam `eventoId=<id>` ou `eventoId=sem_evento`, além dos filtros documentados no frontend.
+A listagem e os relatórios aceitam `eventoId=<id>` ou `eventoId=sem_evento`, além dos filtros documentados no frontend. Na tela de eventos, `Ver participantes` abre a listagem já filtrada; nome completo e telefone formatado podem ser pesquisados junto com o evento.
 
 ## Administradores
 
@@ -191,23 +202,25 @@ npm run testar:schema-vazio
 npm run testar:importacao-carga
 ```
 
-Resultado de 23/07/2026: 279 verificações aprovadas.
+Resultado de 24/07/2026: 300 verificações aprovadas.
 
-- estrutura, 166 bairros e proteções ManyChat: 26;
+- estrutura, 166 bairros, unicidades de vínculo/evento ativo e proteções ManyChat: 28;
 - cadastro público: 27;
 - administração e filtros: 21;
 - cadastro manual: 24;
-- importações: 21;
+- importações: 22;
 - relatórios e permissões CSV/Excel: 23;
 - segurança e usuários: 54;
 - privacidade: 15;
-- eventos, permissões e exclusão física: 28;
+- eventos, identificação por nome e telefone, contato novo, reinscrição idempotente, atualização auditada, busca de participantes, permissões e exclusão física: 46;
 - backups, permissões, integridade e auditoria: 18.
 - resiliência, rate limit, concorrência, saúde, pool e configuração: 22.
 
 O teste de schema cria um banco temporário vazio, aplica `database/criar_banco.sql`, valida 22 tabelas e 166 bairros e remove o banco temporário ao final.
 
-O teste de carga de importação gera 2.500 contatos temporários, percorre pré-visualização, confirmação e persistência, confere o resultado, remove todos os dados de teste e ressincroniza as sequências utilizadas. Ele recusa execução quando `NODE_ENV=production`. A pré-visualização grava as linhas no PostgreSQL em lotes parametrizados de 500; a confirmação continua transacional por contato para preservar duplicidade, complementação e histórico. O limite funcional permanece em 5.000 linhas por arquivo e 5 MB.
+O teste de carga de importação gera 15.000 contatos temporários, percorre pré-visualização, confirmação e persistência, valida a rejeição de 20.001 linhas, remove todos os dados de teste e ressincroniza as sequências utilizadas. Ele recusa execução quando `NODE_ENV=production`.
+
+CSV e XLSX aceitam até 5 MB e 20.000 linhas. O limite de arquivo permanece conservador para o plano de 512 MiB, pois arquivos XLSX são descompactados em memória. Pré-visualização e confirmação trabalham em lotes parametrizados de 500. Se um lote apresentar falha inesperada, a confirmação retorna ao processamento isolado das linhas daquele lote, preservando o relatório individual. Um advisory lock do PostgreSQL permite somente uma confirmação de importação por vez; tentativas simultâneas recebem `409`, sem ocupar todo o pool necessário ao formulário público.
 
 O backup mais recente anterior à atualização estrutural está fora do repositório em `C:\Users\gabriellindo\Backups\A_Voz_do_Bairro\criar_banco\2026-07-23_170901\`, com SHA-256 `E2E3B6C244B64D989BD0B1FD5EA261F5E386B4704504BE8A792AD4A51741A9A3`. A restauração validada `criar_banco_backup_20260723_170901` foi mantida para conferência.
 

@@ -97,6 +97,13 @@ async function alterarStatus(idRecebido, status, usuario) {
     if (erro.codigoAplicacao === 'EVENTO_FORA_PERIODO') {
       throw criarAppError(erro.message, 409);
     }
+
+    if (erro.code === '23505' && erro.constraint === 'eventos_apenas_um_ativo') {
+      throw criarAppError(
+        'Outro evento foi ativado simultaneamente. Atualize a listagem e tente novamente.',
+        409
+      );
+    }
     throw erro;
   }
 }

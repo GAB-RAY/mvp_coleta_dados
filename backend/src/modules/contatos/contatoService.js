@@ -66,6 +66,24 @@ function validarIdade(valor) {
   return valor;
 }
 
+function validarEventoExibido(dadosRecebidos) {
+  if (!Object.prototype.hasOwnProperty.call(dadosRecebidos, 'eventoIdExibido')) {
+    return undefined;
+  }
+
+  if (dadosRecebidos.eventoIdExibido === null || dadosRecebidos.eventoIdExibido === '') {
+    return null;
+  }
+
+  const eventoId = Number(dadosRecebidos.eventoIdExibido);
+
+  if (!Number.isInteger(eventoId) || eventoId < 1) {
+    throw criarAppError('O evento exibido no formulário é inválido.', 400);
+  }
+
+  return eventoId;
+}
+
 function validarCampoOpcional(valor, nomeCampo, tamanhoMaximo) {
   if (valor === undefined || valor === null || valor === '') {
     return null;
@@ -131,6 +149,14 @@ async function validarDadosDoContato(dadosRecebidos) {
   );
   const telefoneNormalizado = normalizarTelefone(telefone);
   const bairro = await bairroService.validarBairroAtivo(bairroInformado);
+  const atualizarDadosEvento = validarBooleano(
+    dadosRecebidos.atualizarDadosEvento,
+    'Atualização dos dados do evento',
+    false
+  );
+  const nomeConfirmacao = dadosRecebidos.nomeConfirmacao === undefined
+    ? null
+    : validarCampoTexto(dadosRecebidos.nomeConfirmacao, 'Nome de confirmação', 2, 150);
 
   if (!categoriasProblema.includes(problema)) {
     throw criarAppError('Selecione uma categoria de problema válida.', 400);
@@ -144,6 +170,10 @@ async function validarDadosDoContato(dadosRecebidos) {
     throw criarAppError('O telefone informado é inválido.', 400);
   }
 
+  if (atualizarDadosEvento && !nomeConfirmacao) {
+    throw criarAppError('Confirme o nome usado para localizar o cadastro.', 400);
+  }
+
   return {
     nome,
     telefone,
@@ -151,6 +181,9 @@ async function validarDadosDoContato(dadosRecebidos) {
     idade: validarIdade(dadosRecebidos.idade),
     bairro,
     problema,
+    eventoIdExibido: validarEventoExibido(dadosRecebidos),
+    atualizarDadosEvento,
+    nomeConfirmacao,
     aceitePrivacidade,
     autorizacaoMensagens,
     autorizacaoLigacoes
@@ -202,7 +235,92 @@ function transformarContatoParaResposta(contato) {
 async function cadastrarContato(dadosRecebidos) {
   const dadosDoContato = await validarDadosDoContato(dadosRecebidos);
 
-  return contatoModel.salvarCadastroPublico(dadosDoContato);
+  try {
+    return await contatoModel.salvarCadastroPublico(dadosDoContato);
+  } catch (erro) {
+    if (erro.codigoAplicacao === 'CONTEXTO_EVENTO_ALTERADO') {
+      throw criarAppError(
+        'O evento exibido no formulário mudou. Revise o evento atual e envie novamente.',
+        409
+      );
+    }
+
+    if (erro.codigoAplicacao === 'IDENTIDADE_EVENTO_NAO_CONFIRMADA') {
+      throw criarAppError(
+        'Não foi possível confirmar o cadastro com o nome e o telefone informados. Revise os dados ou procure a equipe do evento.',
+        422
+      );
+    }
+
+    throw erro;
+  }
+}
+
+function validarIdentificacaoEvento(dadosRecebidos) {
+  if (!dadosRecebidos || typeof dadosRecebidos !== 'object' || Array.isArray(dadosRecebidos)) {
+    throw criarAppError('Os dados de identificação são obrigatórios.', 400);
+  }
+
+  const nome = validarCampoTexto(dadosRecebidos.nome, 'Nome completo', 2, 150);
+  const telefone = validarCampoTexto(dadosRecebidos.telefone, 'Telefone', 1, 30);
+  const telefoneNormalizado = normalizarTelefone(telefone);
+  const eventoIdExibido = validarEventoExibido(dadosRecebidos);
+
+  if (telefoneNormalizado.length < 10 || telefoneNormalizado.length > 15) {
+    throw criarAppError('O telefone informado é inválido.', 400);
+  }
+
+  if (!Number.isInteger(eventoIdExibido) || eventoIdExibido < 1) {
+    throw criarAppError('O evento exibido no formulário é obrigatório.', 400);
+  }
+
+  return {
+    nome,
+    telefoneNormalizado,
+    eventoIdExibido
+  };
+}
+
+function tratarErroIdentificacaoEvento(erro) {
+  if (erro.codigoAplicacao === 'CONTEXTO_EVENTO_ALTERADO') {
+    throw criarAppError(
+      'O evento exibido no formulário mudou. Atualize a página e tente novamente.',
+      409
+    );
+  }
+
+  if (erro.codigoAplicacao === 'EVENTO_NAO_ATIVO') {
+    throw criarAppError('Não há evento ativo para esta operação.', 409);
+  }
+
+  if (erro.codigoAplicacao === 'IDENTIDADE_EVENTO_NAO_CONFIRMADA') {
+    throw criarAppError(
+      'Não foi possível confirmar o cadastro com o nome e o telefone informados. Revise os dados ou procure a equipe do evento.',
+      422
+    );
+  }
+
+  throw erro;
+}
+
+async function verificarContatoEvento(dadosRecebidos) {
+  const dadosIdentificacao = validarIdentificacaoEvento(dadosRecebidos);
+
+  try {
+    return await contatoModel.verificarContatoParaEvento(dadosIdentificacao);
+  } catch (erro) {
+    return tratarErroIdentificacaoEvento(erro);
+  }
+}
+
+async function inscreverContatoExistenteEvento(dadosRecebidos) {
+  const dadosIdentificacao = validarIdentificacaoEvento(dadosRecebidos);
+
+  try {
+    return await contatoModel.inscreverContatoExistenteNoEvento(dadosIdentificacao);
+  } catch (erro) {
+    return tratarErroIdentificacaoEvento(erro);
+  }
 }
 
 async function listarOpcoesFormulario() {
@@ -666,11 +784,13 @@ async function listarContatosParaRelatorio(parametrosRecebidos, limite) {
 
 module.exports = {
   cadastrarContato,
+  inscreverContatoExistenteEvento,
   listarContatos,
   listarOpcoesFormulario,
   detalharContato,
   revogarConsentimentos,
   solicitarExclusao,
   cadastrarContatoManual,
-  listarContatosParaRelatorio
+  listarContatosParaRelatorio,
+  verificarContatoEvento
 };

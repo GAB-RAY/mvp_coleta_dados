@@ -175,6 +175,39 @@ async function validarCatalogo(cliente) {
     'O identificador futuro do ManyChat não foi criado em contatos.'
   );
 
+  const vinculoUnicoEvento = await cliente.query(
+    `
+      SELECT 1
+      FROM pg_catalog.pg_constraint AS restricao
+      INNER JOIN pg_catalog.pg_class AS tabela ON tabela.oid = restricao.conrelid
+      INNER JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = tabela.relnamespace
+      WHERE namespace.nspname = 'public'
+        AND tabela.relname = 'contato_eventos'
+        AND restricao.conname = 'contato_eventos_contato_evento_unicos'
+        AND restricao.contype = 'u'
+    `
+  );
+  verificar(
+    vinculoUnicoEvento.rowCount === 1,
+    'A unicidade entre contato e evento não está garantida no banco.'
+  );
+
+  const eventoAtivoUnico = await cliente.query(
+    `
+      SELECT indexdef
+      FROM pg_catalog.pg_indexes
+      WHERE schemaname = 'public'
+        AND tablename = 'eventos'
+        AND indexname = 'eventos_apenas_um_ativo'
+    `
+  );
+  verificar(
+    eventoAtivoUnico.rowCount === 1 &&
+      eventoAtivoUnico.rows[0].indexdef.includes('UNIQUE INDEX') &&
+      eventoAtivoUnico.rows[0].indexdef.includes("'ativo'"),
+    'A garantia de apenas um evento ativo não existe no banco.'
+  );
+
   const funcoes = await cliente.query(
     `
       SELECT rotina.routine_name

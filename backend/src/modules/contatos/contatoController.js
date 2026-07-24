@@ -3,15 +3,33 @@ const contatoService = require('./contatoService');
 async function cadastrar(requisicao, resposta, proximo) {
   try {
     const resultado = await contatoService.cadastrarContato(requisicao.body);
+    let statusHttp = 201;
+    let mensagem = 'Cadastro realizado com sucesso. Obrigado por contribuir com o projeto A Voz do Bairro.';
 
-    return resposta.status(201).json({
-      mensagem: 'Cadastro realizado com sucesso. Obrigado por contribuir com o projeto A Voz do Bairro.',
+    if (resultado.eventoAtivo && !resultado.contatoCriado) {
+      statusHttp = 200;
+      mensagem = resultado.vinculoEventoCriado
+        ? 'Inscrição no evento realizada com sucesso.'
+        : 'Sua inscrição neste evento já está registrada.';
+    }
+
+    return resposta.status(statusHttp).json({
+      mensagem,
       evento: resultado.eventoAtivo
         ? { id: resultado.eventoAtivo.id, nome: resultado.eventoAtivo.nome }
         : null,
       contextoCadastro: resultado.eventoAtivo
         ? 'Cadastro vinculado ao evento ' + resultado.eventoAtivo.nome + '.'
-        : null
+        : null,
+      contatoCriado: resultado.contatoCriado,
+      inscricaoEventoCriada: resultado.eventoAtivo
+        ? resultado.vinculoEventoCriado
+        : false,
+      jaInscritoEvento: Boolean(
+        resultado.eventoAtivo &&
+        !resultado.contatoCriado &&
+        !resultado.vinculoEventoCriado
+      )
     });
   } catch (erro) {
     return proximo(erro);
@@ -28,6 +46,54 @@ async function listarOpcoes(requisicao, resposta, proximo) {
       categoriasProblema: opcoes.categoriasProblema,
       eventoAtivo: opcoes.eventoAtivo,
       contextoCadastro: opcoes.contextoCadastro
+    });
+  } catch (erro) {
+    return proximo(erro);
+  }
+}
+
+async function verificarContatoEvento(requisicao, resposta, proximo) {
+  try {
+    const resultado = await contatoService.verificarContatoEvento(requisicao.body);
+    let mensagem = 'Preencha os demais campos para concluir seu cadastro no evento.';
+
+    if (resultado.situacao === 'contato_encontrado') {
+      mensagem = 'Cadastro confirmado. Você pode concluir sua participação no evento.';
+    }
+
+    if (resultado.situacao === 'ja_inscrito') {
+      mensagem = 'Sua inscrição neste evento já está registrada.';
+    }
+
+    return resposta.status(200).json({
+      mensagem,
+      situacao: resultado.situacao,
+      evento: {
+        id: resultado.eventoAtivo.id,
+        nome: resultado.eventoAtivo.nome
+      }
+    });
+  } catch (erro) {
+    return proximo(erro);
+  }
+}
+
+async function inscreverContatoExistenteEvento(requisicao, resposta, proximo) {
+  try {
+    const resultado = await contatoService.inscreverContatoExistenteEvento(
+      requisicao.body
+    );
+
+    return resposta.status(200).json({
+      mensagem: resultado.vinculoEventoCriado
+        ? 'Inscrição no evento realizada com sucesso.'
+        : 'Sua inscrição neste evento já está registrada.',
+      evento: {
+        id: resultado.eventoAtivo.id,
+        nome: resultado.eventoAtivo.nome
+      },
+      inscricaoEventoCriada: resultado.vinculoEventoCriado,
+      jaInscritoEvento: !resultado.vinculoEventoCriado
     });
   } catch (erro) {
     return proximo(erro);
@@ -130,10 +196,12 @@ async function solicitarExclusao(requisicao, resposta, proximo) {
 
 module.exports = {
   cadastrar,
+  inscreverContatoExistenteEvento,
   listar,
   listarOpcoes,
   detalhar,
   cadastrarManual,
   revogarConsentimentos,
-  solicitarExclusao
+  solicitarExclusao,
+  verificarContatoEvento
 };

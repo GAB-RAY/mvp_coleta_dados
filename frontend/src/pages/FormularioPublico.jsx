@@ -10,8 +10,14 @@ import {
 } from '../data/textosConsentimento';
 import {
   buscarOpcoesFormulario,
-  cadastrarContato
+  cadastrarContato,
+  inscreverContatoExistenteEvento,
+  verificarContatoEvento
 } from '../services/contatoService';
+
+const ETAPA_IDENTIFICACAO = 'identificacao';
+const ETAPA_CONFIRMACAO = 'confirmacao';
+const ETAPA_FORMULARIO_COMPLETO = 'formulario_completo';
 
 const FORMULARIO_INICIAL = {
   nome: '',
@@ -64,6 +70,20 @@ function validarFormulario(dadosFormulario, bairroConfirmado, bairros, categoria
   return '';
 }
 
+function validarIdentificacaoEvento(dadosFormulario) {
+  if (!dadosFormulario.nome.trim() || dadosFormulario.nome.trim().length < 2) {
+    return 'Informe seu nome completo.';
+  }
+
+  const quantidadeDigitos = dadosFormulario.telefone.replace(/\D/g, '').length;
+
+  if (quantidadeDigitos < 10 || quantidadeDigitos > 15) {
+    return 'Informe um telefone válido, com DDD.';
+  }
+
+  return '';
+}
+
 function FormularioPublico() {
   const numeroWhatsapp = String(import.meta.env.VITE_WHATSAPP_NUMERO || '').replace(/\D/g, '');
   const linkWhatsapp = numeroWhatsapp.length >= 10 && numeroWhatsapp.length <= 15
@@ -78,6 +98,22 @@ function FormularioPublico() {
   const [categoriasProblema, setCategoriasProblema] = useState([]);
   const [carregandoOpcoes, setCarregandoOpcoes] = useState(true);
   const [contextoCadastro, setContextoCadastro] = useState('');
+  const [eventoIdExibido, setEventoIdExibido] = useState(null);
+  const [etapaFormulario, setEtapaFormulario] = useState(ETAPA_FORMULARIO_COMPLETO);
+  const [nomeConfirmacao, setNomeConfirmacao] = useState('');
+
+  function aplicarContextoFormulario(resposta) {
+    const eventoAtivo = resposta.eventoAtivo || null;
+
+    setContextoCadastro(
+      eventoAtivo ? resposta.contextoCadastro || '' : ''
+    );
+    setEventoIdExibido(eventoAtivo ? eventoAtivo.id : null);
+    setEtapaFormulario(
+      eventoAtivo ? ETAPA_IDENTIFICACAO : ETAPA_FORMULARIO_COMPLETO
+    );
+    setNomeConfirmacao('');
+  }
 
   useEffect(function () {
     let paginaAtiva = true;
@@ -101,9 +137,7 @@ function FormularioPublico() {
         if (paginaAtiva) {
           setBairros(bairrosRecebidos);
           setCategoriasProblema(categoriasRecebidas);
-          setContextoCadastro(
-            resposta.eventoAtivo ? resposta.contextoCadastro || '' : ''
-          );
+          aplicarContextoFormulario(resposta);
         }
       } catch (erro) {
         if (paginaAtiva) {
@@ -149,6 +183,110 @@ function FormularioPublico() {
     }));
   }
 
+  async function recarregarContextoEvento() {
+    try {
+      const opcoesAtualizadas = await buscarOpcoesFormulario(true);
+      aplicarContextoFormulario(opcoesAtualizadas);
+    } catch (erroAtualizacao) {
+      setMensagem(
+        'O evento do formulário mudou e não foi possível atualizar o contexto. Recarregue a página.'
+      );
+    }
+  }
+
+  async function verificarCadastroNoEvento(evento) {
+    evento.preventDefault();
+    setMensagem('');
+
+    const mensagemValidacao = validarIdentificacaoEvento(dadosFormulario);
+
+    if (mensagemValidacao) {
+      setTipoMensagem('erro');
+      setMensagem(mensagemValidacao);
+      return;
+    }
+
+    setEnviando(true);
+
+    try {
+      const resposta = await verificarContatoEvento({
+        nome: dadosFormulario.nome.trim(),
+        telefone: dadosFormulario.telefone.trim(),
+        eventoIdExibido
+      });
+
+      if (resposta.situacao === 'novo') {
+        setEtapaFormulario(ETAPA_FORMULARIO_COMPLETO);
+        setTipoMensagem('informacao');
+        setMensagem(resposta.mensagem);
+        return;
+      }
+
+      if (resposta.situacao === 'ja_inscrito') {
+        setTipoMensagem('sucesso');
+        setMensagem(resposta.mensagem);
+        setDadosFormulario(FORMULARIO_INICIAL);
+        return;
+      }
+
+      setNomeConfirmacao(dadosFormulario.nome.trim());
+      setEtapaFormulario(ETAPA_CONFIRMACAO);
+      setTipoMensagem('informacao');
+      setMensagem(resposta.mensagem);
+    } catch (erro) {
+      setTipoMensagem('erro');
+      setMensagem(erro.message);
+
+      if (erro.statusHttp === 409) {
+        await recarregarContextoEvento();
+      }
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  async function confirmarParticipacaoEvento() {
+    setMensagem('');
+    setEnviando(true);
+
+    try {
+      const resposta = await inscreverContatoExistenteEvento({
+        nome: nomeConfirmacao,
+        telefone: dadosFormulario.telefone.trim(),
+        eventoIdExibido
+      });
+
+      setTipoMensagem('sucesso');
+      setMensagem(resposta.mensagem);
+      setDadosFormulario(FORMULARIO_INICIAL);
+      setNomeConfirmacao('');
+      setEtapaFormulario(ETAPA_IDENTIFICACAO);
+    } catch (erro) {
+      setTipoMensagem('erro');
+      setMensagem(erro.message);
+
+      if (erro.statusHttp === 409) {
+        await recarregarContextoEvento();
+      }
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  function abrirAtualizacaoDados() {
+    setEtapaFormulario(ETAPA_FORMULARIO_COMPLETO);
+    setTipoMensagem('informacao');
+    setMensagem('Atualize os campos necessários e conclua sua participação no evento.');
+  }
+
+  function voltarParaIdentificacao() {
+    setEtapaFormulario(ETAPA_IDENTIFICACAO);
+    setNomeConfirmacao('');
+    setMensagem('');
+    setDadosFormulario(FORMULARIO_INICIAL);
+    setBairroConfirmado(false);
+  }
+
   async function enviarFormulario(evento) {
     evento.preventDefault();
     setMensagem('');
@@ -175,6 +313,9 @@ function FormularioPublico() {
         idade: Number(dadosFormulario.idade),
         bairro: dadosFormulario.bairro.trim(),
         problema: dadosFormulario.problema.trim(),
+        eventoIdExibido,
+        atualizarDadosEvento: Boolean(nomeConfirmacao),
+        nomeConfirmacao: nomeConfirmacao || undefined,
         aceitePrivacidade: dadosFormulario.aceitePrivacidade,
         autorizacaoMensagens: dadosFormulario.autorizacaoMensagens,
         autorizacaoLigacoes: dadosFormulario.autorizacaoLigacoes
@@ -184,9 +325,17 @@ function FormularioPublico() {
       setMensagem(resposta.mensagem || 'Cadastro realizado com sucesso.');
       setDadosFormulario(FORMULARIO_INICIAL);
       setBairroConfirmado(false);
+      setNomeConfirmacao('');
+      setEtapaFormulario(
+        eventoIdExibido ? ETAPA_IDENTIFICACAO : ETAPA_FORMULARIO_COMPLETO
+      );
     } catch (erro) {
       setTipoMensagem('erro');
       setMensagem(erro.message);
+
+      if (erro.statusHttp === 409) {
+        await recarregarContextoEvento();
+      }
     } finally {
       setEnviando(false);
     }
@@ -219,148 +368,272 @@ function FormularioPublico() {
 
         <MensagemRetorno mensagem={mensagem} tipo={tipoMensagem} />
 
-        <form className="formulario-publico" onSubmit={enviarFormulario} noValidate>
-          <div className="grade-formulario">
-            <CampoFormulario
-              id="nome"
-              rotulo="Nome completo"
-              valor={dadosFormulario.nome}
-              aoAlterar={alterarCampo}
-              placeholder="Seu nome completo"
-              obrigatorio
-              desabilitado={enviando}
-              tamanhoMinimo={2}
-              tamanhoMaximo={150}
-              autoComplete="name"
-            />
+        {eventoIdExibido && etapaFormulario === ETAPA_IDENTIFICACAO && (
+          <form
+            className="formulario-publico formulario-identificacao-evento"
+            onSubmit={verificarCadastroNoEvento}
+            noValidate
+          >
+            <p className="orientacao-etapa-evento">
+              Informe seu nome completo e telefone. Se você já estiver em nossa
+              base, poderá confirmar a participação sem preencher tudo novamente.
+            </p>
 
-            <CampoFormulario
-              id="telefone"
-              rotulo="Telefone"
-              tipo="tel"
-              valor={dadosFormulario.telefone}
-              aoAlterar={alterarCampo}
-              placeholder="(21) 99999-9999"
-              obrigatorio
-              desabilitado={enviando}
-              tamanhoMaximo={30}
-              autoComplete="tel"
-              inputMode="tel"
-            />
-
-            <CampoSelecaoPesquisavel
-              id="bairro"
-              rotulo="Bairro"
-              valor={dadosFormulario.bairro}
-              aoAlterar={alterarBairro}
-              aoSelecionar={selecionarBairro}
-              opcoes={bairros}
-              placeholder="Digite para buscar"
-              obrigatorio
-              desabilitado={enviando || carregandoOpcoes}
-            />
-
-            <CampoFormulario
-              id="idade"
-              rotulo="Idade"
-              tipo="number"
-              valor={dadosFormulario.idade}
-              aoAlterar={alterarCampo}
-              placeholder="Ex.: 35"
-              obrigatorio
-              desabilitado={enviando}
-              minimo={16}
-              maximo={120}
-              passo={1}
-              inputMode="numeric"
-            />
-
-            <CampoSelecao
-              id="problema"
-              rotulo="Principal necessidade"
-              valor={dadosFormulario.problema}
-              aoAlterar={alterarCampo}
-              opcoes={categoriasProblema}
-              placeholder="Selecione uma categoria"
-              obrigatorio
-              desabilitado={enviando}
-            />
-
-          </div>
-
-          <fieldset className="grupo-consentimentos" disabled={enviando}>
-            <legend>Autorizações</legend>
-
-            <label className="opcao-consentimento" htmlFor="aceitePrivacidade">
-              <input
-                id="aceitePrivacidade"
-                name="aceitePrivacidade"
-                type="checkbox"
-                checked={dadosFormulario.aceitePrivacidade}
-                onChange={alterarCampo}
-                required
+            <div className="grade-formulario">
+              <CampoFormulario
+                id="nome"
+                rotulo="Nome completo"
+                valor={dadosFormulario.nome}
+                aoAlterar={alterarCampo}
+                placeholder="Seu nome completo"
+                obrigatorio
+                desabilitado={enviando}
+                tamanhoMinimo={2}
+                tamanhoMaximo={150}
+                autoComplete="name"
               />
-              <span>
-                {TEXTO_AVISO_PRIVACIDADE}
-                <strong aria-hidden="true"> *</strong>
-              </span>
-            </label>
 
-            <label className="opcao-consentimento" htmlFor="autorizacaoMensagens">
-              <input
-                id="autorizacaoMensagens"
-                name="autorizacaoMensagens"
-                type="checkbox"
-                checked={dadosFormulario.autorizacaoMensagens}
-                onChange={alterarCampo}
+              <CampoFormulario
+                id="telefone"
+                rotulo="Telefone"
+                tipo="tel"
+                valor={dadosFormulario.telefone}
+                aoAlterar={alterarCampo}
+                placeholder="(21) 99999-9999"
+                obrigatorio
+                desabilitado={enviando}
+                tamanhoMaximo={30}
+                autoComplete="tel"
+                inputMode="tel"
               />
-              <span>{TEXTO_MENSAGENS}</span>
-            </label>
+            </div>
 
-            <label className="opcao-consentimento" htmlFor="autorizacaoLigacoes">
-              <input
-                id="autorizacaoLigacoes"
-                name="autorizacaoLigacoes"
-                type="checkbox"
-                checked={dadosFormulario.autorizacaoLigacoes}
-                onChange={alterarCampo}
-              />
-              <span>{TEXTO_LIGACOES}</span>
-            </label>
-          </fieldset>
-
-          <p className="aviso-direitos">
-            Você poderá solicitar a correção, a exclusão dos seus dados ou a
-            revogação das autorizações concedidas.
-          </p>
-
-          <p className="legenda-obrigatorios">* Campos obrigatórios</p>
-
-          <div className="acoes-formulario-publico">
-            <button
-              className="botao botao-primario botao-enviar"
-              type="submit"
-              disabled={enviando || carregandoOpcoes || bairros.length === 0}
-            >
-              {carregandoOpcoes
-                ? 'Carregando bairros...'
-                : enviando
-                  ? 'Enviando...'
-                  : 'Enviar minha resposta'}
-            </button>
-
-            {linkWhatsapp && (
-              <a
-                className="botao-whatsapp-publico"
-                href={linkWhatsapp}
-                rel="noopener noreferrer"
-                target="_blank"
+            <div className="acoes-formulario-publico">
+              <button
+                className="botao botao-primario botao-enviar"
+                type="submit"
+                disabled={enviando || carregandoOpcoes}
               >
-                Falar pelo WhatsApp
-              </a>
-            )}
+                {enviando ? 'Verificando...' : 'Continuar'}
+              </button>
+
+              {linkWhatsapp && (
+                <a
+                  className="botao-whatsapp-publico"
+                  href={linkWhatsapp}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  Falar pelo WhatsApp
+                </a>
+              )}
+            </div>
+          </form>
+        )}
+
+        {eventoIdExibido && etapaFormulario === ETAPA_CONFIRMACAO && (
+          <div className="formulario-publico confirmacao-participacao-evento">
+            <h2>Confirmar participação</h2>
+            <p>
+              O cadastro foi confirmado pelo nome completo e telefone informados.
+              Nenhum dado pessoal foi exibido ou alterado.
+            </p>
+
+            <div className="acoes-formulario-publico">
+              <button
+                className="botao botao-primario botao-enviar"
+                type="button"
+                onClick={confirmarParticipacaoEvento}
+                disabled={enviando}
+              >
+                {enviando ? 'Confirmando...' : 'Confirmar participação'}
+              </button>
+              <button
+                className="botao botao-secundario"
+                type="button"
+                onClick={abrirAtualizacaoDados}
+                disabled={enviando}
+              >
+                Meus dados mudaram
+              </button>
+              <button
+                className="botao botao-secundario"
+                type="button"
+                onClick={voltarParaIdentificacao}
+                disabled={enviando}
+              >
+                Voltar
+              </button>
+            </div>
           </div>
-        </form>
+        )}
+
+        {etapaFormulario === ETAPA_FORMULARIO_COMPLETO && (
+          <form className="formulario-publico" onSubmit={enviarFormulario} noValidate>
+            {eventoIdExibido && (
+              <p className="orientacao-etapa-evento">
+                {nomeConfirmacao
+                  ? 'Informe os dados atuais. As alterações serão registradas no histórico antes da participação no evento.'
+                  : 'Este telefone ainda não está na base. Complete o cadastro para participar do evento.'}
+              </p>
+            )}
+
+            <div className="grade-formulario">
+              <CampoFormulario
+                id="nome"
+                rotulo="Nome completo"
+                valor={dadosFormulario.nome}
+                aoAlterar={alterarCampo}
+                placeholder="Seu nome completo"
+                obrigatorio
+                desabilitado={enviando}
+                tamanhoMinimo={2}
+                tamanhoMaximo={150}
+                autoComplete="name"
+              />
+
+              <CampoFormulario
+                id="telefone"
+                rotulo="Telefone"
+                tipo="tel"
+                valor={dadosFormulario.telefone}
+                aoAlterar={alterarCampo}
+                placeholder="(21) 99999-9999"
+                obrigatorio
+                desabilitado={enviando || Boolean(nomeConfirmacao)}
+                tamanhoMaximo={30}
+                autoComplete="tel"
+                inputMode="tel"
+              />
+
+              <CampoSelecaoPesquisavel
+                id="bairro"
+                rotulo="Bairro"
+                valor={dadosFormulario.bairro}
+                aoAlterar={alterarBairro}
+                aoSelecionar={selecionarBairro}
+                opcoes={bairros}
+                placeholder="Digite para buscar"
+                obrigatorio
+                desabilitado={enviando || carregandoOpcoes}
+              />
+
+              <CampoFormulario
+                id="idade"
+                rotulo="Idade"
+                tipo="number"
+                valor={dadosFormulario.idade}
+                aoAlterar={alterarCampo}
+                placeholder="Ex.: 35"
+                obrigatorio
+                desabilitado={enviando}
+                minimo={16}
+                maximo={120}
+                passo={1}
+                inputMode="numeric"
+              />
+
+              <CampoSelecao
+                id="problema"
+                rotulo="Principal necessidade"
+                valor={dadosFormulario.problema}
+                aoAlterar={alterarCampo}
+                opcoes={categoriasProblema}
+                placeholder="Selecione uma categoria"
+                obrigatorio
+                desabilitado={enviando}
+              />
+            </div>
+
+            <fieldset className="grupo-consentimentos" disabled={enviando}>
+              <legend>Autorizações</legend>
+
+              <label className="opcao-consentimento" htmlFor="aceitePrivacidade">
+                <input
+                  id="aceitePrivacidade"
+                  name="aceitePrivacidade"
+                  type="checkbox"
+                  checked={dadosFormulario.aceitePrivacidade}
+                  onChange={alterarCampo}
+                  required
+                />
+                <span>
+                  {TEXTO_AVISO_PRIVACIDADE}
+                  <strong aria-hidden="true"> *</strong>
+                </span>
+              </label>
+
+              <label className="opcao-consentimento" htmlFor="autorizacaoMensagens">
+                <input
+                  id="autorizacaoMensagens"
+                  name="autorizacaoMensagens"
+                  type="checkbox"
+                  checked={dadosFormulario.autorizacaoMensagens}
+                  onChange={alterarCampo}
+                />
+                <span>{TEXTO_MENSAGENS}</span>
+              </label>
+
+              <label className="opcao-consentimento" htmlFor="autorizacaoLigacoes">
+                <input
+                  id="autorizacaoLigacoes"
+                  name="autorizacaoLigacoes"
+                  type="checkbox"
+                  checked={dadosFormulario.autorizacaoLigacoes}
+                  onChange={alterarCampo}
+                />
+                <span>{TEXTO_LIGACOES}</span>
+              </label>
+            </fieldset>
+
+            <p className="aviso-direitos">
+              Você poderá solicitar a correção, a exclusão dos seus dados ou a
+              revogação das autorizações concedidas.
+            </p>
+
+            <p className="legenda-obrigatorios">* Campos obrigatórios</p>
+
+            <div className="acoes-formulario-publico">
+              <button
+                className="botao botao-primario botao-enviar"
+                type="submit"
+                disabled={enviando || carregandoOpcoes || bairros.length === 0}
+              >
+                {carregandoOpcoes
+                  ? 'Carregando bairros...'
+                  : enviando
+                    ? 'Enviando...'
+                    : eventoIdExibido
+                      ? nomeConfirmacao
+                        ? 'Atualizar e participar'
+                        : 'Cadastrar e participar'
+                      : 'Enviar minha resposta'}
+              </button>
+
+              {eventoIdExibido && (
+                <button
+                  className="botao botao-secundario"
+                  type="button"
+                  onClick={voltarParaIdentificacao}
+                  disabled={enviando}
+                >
+                  Voltar
+                </button>
+              )}
+
+              {linkWhatsapp && (
+                <a
+                  className="botao-whatsapp-publico"
+                  href={linkWhatsapp}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  Falar pelo WhatsApp
+                </a>
+              )}
+            </div>
+          </form>
+        )}
       </section>
 
       <section className="uso-dos-dados" aria-labelledby="titulo-uso-dados">

@@ -29,9 +29,9 @@ function App() {
         <Route path="/admin/contatos/novo" element={<CadastroManual />} />
         <Route path="/admin/importacoes" element={<ImportacaoContatos />} />
         <Route path="/admin/relatorios" element={<Relatorios />} />
+        <Route path="/admin/eventos" element={<EventosAdministrativos />} />
         <Route element={<RotaAdministrador />}>
           <Route path="/admin/usuarios" element={<UsuariosAdministrativos />} />
-          <Route path="/admin/eventos" element={<EventosAdministrativos />} />
           <Route path="/admin/solicitacoes-exclusao" element={<SolicitacoesExclusao />} />
           <Route path="/admin/backups" element={<BackupsAdministrativos />} />
         </Route>

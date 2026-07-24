@@ -188,6 +188,8 @@ RELATORIO_LIMITE_REGISTROS=50000
 | `GET` | `/api/saude/vivo` | Confirma que o processo está vivo. |
 | `GET` | `/api/saude/pronto` | Confirma que a API e o PostgreSQL estão prontos. |
 | `GET` | `/api/publico/contatos/opcoes` | Retorna bairros, categorias e evento ativo. |
+| `POST` | `/api/publico/contatos/verificar-evento` | Compara nome completo e telefone sem retornar dados pessoais. |
+| `POST` | `/api/publico/contatos/inscrever-evento` | Vincula ao evento ativo um contato existente já identificado. |
 | `POST` | `/api/publico/contatos` | Registra ou complementa um contato pelo telefone. |
 | `POST` | `/api/autenticacao/login` | Valida credenciais e retorna JWT e usuário. |
 
@@ -200,6 +202,7 @@ O cadastro público recebe:
   "bairro": "Vila Kennedy",
   "idade": 30,
   "problema": "Saúde",
+  "eventoIdExibido": 1,
   "aceitePrivacidade": true,
   "autorizacaoMensagens": false,
   "autorizacaoLigacoes": false
@@ -216,9 +219,20 @@ Regras principais:
 - o telefone é reduzido a dígitos e deve ter de 10 a 15 números;
 - o formulário não contém descrição do problema nem pergunta eleitoral;
 - se houver evento ativo e dentro do período, o vínculo é automático;
+- `eventoIdExibido` recebe o identificador mostrado ou `null` quando não havia evento;
+- se o evento ativo mudar antes do envio, a transação é cancelada com HTTP `409` e nenhum contato é persistido parcialmente;
+- submissões usam advisory lock compartilhado; edição e mudança de status usam o lock exclusivo correspondente;
 - sem evento ativo, o cadastro segue normalmente e sem aviso adicional;
 - telefone existente não provoca sobrescrita silenciosa no fluxo público;
 - somente campos anteriormente vazios podem ser complementados;
+- durante evento, nome completo e telefone são solicitados antes dos demais campos;
+- telefone inexistente libera o formulário completo e cria o contato antes do vínculo;
+- telefone existente exige correspondência do nome completo, com normalização de maiúsculas, acentos e espaços;
+- falha de correspondência retorna `422`, sem expor dados pessoais, criar contato ou criar vínculo;
+- contato identificado pode confirmar diretamente a participação, sem reenviar os demais campos;
+- `Meus dados mudaram` permite declarar dados atuais após a identificação; a alteração gera histórico `atualizacao_cadastro_publico_evento` e preserva a origem original;
+- vínculo novo de contato existente retorna `200` com `inscricaoEventoCriada: true`;
+- vínculo já existente retorna `200` com `jaInscritoEvento: true` e mensagem de inscrição repetida;
 - se nada mudou, não é criado histórico repetido;
 - a mensagem de sucesso é: `Cadastro realizado com sucesso. Obrigado por contribuir com o projeto A Voz do Bairro.`
 
@@ -265,6 +279,8 @@ A listagem de contatos usa paginação padrão de 20, máximo de 100, e aceita:
 - `ordenacao=mais_recentes|mais_antigos|nome_asc|nome_desc`;
 - `pagina` e `limite`.
 
+Nome e telefone podem ser combinados com `eventoId`. O botão `Ver participantes` da tela de eventos abre essa listagem com o evento selecionado, permitindo conferir rapidamente uma inscrição por nome completo ou telefone formatado.
+
 ### 3.7 Perfis e permissões
 
 | Ação | Operador | Administrador |
@@ -292,10 +308,12 @@ Um administrador não pode alterar a conta nem a senha de outro administrador.
 ### 3.8 Importação
 
 - formatos: CSV e XLSX;
-- tamanho máximo: 5 MB;
-- máximo: 5.000 linhas;
+- tamanho máximo: 5 MB, preservado para evitar pressão excessiva de memória na instância de 512 MiB;
+- máximo: 20.000 linhas;
 - processamento em duas etapas: pré-visualizar e confirmar;
-- gravação da pré-visualização em lotes parametrizados de 500 linhas;
+- pré-visualização e confirmação em lotes parametrizados de 500 linhas;
+- apenas uma confirmação pode ser processada por vez, coordenada por advisory lock do PostgreSQL;
+- falha inesperada em lote retorna ao processamento isolado das linhas afetadas;
 - telefone é o único dado obrigatório da linha;
 - o banco mantém `NULL` em campos ausentes; a interface mostra `Não informado`;
 - linhas inválidas, repetidas ou já processadas são identificadas;
@@ -346,10 +364,16 @@ Não existe endpoint de exclusão direta de contato, revogação ou histórico.
 
 - estados: `rascunho`, `ativo` e `encerrado`;
 - somente um evento pode estar ativo;
+- o índice parcial único `eventos_apenas_um_ativo` garante essa regra diretamente no PostgreSQL;
 - contém nome, motivo, data inicial e data final;
 - a criação, edição, ativação e encerramento geram histórico;
 - o formulário público mantém o mesmo endereço;
-- o backend decide automaticamente se o novo cadastro será vinculado;
+- o backend decide automaticamente se o telefone é novo ou se nome completo e telefone correspondem a um cadastro existente;
+- o contato permanece único e mantém a origem original quando participa posteriormente de um evento;
+- a restrição única de `contato_eventos` impede repetição do mesmo par contato/evento;
+- inscrições repetidas retornam uma confirmação clara sem criar outro vínculo;
+- operadores acessam a tela em modo somente leitura e podem abrir a lista de participantes;
+- somente administradores veem e executam criação, edição, ativação e encerramento;
 - listagem e relatórios podem filtrar pelo evento ou por ausência de evento.
 
 ### 3.12 Relatórios, exportação e backup
@@ -437,7 +461,7 @@ Não há biblioteca visual externa. Componentes, layout responsivo e gráficos s
 | `/admin/contatos/novo` | Cadastro/atualização interna | operador/admin |
 | `/admin/importacoes` | CSV/XLSX | operador/admin |
 | `/admin/relatorios` | Indicadores, gráficos e exportação | operador/admin |
-| `/admin/eventos` | Gestão de eventos | admin |
+| `/admin/eventos` | Consulta para operador; gestão para administrador | operador/admin |
 | `/admin/solicitacoes-exclusao` | Fila de análise | admin |
 | `/admin/backups` | Backup e histórico | admin |
 | `/admin/usuarios` | Usuários e senhas de operadores | admin |
@@ -475,6 +499,10 @@ O token e os dados básicos do usuário são mantidos no armazenamento local do 
 - categoria em seleção fechada;
 - consentimentos desmarcados inicialmente;
 - contexto de evento exibido somente quando há evento ativo;
+- com evento ativo, primeira etapa reduzida a nome completo e telefone;
+- contato existente recebe confirmação curta; contato novo segue ao formulário completo;
+- os dados armazenados não são exibidos pela identificação pública;
+- opção `Meus dados mudaram` disponível depois da correspondência;
 - botão de WhatsApp exibido somente se o número estiver configurado;
 - aviso de privacidade após o formulário.
 
@@ -531,9 +559,9 @@ O conjunto `npm test` executa verificações de:
 - eventos e exclusões;
 - backups.
 
-Último resultado documentado no projeto, em 23/07/2026: 279 verificações do backend aprovadas e build do frontend concluído com 61 módulos transformados.
+Último resultado documentado no projeto, em 24/07/2026: 300 verificações do backend aprovadas e build do frontend concluído com 61 módulos transformados.
 
-O teste adicional `testar:importacao-carga` valida separadamente 2.500 contatos temporários em um único arquivo, incluindo pré-visualização, confirmação, contagem persistida, limpeza automática e ressincronização das sequências utilizadas. O script recusa execução em produção.
+O teste adicional `testar:importacao-carga` valida separadamente 15.000 contatos temporários em um único arquivo, a rejeição de 20.001 linhas, pré-visualização, confirmação, contagem persistida, limpeza automática e ressincronização das sequências utilizadas. O limite aceito de 20.000 linhas também foi executado com sucesso. O script recusa execução em produção.
 
 ## 6. Publicação definida
 

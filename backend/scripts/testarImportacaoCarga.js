@@ -5,8 +5,9 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const aplicacao = require('../src/app');
 const banco = require('../src/config/banco');
+const configuracaoImportacao = require('../src/config/importacao');
 
-const QUANTIDADE_CONTATOS = Number(process.env.TESTE_IMPORTACAO_QUANTIDADE || 2500);
+const QUANTIDADE_CONTATOS = Number(process.env.TESTE_IMPORTACAO_QUANTIDADE || 15000);
 const PREFIXO_TELEFONE = '00000';
 const NOME_ORIGEM = 'Teste de carga de importacao';
 const EMAIL_TESTE = 'importacao.carga@invalid.local';
@@ -22,11 +23,11 @@ function criarTelefone(indice) {
   return PREFIXO_TELEFONE + String(indice).padStart(6, '0');
 }
 
-function criarCsv() {
+function criarCsv(quantidade) {
   const linhas = ['telefone;nome'];
   let indice;
 
-  for (indice = 1; indice <= QUANTIDADE_CONTATOS; indice += 1) {
+  for (indice = 1; indice <= quantidade; indice += 1) {
     linhas.push(criarTelefone(indice) + ';Contato carga ' + indice);
   }
 
@@ -148,7 +149,7 @@ async function executar() {
     const preVisualizacao = await requisitar(baseUrl, '/api/admin/importacoes/pre-visualizar', {
       method: 'POST',
       headers: cabecalhos,
-      body: criarFormulario(criarCsv())
+      body: criarFormulario(criarCsv(QUANTIDADE_CONTATOS))
     });
     const duracaoPreVisualizacao = Date.now() - inicioPreVisualizacao;
 
@@ -167,6 +168,17 @@ async function executar() {
     assert.strictEqual(confirmacao.status, 200);
     assert.strictEqual(confirmacao.corpo.relatorio.criados, QUANTIDADE_CONTATOS);
     assert.strictEqual(confirmacao.corpo.relatorio.erros.length, 0);
+
+    const arquivoAcimaDoLimite = await requisitar(
+      baseUrl,
+      '/api/admin/importacoes/pre-visualizar',
+      {
+        method: 'POST',
+        headers: cabecalhos,
+        body: criarFormulario(criarCsv(configuracaoImportacao.LIMITE_LINHAS + 1))
+      }
+    );
+    assert.strictEqual(arquivoAcimaDoLimite.status, 400);
 
     const totalPersistido = await banco.query(
       'SELECT COUNT(*)::integer AS total FROM contatos WHERE telefone_normalizado LIKE $1',

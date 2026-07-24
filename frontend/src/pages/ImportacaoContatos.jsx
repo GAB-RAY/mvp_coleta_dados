@@ -86,7 +86,7 @@ function ImportacaoContatos() {
         <section className="cartao painel-filtros">
           <div className="cabecalho-secao">
             <div><span className="etiqueta-pagina">Operação interna</span><h2>Importar contatos</h2></div>
-            <p>CSV ou XLSX, até 5 MB e 5000 linhas.</p>
+            <p>CSV ou XLSX, até 5 MB e 20.000 linhas.</p>
           </div>
           <MensagemRetorno mensagem={mensagem} tipo={tipoMensagem} />
           <form className="formulario-importacao" onSubmit={visualizar}>

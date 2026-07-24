@@ -7,7 +7,7 @@ const ITENS_NAVEGACAO = [
   { caminho: '/admin/contatos/novo', rotulo: 'Novo cadastro', icone: 'novo' },
   { caminho: '/admin/importacoes', rotulo: 'Importações', icone: 'importacoes' },
   { caminho: '/admin/relatorios', rotulo: 'Relatórios', icone: 'relatorios' },
-  { caminho: '/admin/eventos', rotulo: 'Eventos', icone: 'eventos', somenteAdmin: true },
+  { caminho: '/admin/eventos', rotulo: 'Eventos', icone: 'eventos' },
   { caminho: '/admin/solicitacoes-exclusao', rotulo: 'Exclusões', icone: 'exclusoes', somenteAdmin: true },
   { caminho: '/admin/backups', rotulo: 'Backups', icone: 'backups', somenteAdmin: true },
   { caminho: '/admin/usuarios', rotulo: 'Usuários', icone: 'usuarios', somenteAdmin: true },

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import CabecalhoAdministrativo from '../components/CabecalhoAdministrativo';
 import CampoFormulario from '../components/CampoFormulario';
 import CampoSelecao from '../components/CampoSelecao';
@@ -68,11 +68,23 @@ function prepararFiltros(filtros) {
   };
 }
 
+function criarFiltrosIniciais(parametrosBusca) {
+  const eventoId = parametrosBusca.get('eventoId') || '';
+
+  if (!/^\d+$/.test(eventoId)) {
+    return FILTROS_INICIAIS;
+  }
+
+  return Object.assign({}, FILTROS_INICIAIS, { eventoId });
+}
+
 function ContatosAdministrativos() {
   const navegacao = useNavigate();
+  const [parametrosBusca] = useSearchParams();
   const secaoResultados = useRef(null);
-  const [filtrosFormulario, setFiltrosFormulario] = useState(FILTROS_INICIAIS);
-  const [filtrosAplicados, setFiltrosAplicados] = useState(FILTROS_INICIAIS);
+  const filtrosIniciais = criarFiltrosIniciais(parametrosBusca);
+  const [filtrosFormulario, setFiltrosFormulario] = useState(filtrosIniciais);
+  const [filtrosAplicados, setFiltrosAplicados] = useState(filtrosIniciais);
   const [pagina, setPagina] = useState(1);
   const [paginacao, setPaginacao] = useState(PAGINACAO_INICIAL);
   const [contatos, setContatos] = useState([]);

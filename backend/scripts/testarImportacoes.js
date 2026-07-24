@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken');
 const ExcelJS = require('exceljs');
 const aplicacao = require('../src/app');
 const banco = require('../src/config/banco');
+const configuracaoImportacao = require('../src/config/importacao');
 
 const PREFIXO = '21999985';
 const ORIGENS = ['Importação CSV Teste', 'Importação XLSX Teste'];
@@ -117,6 +118,25 @@ async function executar() {
       return linha.erro && linha.erro.includes('catálogo oficial');
     }));
 
+    const clienteBloqueio = await banco.connect();
+
+    try {
+      await clienteBloqueio.query('BEGIN');
+      await clienteBloqueio.query(
+        'SELECT pg_advisory_xact_lock($1, $2)',
+        [configuracaoImportacao.CHAVE_BLOQUEIO_1, configuracaoImportacao.CHAVE_BLOQUEIO_2]
+      );
+      const confirmacaoConcorrente = await requisitar(
+        baseUrl,
+        '/api/admin/importacoes/' + visualizacao.corpo.importacao.importacaoId + '/confirmar',
+        { method: 'POST', headers: cabecalhos }
+      );
+      assert.strictEqual(confirmacaoConcorrente.status, 409);
+    } finally {
+      await clienteBloqueio.query('ROLLBACK');
+      clienteBloqueio.release();
+    }
+
     const confirmacao = await requisitar(
       baseUrl,
       '/api/admin/importacoes/' + visualizacao.corpo.importacao.importacaoId + '/confirmar',
@@ -207,7 +227,7 @@ async function executar() {
     );
     assert.strictEqual(repetida.corpo.relatorio.ignorados, 1);
 
-    console.log('Importações: 21 verificações aprovadas.');
+    console.log('Importações: 22 verificações aprovadas.');
     console.log('CSV, XLSX, inválidos, duplicados, complementação e reimportação aprovados.');
   } finally {
     if (servidor) {

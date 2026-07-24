@@ -10,7 +10,7 @@ import {
   editarEvento,
   listarEventos
 } from '../services/eventoService';
-import { removerToken } from '../utils/armazenamentoToken';
+import { obterUsuario, removerToken } from '../utils/armazenamentoToken';
 
 const FORMULARIO_INICIAL = {
   nome: '',
@@ -21,6 +21,8 @@ const FORMULARIO_INICIAL = {
 
 function EventosAdministrativos() {
   const navegacao = useNavigate();
+  const usuario = obterUsuario();
+  const usuarioAdministrador = usuario && usuario.perfil === 'administrador';
   const [eventos, setEventos] = useState([]);
   const [formulario, setFormulario] = useState(FORMULARIO_INICIAL);
   const [eventoEdicao, setEventoEdicao] = useState(null);
@@ -114,37 +116,41 @@ function EventosAdministrativos() {
         <CabecalhoAdministrativo
           aoSair={sair}
           titulo="Eventos"
-          subtitulo="Defina o evento associado automaticamente ao formulário público."
+          subtitulo={usuarioAdministrador
+            ? 'Defina o evento associado automaticamente ao formulário público.'
+            : 'Consulte eventos e participantes inscritos.'}
         />
 
         {mensagem && <MensagemRetorno mensagem={mensagem} tipo="informacao" />}
 
-        <section className="cartao painel-filtros">
-          <div className="cabecalho-secao">
-            <div>
-              <span className="etiqueta-pagina">Gestão de eventos</span>
-              <h2>{eventoEdicao ? 'Editar evento' : 'Novo evento'}</h2>
+        {usuarioAdministrador && (
+          <section className="cartao painel-filtros">
+            <div className="cabecalho-secao">
+              <div>
+                <span className="etiqueta-pagina">Gestão de eventos</span>
+                <h2>{eventoEdicao ? 'Editar evento' : 'Novo evento'}</h2>
+              </div>
             </div>
-          </div>
-          <form className="formulario-filtros" onSubmit={salvar}>
-            <fieldset className="grade-filtros">
-              <CampoFormulario id="nome" rotulo="Nome" valor={formulario.nome} aoAlterar={alterar} obrigatorio />
-              <CampoFormulario id="motivo" rotulo="Motivo" valor={formulario.motivo} aoAlterar={alterar} obrigatorio />
-              <CampoFormulario id="dataInicial" rotulo="Data inicial" tipo="date" valor={formulario.dataInicial} aoAlterar={alterar} obrigatorio />
-              <CampoFormulario id="dataFinal" rotulo="Data final" tipo="date" valor={formulario.dataFinal} aoAlterar={alterar} obrigatorio />
-            </fieldset>
-            <div className="acoes-filtros">
-              <button className="botao botao-primario" type="submit">
-                {eventoEdicao ? 'Salvar alterações' : 'Cadastrar evento'}
-              </button>
-              {eventoEdicao && (
-                <button className="botao botao-secundario" type="button" onClick={cancelarEdicao}>
-                  Cancelar
+            <form className="formulario-filtros" onSubmit={salvar}>
+              <fieldset className="grade-filtros">
+                <CampoFormulario id="nome" rotulo="Nome" valor={formulario.nome} aoAlterar={alterar} obrigatorio />
+                <CampoFormulario id="motivo" rotulo="Motivo" valor={formulario.motivo} aoAlterar={alterar} obrigatorio />
+                <CampoFormulario id="dataInicial" rotulo="Data inicial" tipo="date" valor={formulario.dataInicial} aoAlterar={alterar} obrigatorio />
+                <CampoFormulario id="dataFinal" rotulo="Data final" tipo="date" valor={formulario.dataFinal} aoAlterar={alterar} obrigatorio />
+              </fieldset>
+              <div className="acoes-filtros">
+                <button className="botao botao-primario" type="submit">
+                  {eventoEdicao ? 'Salvar alterações' : 'Cadastrar evento'}
                 </button>
-              )}
-            </div>
-          </form>
-        </section>
+                {eventoEdicao && (
+                  <button className="botao botao-secundario" type="button" onClick={cancelarEdicao}>
+                    Cancelar
+                  </button>
+                )}
+              </div>
+            </form>
+          </section>
+        )}
 
         <section className="cartao painel-resultados">
           <div className="cabecalho-resultados">
@@ -170,12 +176,25 @@ function EventosAdministrativos() {
                         <td><span className="badge-consentimento consentimento-nao-informado">{item.status}</span></td>
                         <td>{item.totalCadastros || 0}</td>
                         <td className="acoes-tabela">
-                          <button className="botao botao-secundario" type="button" onClick={function () { prepararEdicao(item); }}>Editar</button>
-                          {item.status === 'rascunho' && (
-                            <button className="botao botao-primario" type="button" onClick={function () { mudarStatus(item.id, 'ativar'); }}>Ativar</button>
-                          )}
-                          {item.status === 'ativo' && (
-                            <button className="botao botao-secundario" type="button" onClick={function () { mudarStatus(item.id, 'encerrar'); }}>Encerrar</button>
+                          <button
+                            className="botao botao-secundario"
+                            type="button"
+                            onClick={function () {
+                              navegacao('/admin/contatos?eventoId=' + item.id);
+                            }}
+                          >
+                            Ver participantes
+                          </button>
+                          {usuarioAdministrador && (
+                            <>
+                              <button className="botao botao-secundario" type="button" onClick={function () { prepararEdicao(item); }}>Editar</button>
+                              {item.status === 'rascunho' && (
+                                <button className="botao botao-primario" type="button" onClick={function () { mudarStatus(item.id, 'ativar'); }}>Ativar</button>
+                              )}
+                              {item.status === 'ativo' && (
+                                <button className="botao botao-secundario" type="button" onClick={function () { mudarStatus(item.id, 'encerrar'); }}>Encerrar</button>
+                              )}
+                            </>
                           )}
                         </td>
                       </tr>

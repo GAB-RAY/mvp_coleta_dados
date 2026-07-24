@@ -32,7 +32,7 @@ O WhatsApp deve conter país, DDD e número, somente com dígitos. Reinicie o Vi
 | `/admin/importacoes` | operador/admin | Pré-visualização e confirmação CSV/XLSX. |
 | `/admin/relatorios` | operador/admin | Indicadores e gráficos; CSV e Excel aparecem somente para admin. |
 | `/admin/backups` | admin | Geração, download e histórico auditado de backups do PostgreSQL. |
-| `/admin/eventos` | admin | Criar, editar rascunho, ativar e encerrar eventos. |
+| `/admin/eventos` | operador/admin | Operador consulta eventos e participantes; administrador também cria, edita, ativa e encerra. |
 | `/admin/solicitacoes-exclusao` | admin | Aprovar com exclusão física ou rejeitar pedidos. |
 | `/admin/usuarios` | admin | Definir o próprio nome, criar operadores/administradores e redefinir senhas de operadores. |
 
@@ -49,15 +49,25 @@ Campos atuais:
 - autorização opcional para ligações;
 - aceite obrigatório do Aviso de Privacidade.
 
-O formulário não exibe descrição do problema. O mesmo link é usado sempre. Quando existe evento ativo, a tela informa o vínculo; sem evento, continua aceitando o envio normalmente e não mostra aviso adicional.
+O formulário não exibe descrição do problema. O mesmo link é usado sempre. Sem evento ativo, o cadastro completo continua funcionando normalmente e não mostra aviso adicional.
+
+Quando existe evento ativo, a primeira etapa solicita somente nome completo e telefone. Se o telefone não existir, o formulário completo é aberto com os dois campos preservados. Se ambos corresponderem a um contato existente, a tela permite confirmar a inscrição sem mostrar dados pessoais nem exigir novamente bairro, idade, categoria ou consentimentos. Nome divergente não cria contato nem vínculo. Se a inscrição já existir, a tela apenas informa o resultado sem duplicar o registro.
+
+Depois da identificação, `Meus dados mudaram` abre o formulário completo. O telefone fica bloqueado, os dados declarados são enviados com o nome usado na confirmação e o backend registra as alterações no histórico antes de concluir o vínculo.
+
+O identificador do evento exibido acompanha o envio. Se o administrador trocar ou encerrar o evento enquanto a pessoa preenche, o backend retorna `409`; o frontend atualiza o contexto, mantém os campos preenchidos e pede um novo envio consciente.
 
 ## Painel e permissões
 
-Operadores e administradores podem cadastrar, editar, consultar, revogar consentimentos e solicitar exclusão. Somente administradores veem gestão de eventos, usuários, fila de exclusões e backups. Os botões de exportação CSV e Excel também aparecem somente para administrador.
+Operadores e administradores podem cadastrar, editar, consultar, revogar consentimentos, solicitar exclusão e abrir a tela de eventos. Para operador, eventos são somente leitura e permitem acessar participantes. Somente administradores veem os controles de criação, edição, ativação e encerramento, além de usuários, fila de exclusões e backups. Os botões de exportação CSV e Excel também aparecem somente para administrador.
+
+Na tela de eventos, o botão `Ver participantes` abre a listagem de contatos com o evento previamente selecionado. Os campos de nome e telefone continuam disponíveis para conferir rapidamente a inscrição.
 
 Na gestão de usuários, o administrador pode atualizar o próprio nome e criar contas com perfil de operador ou administrador. Outros administradores aparecem protegidos e não podem ter seus dados ou senha alterados; a redefinição administrativa de senha fica disponível somente para operadores.
 
 Contatos importados somente com telefone mantêm nome, bairro, idade e categoria como `NULL` no banco. Na listagem, nos detalhes e na pré-visualização da importação, esses valores ausentes aparecem visualmente como “Não informado”, permitindo complementação futura sem confundir o texto com um dado real.
+
+A importação aceita um único arquivo CSV ou XLSX com até 5 MB e 20.000 linhas. Durante a confirmação, o botão permanece bloqueado e informa que a importação está em andamento.
 
 Ao gerar um backup, o frontend baixa o arquivo retornado pelo backend e exibe o hash SHA-256. O histórico informa responsável, data, estado, tamanho e hash, sem expor credenciais do banco.
 

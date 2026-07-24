@@ -4,6 +4,7 @@ const aceitePrivacidadeModel = require('./aceitePrivacidadeModel');
 const historicoContatoModel = require('./historicoContatoModel');
 const textoFormularioModel = require('./textoFormularioModel');
 const eventoModel = require('../eventos/eventoModel');
+const configuracaoEvento = require('../../config/evento');
 
 async function buscarOrigemFormularioPublico(cliente) {
   const resultado = await cliente.query(
@@ -26,6 +27,30 @@ async function buscarOrigemFormularioPublico(cliente) {
 function campoEstaVazio(valor) {
   return valor === null || valor === undefined || (
     typeof valor === 'string' && valor.trim() === ''
+  );
+}
+
+function normalizarNomeParaComparacao(nome) {
+  if (typeof nome !== 'string') {
+    return '';
+  }
+
+  return nome
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+}
+
+function nomesCorrespondem(nomeAtual, nomeInformado) {
+  const nomeAtualNormalizado = normalizarNomeParaComparacao(nomeAtual);
+  const nomeInformadoNormalizado = normalizarNomeParaComparacao(nomeInformado);
+
+  return Boolean(
+    nomeAtualNormalizado &&
+    nomeInformadoNormalizado &&
+    nomeAtualNormalizado === nomeInformadoNormalizado
   );
 }
 
@@ -139,6 +164,158 @@ async function complementarCamposVazios(cliente, contato, dadosDoContato, origem
   return Object.keys(dadosNovos);
 }
 
+async function registrarDivergenciasEvento(
+  cliente,
+  contato,
+  dadosDoContato,
+  origemId,
+  eventoId
+) {
+  const campos = [
+    { coluna: 'nome', propriedade: 'nome' },
+    { coluna: 'bairro', propriedade: 'bairro' },
+    { coluna: 'problema', propriedade: 'problema' },
+    { coluna: 'idade', propriedade: 'idade' }
+  ];
+  const dadosAnteriores = {};
+  const dadosInformados = {};
+
+  campos.forEach(function (campo) {
+    const valorAtual = contato[campo.coluna];
+    const valorRecebido = dadosDoContato[campo.propriedade];
+
+    if (
+      !campoEstaVazio(valorAtual) &&
+      !campoEstaVazio(valorRecebido) &&
+      String(valorAtual).trim() !== String(valorRecebido).trim()
+    ) {
+      dadosAnteriores[campo.propriedade] = valorAtual;
+      dadosInformados[campo.propriedade] = valorRecebido;
+    }
+  });
+
+  if (Object.keys(dadosInformados).length === 0) {
+    return [];
+  }
+
+  const contextoAnterior = {
+    eventoId,
+    campos: dadosAnteriores
+  };
+  const contextoInformado = {
+    eventoId,
+    campos: dadosInformados
+  };
+  const historicoExistente = await cliente.query(
+    `
+      SELECT id
+      FROM historico_contatos
+      WHERE contato_id = $1
+        AND tipo_evento = 'divergencia_cadastro_publico_evento'
+        AND dados_anteriores = $2::jsonb
+        AND dados_novos = $3::jsonb
+        AND origem_id = $4
+      LIMIT 1
+    `,
+    [
+      contato.id,
+      JSON.stringify(contextoAnterior),
+      JSON.stringify(contextoInformado),
+      origemId
+    ]
+  );
+
+  if (historicoExistente.rows[0]) {
+    return Object.keys(dadosInformados);
+  }
+
+  await historicoContatoModel.registrar(cliente, contato.id, {
+    tipoEvento: 'divergencia_cadastro_publico_evento',
+    dadosAnteriores: contextoAnterior,
+    dadosNovos: contextoInformado,
+    origemId,
+    registradoPorUsuarioId: null
+  });
+
+  return Object.keys(dadosInformados);
+}
+
+async function atualizarDadosDeclaradosNoEvento(
+  cliente,
+  contato,
+  dadosDoContato,
+  origemId,
+  eventoId
+) {
+  const campos = [
+    { coluna: 'nome', propriedade: 'nome' },
+    { coluna: 'bairro', propriedade: 'bairro' },
+    { coluna: 'problema', propriedade: 'problema' },
+    { coluna: 'idade', propriedade: 'idade' }
+  ];
+  const atribuicoes = [];
+  const valores = [];
+  const dadosAnteriores = {};
+  const dadosNovos = {};
+
+  campos.forEach(function (campo) {
+    const valorAtual = contato[campo.coluna];
+    const valorRecebido = dadosDoContato[campo.propriedade];
+    const valoresIguais = campo.propriedade === 'nome'
+      ? nomesCorrespondem(valorAtual, valorRecebido)
+      : String(valorAtual).trim() === String(valorRecebido).trim();
+
+    if (!valoresIguais) {
+      valores.push(valorRecebido);
+      atribuicoes.push(campo.coluna + ' = $' + valores.length);
+      dadosAnteriores[campo.propriedade] = valorAtual;
+      dadosNovos[campo.propriedade] = valorRecebido;
+    }
+  });
+
+  if (atribuicoes.length === 0) {
+    return [];
+  }
+
+  valores.push(contato.id);
+  atribuicoes.push('atualizado_em = CURRENT_TIMESTAMP');
+
+  await cliente.query(
+    'UPDATE contatos SET ' + atribuicoes.join(', ') +
+      ' WHERE id = $' + valores.length,
+    valores
+  );
+  await historicoContatoModel.registrar(cliente, contato.id, {
+    tipoEvento: 'atualizacao_cadastro_publico_evento',
+    dadosAnteriores: {
+      eventoId,
+      campos: dadosAnteriores
+    },
+    dadosNovos: {
+      eventoId,
+      campos: dadosNovos
+    },
+    origemId,
+    registradoPorUsuarioId: null
+  });
+
+  return Object.keys(dadosNovos);
+}
+
+async function vincularContatoAoEvento(cliente, contatoId, eventoId) {
+  const resultado = await cliente.query(
+    `
+      INSERT INTO contato_eventos (contato_id, evento_id)
+      VALUES ($1, $2)
+      ON CONFLICT (contato_id, evento_id) DO NOTHING
+      RETURNING id
+    `,
+    [contatoId, eventoId]
+  );
+
+  return Boolean(resultado.rows[0]);
+}
+
 async function registrarPrivacidadeEAutorizacoes(
   cliente,
   contatoId,
@@ -202,9 +379,23 @@ async function salvarCadastroPublico(dadosDoContato) {
 
   try {
     await cliente.query('BEGIN');
+    await cliente.query(
+      'SELECT pg_advisory_xact_lock_shared($1, $2)',
+      [configuracaoEvento.CHAVE_BLOQUEIO_1, configuracaoEvento.CHAVE_BLOQUEIO_2]
+    );
     const origem = await buscarOrigemFormularioPublico(cliente);
     const textos = await textoFormularioModel.buscarAtivos(cliente);
     const eventoAtivo = await eventoModel.buscarAtivo(cliente);
+    const eventoAtivoId = eventoAtivo ? Number(eventoAtivo.id) : null;
+
+    if (
+      dadosDoContato.eventoIdExibido !== undefined &&
+      dadosDoContato.eventoIdExibido !== eventoAtivoId
+    ) {
+      const erroContexto = new Error('O contexto de evento do formulário foi alterado.');
+      erroContexto.codigoAplicacao = 'CONTEXTO_EVENTO_ALTERADO';
+      throw erroContexto;
+    }
 
     if (!textos.aviso_privacidade || !textos.mensagens || !textos.ligacoes) {
       throw new Error('Os textos ativos do formulário não estão completos.');
@@ -213,6 +404,7 @@ async function salvarCadastroPublico(dadosDoContato) {
     let contato = await criarContatoPublico(cliente, dadosDoContato, origem);
     let contatoCriado = true;
     let camposComplementados = [];
+    let vinculoEventoCriado = false;
 
     if (!contato) {
       contatoCriado = false;
@@ -225,12 +417,44 @@ async function salvarCadastroPublico(dadosDoContato) {
         throw new Error('Não foi possível localizar o contato concorrente.');
       }
 
-      camposComplementados = await complementarCamposVazios(
-        cliente,
-        contato,
-        dadosDoContato,
-        origem.id
-      );
+      if (
+        eventoAtivo &&
+        !nomesCorrespondem(
+          contato.nome,
+          dadosDoContato.nomeConfirmacao || dadosDoContato.nome
+        )
+      ) {
+        const erroIdentidade = new Error('Não foi possível confirmar os dados informados.');
+        erroIdentidade.codigoAplicacao = 'IDENTIDADE_EVENTO_NAO_CONFIRMADA';
+        throw erroIdentidade;
+      }
+
+      if (eventoAtivo && dadosDoContato.atualizarDadosEvento === true) {
+        camposComplementados = await atualizarDadosDeclaradosNoEvento(
+          cliente,
+          contato,
+          dadosDoContato,
+          origem.id,
+          eventoAtivo.id
+        );
+      } else {
+        camposComplementados = await complementarCamposVazios(
+          cliente,
+          contato,
+          dadosDoContato,
+          origem.id
+        );
+      }
+
+      if (eventoAtivo && dadosDoContato.atualizarDadosEvento !== true) {
+        await registrarDivergenciasEvento(
+          cliente,
+          contato,
+          dadosDoContato,
+          origem.id,
+          eventoAtivo.id
+        );
+      }
     }
 
     await registrarPrivacidadeEAutorizacoes(
@@ -242,13 +466,10 @@ async function salvarCadastroPublico(dadosDoContato) {
     );
 
     if (eventoAtivo) {
-      await cliente.query(
-        `
-          INSERT INTO contato_eventos (contato_id, evento_id)
-          VALUES ($1, $2)
-          ON CONFLICT (contato_id, evento_id) DO NOTHING
-        `,
-        [contato.id, eventoAtivo.id]
+      vinculoEventoCriado = await vincularContatoAoEvento(
+        cliente,
+        contato.id,
+        eventoAtivo.id
       );
     }
 
@@ -257,6 +478,116 @@ async function salvarCadastroPublico(dadosDoContato) {
     return {
       contatoCriado,
       camposComplementados,
+      vinculoEventoCriado,
+      eventoAtivo
+    };
+  } catch (erro) {
+    await cliente.query('ROLLBACK');
+    throw erro;
+  } finally {
+    cliente.release();
+  }
+}
+
+async function verificarContatoParaEvento(dadosIdentificacao) {
+  const eventoAtivo = await eventoModel.buscarAtivo();
+  const eventoAtivoId = eventoAtivo ? Number(eventoAtivo.id) : null;
+
+  if (dadosIdentificacao.eventoIdExibido !== eventoAtivoId) {
+    const erroContexto = new Error('O contexto de evento do formulário foi alterado.');
+    erroContexto.codigoAplicacao = 'CONTEXTO_EVENTO_ALTERADO';
+    throw erroContexto;
+  }
+
+  if (!eventoAtivo) {
+    const erroSemEvento = new Error('Não há evento ativo para esta operação.');
+    erroSemEvento.codigoAplicacao = 'EVENTO_NAO_ATIVO';
+    throw erroSemEvento;
+  }
+
+  const resultado = await banco.query(
+    `
+      SELECT
+        contato.id,
+        contato.nome,
+        EXISTS (
+          SELECT 1
+          FROM contato_eventos AS vinculo
+          WHERE vinculo.contato_id = contato.id
+            AND vinculo.evento_id = $2
+        ) AS ja_inscrito
+      FROM contatos AS contato
+      WHERE contato.telefone_normalizado = $1
+      LIMIT 1
+    `,
+    [dadosIdentificacao.telefoneNormalizado, eventoAtivo.id]
+  );
+  const contato = resultado.rows[0] || null;
+
+  if (!contato) {
+    return {
+      situacao: 'novo',
+      eventoAtivo
+    };
+  }
+
+  if (!nomesCorrespondem(contato.nome, dadosIdentificacao.nome)) {
+    const erroIdentidade = new Error('Não foi possível confirmar os dados informados.');
+    erroIdentidade.codigoAplicacao = 'IDENTIDADE_EVENTO_NAO_CONFIRMADA';
+    throw erroIdentidade;
+  }
+
+  return {
+    situacao: contato.ja_inscrito ? 'ja_inscrito' : 'contato_encontrado',
+    eventoAtivo
+  };
+}
+
+async function inscreverContatoExistenteNoEvento(dadosIdentificacao) {
+  const cliente = await banco.connect();
+
+  try {
+    await cliente.query('BEGIN');
+    await cliente.query(
+      'SELECT pg_advisory_xact_lock_shared($1, $2)',
+      [configuracaoEvento.CHAVE_BLOQUEIO_1, configuracaoEvento.CHAVE_BLOQUEIO_2]
+    );
+    const eventoAtivo = await eventoModel.buscarAtivo(cliente);
+    const eventoAtivoId = eventoAtivo ? Number(eventoAtivo.id) : null;
+
+    if (dadosIdentificacao.eventoIdExibido !== eventoAtivoId) {
+      const erroContexto = new Error('O contexto de evento do formulário foi alterado.');
+      erroContexto.codigoAplicacao = 'CONTEXTO_EVENTO_ALTERADO';
+      throw erroContexto;
+    }
+
+    if (!eventoAtivo) {
+      const erroSemEvento = new Error('Não há evento ativo para esta operação.');
+      erroSemEvento.codigoAplicacao = 'EVENTO_NAO_ATIVO';
+      throw erroSemEvento;
+    }
+
+    const contato = await buscarContatoParaAtualizacao(
+      cliente,
+      dadosIdentificacao.telefoneNormalizado
+    );
+
+    if (!contato || !nomesCorrespondem(contato.nome, dadosIdentificacao.nome)) {
+      const erroIdentidade = new Error('Não foi possível confirmar os dados informados.');
+      erroIdentidade.codigoAplicacao = 'IDENTIDADE_EVENTO_NAO_CONFIRMADA';
+      throw erroIdentidade;
+    }
+
+    const vinculoEventoCriado = await vincularContatoAoEvento(
+      cliente,
+      contato.id,
+      eventoAtivo.id
+    );
+
+    await cliente.query('COMMIT');
+
+    return {
+      vinculoEventoCriado,
       eventoAtivo
     };
   } catch (erro) {
@@ -1004,10 +1335,12 @@ async function buscarDetalhes(id) {
 }
 
 module.exports = {
+  inscreverContatoExistenteNoEvento,
   salvarCadastroPublico,
   salvarCadastroManual,
   revogarConsentimentos,
   listar,
   contar,
-  buscarDetalhes
+  buscarDetalhes,
+  verificarContatoParaEvento
 };

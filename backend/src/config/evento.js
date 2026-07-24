@@ -1,0 +1,7 @@
+const CHAVE_BLOQUEIO_1 = 1098274;
+const CHAVE_BLOQUEIO_2 = 2;
+
+module.exports = {
+  CHAVE_BLOQUEIO_1,
+  CHAVE_BLOQUEIO_2
+};

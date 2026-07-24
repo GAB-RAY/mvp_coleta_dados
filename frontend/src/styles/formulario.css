@@ -373,6 +373,47 @@
   gap: 0.8rem;
 }
 
+.orientacao-etapa-evento {
+  margin: 0;
+  border-left: 3px solid var(--cor-primaria);
+  border-radius: 0 6px 6px 0;
+  padding: 0.7rem 0.85rem;
+  background: #fff4ed;
+  color: #633b2b;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.confirmacao-participacao-evento {
+  border: 1px solid #f0dace;
+  border-radius: 8px;
+  padding: 1rem;
+  background: #fff9f5;
+  text-align: center;
+}
+
+.confirmacao-participacao-evento h2 {
+  margin: 0;
+  color: #63311f;
+  font-size: 1.2rem;
+}
+
+.confirmacao-participacao-evento p {
+  margin: 0;
+  color: #6f584d;
+  line-height: 1.5;
+}
+
+.pagina-publica .botao-secundario {
+  border-color: #d9a88d;
+  color: #7a2b00;
+}
+
+.pagina-publica .botao-secundario:hover:not(:disabled) {
+  border-color: var(--cor-primaria);
+  background: #fff0e7;
+}
+
 .botao-whatsapp-publico {
   display: inline-flex;
   min-height: 36px;

@@ -1,14 +1,66 @@
 # Prompt mestre — Central de Comunicação / A Voz do Bairro
 
-O texto abaixo pode ser enviado a uma IA de desenvolvimento para construir ou reconstruir o sistema. Ele descreve o comportamento esperado e deve ser tratado como especificação funcional e técnica.
+O texto abaixo pode ser enviado a outra IA para assumir o projeto existente em um novo chat ou reconstruir o sistema quando não houver código. Ele reúne as regras funcionais, técnicas, operacionais e de segurança necessárias para reconhecer o estado atual antes de trabalhar.
 
 ---
 
 ## INÍCIO DO PROMPT
 
-Você é um desenvolvedor sênior responsável por construir o sistema profissional **Central de Comunicação**, cuja interface pública se chama **A Voz do Bairro**.
+Você é um desenvolvedor sênior responsável pelo sistema profissional **Central de Comunicação**, cuja interface pública se chama **A Voz do Bairro**.
 
 Leia esta especificação inteira antes de alterar arquivos. Não invente campos, endpoints, permissões ou regras. Quando houver dúvida que altere negócio, banco, segurança ou privacidade, apresente a dúvida antes de decidir.
+
+### 0. Identifique o cenário antes de trabalhar
+
+Este prompt atende a dois cenários diferentes. Determine qual deles existe antes de executar qualquer mudança.
+
+#### Cenário A — continuar um projeto existente
+
+Considere este cenário quando o diretório já possuir `backend`, `frontend`, Git, código ou banco configurado. Nesse caso:
+
+1. não recrie o projeto;
+2. não substitua a implementação existente por uma versão nova;
+3. execute `git status --short` e preserve alterações ainda não commitadas;
+4. leia integralmente `README.md`, `README_TECNICO.md`, `backend/README.md`, `frontend/README.md`, este `PROMPT_MESTRE.md`, os `package.json`, os `.env.example` e o schema;
+5. não abra nem mostre valores de `.env`, senhas, tokens, URLs privadas ou credenciais;
+6. examine as rotas, páginas, módulos e testes relacionados à solicitação atual;
+7. confirme o comportamento real no código e nos testes antes de afirmar que algo existe ou não existe;
+8. preserve arquitetura, contratos HTTP, dados, auditoria e funcionalidades aprovadas;
+9. altere somente o necessário para a solicitação recebida;
+10. não altere nem recrie o banco sem autorização explícita e procedimento seguro;
+11. execute os testes proporcionais à mudança e depois a suíte completa quando possível;
+12. atualize a documentação para representar exatamente o código validado;
+13. não faça commit, push ou deploy sem autorização explícita.
+
+Se o sistema já estiver pronto e a pessoa pedir apenas uma correção ou funcionalidade, trate a tarefa como evolução incremental. Não reimplemente funcionalidades descritas neste documento que já estejam funcionando.
+
+Se encontrar divergência entre este documento e o projeto existente, não escolha silenciosamente. Mostre a divergência, o impacto e a alternativa segura antes de alterar regra de negócio, banco, segurança, privacidade ou contrato público.
+
+#### Cenário B — reconstruir sem projeto existente
+
+Considere este cenário somente quando não houver implementação aproveitável ou quando a pessoa pedir expressamente uma reconstrução. Nesse caso:
+
+1. construa o sistema descrito neste documento sem remover requisitos;
+2. use exatamente as tecnologias e a arquitetura definidas abaixo;
+3. crie o banco novo pelo schema completo, nunca com dados pessoais ou credenciais;
+4. implemente em fases pequenas: banco, backend, frontend, testes e documentação;
+5. valide cada fase antes de avançar;
+6. não use dados simulados como integração final;
+7. entregue o sistema com os mesmos contratos, permissões, proteções e comportamentos descritos aqui.
+
+#### Hierarquia e comprovação
+
+- A solicitação mais recente da pessoa responsável pelo projeto tem prioridade, desde que não implique risco oculto ou perda de dados.
+- Este prompt é a especificação consolidada do comportamento esperado.
+- READMEs ajudam na operação e no detalhamento, mas não substituem a verificação do código e dos testes no cenário de continuidade.
+- Nunca declare uma funcionalidade pronta somente porque ela está documentada. Confirme a implementação e execute os testes aplicáveis.
+- Nunca apague dados, descarte mudanças do Git, recrie banco existente ou aplique schema completo em banco ocupado.
+
+#### Estado de referência deste documento
+
+Na atualização de 24/07/2026, o repositório original já possuía backend, frontend e schema completo implementados. A suíte `npm test` do backend concluiu 300 verificações e o build do frontend concluiu com 61 módulos transformados. O schema novo possui 22 tabelas e 166 bairros. Esses números servem como referência de regressão, não como substitutos para uma nova execução dos testes no ambiente recebido.
+
+No cenário de continuidade, parta do princípio de que a base descrita abaixo pode estar pronta e primeiro confirme isso. No cenário de reconstrução, use todas as seções seguintes como contrato do resultado final.
 
 ### 1. Objetivo
 
@@ -231,8 +283,13 @@ As categorias ficam centralizadas no backend e são retornadas ao formulário. C
 - aceitar de 10 a 15 dígitos;
 - impedir dois contatos com o mesmo telefone normalizado;
 - nunca sobrescrever silenciosamente dados existentes pelo formulário público;
-- nova submissão pública pode preencher somente campos anteriormente nulos ou vazios;
-- nome, bairro, categoria ou qualquer dado já preenchido não deve ser alterado pelo fluxo público;
+- fora do fluxo identificado de evento, nova submissão pública pode preencher somente campos anteriormente nulos ou vazios;
+- fora do fluxo identificado de evento, nome, bairro, categoria ou qualquer dado já preenchido não deve ser alterado;
+- durante evento, telefone existente exige correspondência do nome completo antes de permitir vínculo ou atualização;
+- não mostrar dados armazenados durante essa identificação;
+- somente após a correspondência e a escolha explícita de `Meus dados mudaram`, aplicar os dados novamente declarados;
+- registrar os valores anteriores e novos em `atualizacao_cadastro_publico_evento`;
+- preservar a origem original do contato durante participação e atualização em evento;
 - criar histórico apenas para campos efetivamente preenchidos ou alterados;
 - se não houver novidade, não criar histórico repetido;
 - não revelar dados privados do registro anterior;
@@ -264,12 +321,28 @@ Evento possui:
 Regras:
 
 - somente um evento ativo por vez;
+- garantir a regra com índice parcial único no PostgreSQL, não apenas com lógica da aplicação;
 - registrar histórico de criação, edição, ativação e encerramento;
 - o endereço público nunca muda;
 - se houver evento ativo dentro do período, vincular automaticamente o cadastro;
+- enviar ocultamente o identificador do evento exibido; usar `null` quando nenhum evento foi mostrado;
+- se o evento exibido não corresponder ao evento ativo no momento do envio, cancelar a transação com `409`, atualizar o contexto no frontend e preservar os campos digitados;
+- coordenar submissão pública e edição/alteração de status do evento com advisory lock transacional compartilhado/exclusivo;
+- com evento ativo, começar solicitando nome completo e telefone;
+- se o telefone não existir, abrir o formulário completo, criar o contato e vinculá-lo ao evento;
+- se o telefone existir, exigir correspondência do nome completo antes de permitir a confirmação;
+- não retornar dados pessoais durante a identificação pública;
+- após a correspondência, permitir confirmação direta sem exigir novamente os demais campos;
+- oferecer `Meus dados mudaram`; aplicar as alterações declaradas com histórico e preservar a origem original;
+- nome divergente para telefone existente não cria contato, vínculo nem alteração;
+- garantir no banco a unicidade de `(contato_id, evento_id)`;
+- se o vínculo já existir, responder que a inscrição já está registrada sem duplicar o registro;
 - nesse caso, o frontend informa o contexto do evento;
 - se não houver evento ativo, aceitar o cadastro normalmente e não mostrar aviso adicional;
-- permitir filtro de contatos e relatórios por evento ou sem evento.
+- permitir filtro de contatos e relatórios por evento ou sem evento;
+- oferecer acesso direto aos participantes e busca combinável por nome completo ou telefone.
+- permitir que operador abra eventos em modo somente leitura e consulte participantes;
+- manter criação, edição, ativação e encerramento exclusivos do administrador.
 
 ### 9. Autenticação e usuários
 
@@ -384,11 +457,13 @@ Revogação:
 ### 13. Importação CSV/XLSX
 
 - upload em memória;
-- máximo 5 MB;
-- máximo 5.000 linhas;
+- máximo 5 MB para proteger a memória da instância de 512 MiB;
+- máximo 20.000 linhas;
 - origem da lista obrigatória;
 - pré-visualizar antes de confirmar;
-- persistir as linhas da pré-visualização em lotes parametrizados de 500;
+- persistir e confirmar as linhas em lotes parametrizados de 500;
+- permitir somente uma confirmação por vez usando advisory lock do PostgreSQL;
+- se um lote falhar inesperadamente, retornar ao processamento isolado das linhas afetadas;
 - mostrar no máximo 100 linhas na prévia;
 - telefone é obrigatório;
 - outros campos são opcionais;
@@ -558,6 +633,8 @@ Públicos:
 - `GET /api/saude/vivo`;
 - `GET /api/saude/pronto`;
 - `GET /api/publico/contatos/opcoes`;
+- `POST /api/publico/contatos/verificar-evento`;
+- `POST /api/publico/contatos/inscrever-evento`;
 - `POST /api/publico/contatos`;
 - `POST /api/autenticacao/login`.
 
@@ -706,13 +783,16 @@ Backend:
 - cadastro público válido e inválido;
 - telefone duplicado e complemento sem sobrescrita;
 - evento ativo e ausência de evento;
+- identificação de evento por nome completo e telefone, sem exposição de dados pessoais;
+- contato novo seguindo para cadastro completo e contato existente em confirmação curta;
+- atualização escolhida em `Meus dados mudaram` com histórico;
 - login, senha errada, bloqueio, JWT ausente/inválido/expirado;
 - perfis e permissões;
 - criação de usuário e proteção entre administradores;
 - listagem, filtros, paginação e resultado vazio;
 - cadastro interno e histórico;
 - importação CSV/XLSX, limites, duplicidade e confirmação única;
-- teste de carga repetível com pelo menos 2.500 contatos temporários e limpeza automática;
+- teste de carga repetível com 15.000 contatos temporários, limite de 20.000, rejeição de 20.001 e limpeza automática;
 - consentimentos, revogações e repetição sem mudança;
 - pedido, aprovação, rejeição e exclusão física;
 - bloqueio de campanhas;

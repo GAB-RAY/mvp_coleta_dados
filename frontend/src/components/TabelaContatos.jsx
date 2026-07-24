@@ -63,6 +63,16 @@ function exibirValorOuNaoInformado(valor) {
   return valor;
 }
 
+function exibirNomesDosEventos(eventos) {
+  if (!Array.isArray(eventos) || eventos.length === 0) {
+    return 'Cadastro geral';
+  }
+
+  return eventos.map(function (evento) {
+    return evento.nome;
+  }).join(', ');
+}
+
 function TabelaContatos(propriedades) {
   return (
     <div className="tabela-responsiva" tabIndex="0" aria-label="Tabela de contatos cadastrados">
@@ -95,7 +105,7 @@ function TabelaContatos(propriedades) {
                 <td>{exibirConsentimento(contato.autorizacaoMensagens)}</td>
                 <td>{exibirConsentimento(contato.autorizacaoLigacoes)}</td>
                 <td>{exibirValorOuNaoInformado(contato.origemAtual)}</td>
-                <td>{contato.eventos && contato.eventos.length > 0 ? contato.eventos.map(function (evento) { return evento.nome + ' · ' + formatarData(evento.cadastradoEm); }).join(', ') : 'Cadastro geral'}</td>
+                <td>{exibirNomesDosEventos(contato.eventos)}</td>
                 <td>{exibirValorOuNaoInformado(contato.statusContato)}</td>
                 <td className="texto-sem-quebra">{formatarData(contato.criadoEm)}</td>
                 <td>

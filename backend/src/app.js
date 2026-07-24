@@ -39,7 +39,11 @@ aplicacao.use(limitadores.criarLimitadorGlobal());
 aplicacao.use(criarLimitadorConcorrencia());
 aplicacao.use(express.json({ limit: '32kb', strict: true }));
 aplicacao.post(
-  '/api/publico/contatos',
+  [
+    '/api/publico/contatos',
+    '/api/publico/contatos/verificar-evento',
+    '/api/publico/contatos/inscrever-evento'
+  ],
   limitadores.criarLimitadorCadastroPublico()
 );
 aplicacao.use('/api', testeRoutes);

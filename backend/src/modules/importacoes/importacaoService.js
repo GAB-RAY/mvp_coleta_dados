@@ -4,6 +4,7 @@ const importacaoModel = require('./importacaoModel');
 const criarAppError = require('../../utils/AppError');
 const normalizarTelefone = require('../../utils/normalizarTelefone');
 const categoriasProblema = require('../../config/categoriasProblema');
+const configuracaoImportacao = require('../../config/importacao');
 const bairroService = require('../bairros/bairroService');
 
 function normalizarCabecalho(valor) {
@@ -234,8 +235,11 @@ async function preVisualizar(arquivo, nomeOrigem, usuario) {
     throw criarAppError('O arquivo não possui linhas de dados.', 400);
   }
 
-  if (objetos.length > 5000) {
-    throw criarAppError('O arquivo excede o limite de 5000 linhas.', 400);
+  if (objetos.length > configuracaoImportacao.LIMITE_LINHAS) {
+    throw criarAppError(
+      'O arquivo excede o limite de ' + configuracaoImportacao.LIMITE_LINHAS + ' linhas.',
+      400
+    );
   }
 
   const telefones = new Set();
@@ -285,6 +289,13 @@ async function confirmar(importacaoIdRecebido, usuario) {
 
     if (erro.codigoAplicacao === 'IMPORTACAO_PROCESSADA') {
       throw criarAppError('Esta importação já foi processada.', 409);
+    }
+
+    if (erro.codigoAplicacao === 'IMPORTACAO_EM_ANDAMENTO') {
+      throw criarAppError(
+        'Outra importação está sendo processada. Aguarde a conclusão e tente novamente.',
+        409
+      );
     }
 
     throw erro;

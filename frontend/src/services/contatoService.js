@@ -7,9 +7,27 @@ async function cadastrarContato(dadosDoContato) {
   });
 }
 
-async function buscarOpcoesFormulario() {
-  return requisitar('/api/publico/contatos/opcoes', {
+async function buscarOpcoesFormulario(forcarAtualizacao) {
+  const caminho = forcarAtualizacao
+    ? '/api/publico/contatos/opcoes?atualizacao=' + Date.now()
+    : '/api/publico/contatos/opcoes';
+
+  return requisitar(caminho, {
     method: 'GET'
+  });
+}
+
+async function verificarContatoEvento(dadosIdentificacao) {
+  return requisitar('/api/publico/contatos/verificar-evento', {
+    method: 'POST',
+    body: JSON.stringify(dadosIdentificacao)
+  });
+}
+
+async function inscreverContatoExistenteEvento(dadosIdentificacao) {
+  return requisitar('/api/publico/contatos/inscrever-evento', {
+    method: 'POST',
+    body: JSON.stringify(dadosIdentificacao)
   });
 }
 
@@ -154,9 +172,11 @@ export {
   cadastrarContatoManual,
   cadastrarContato,
   confirmarImportacao,
+  inscreverContatoExistenteEvento,
   listarContatos,
   listarOrigens,
   preVisualizarImportacao,
   revogarConsentimentos,
-  solicitarExclusaoContato
+  solicitarExclusaoContato,
+  verificarContatoEvento
 };

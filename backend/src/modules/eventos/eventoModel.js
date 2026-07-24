@@ -1,4 +1,5 @@
 const banco = require('../../config/banco');
+const configuracaoEvento = require('../../config/evento');
 const formatarDataRio = require('../../utils/formatarDataRio');
 
 function selecionarCampos() {
@@ -95,6 +96,10 @@ async function editar(id, dados, usuarioId) {
 
   try {
     await cliente.query('BEGIN');
+    await cliente.query(
+      'SELECT pg_advisory_xact_lock($1, $2)',
+      [configuracaoEvento.CHAVE_BLOQUEIO_1, configuracaoEvento.CHAVE_BLOQUEIO_2]
+    );
     const atual = await cliente.query('SELECT * FROM eventos WHERE id = $1 FOR UPDATE', [id]);
 
     if (!atual.rows[0]) {
@@ -138,6 +143,10 @@ async function alterarStatus(id, novoStatus, usuarioId) {
 
   try {
     await cliente.query('BEGIN');
+    await cliente.query(
+      'SELECT pg_advisory_xact_lock($1, $2)',
+      [configuracaoEvento.CHAVE_BLOQUEIO_1, configuracaoEvento.CHAVE_BLOQUEIO_2]
+    );
     const atual = await cliente.query('SELECT * FROM eventos WHERE id = $1 FOR UPDATE', [id]);
 
     if (!atual.rows[0]) {

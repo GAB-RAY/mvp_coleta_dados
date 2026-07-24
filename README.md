@@ -22,7 +22,15 @@ Sistema real de coleta e gestão de contatos comunitários. O projeto possui for
 - revogações imutáveis com responsável, data, hora e motivo opcional;
 - pedidos de exclusão pendentes, aprovados ou rejeitados;
 - exclusão física do contato somente após aprovação do administrador;
-- eventos com vínculo automático pelo mesmo formulário público;
+- eventos no mesmo formulário público, com identificação inicial por nome completo e telefone;
+- contato novo segue para o formulário completo; contato existente confirma a inscrição sem preencher tudo novamente;
+- inscrição idempotente: o mesmo contato não é vinculado duas vezes ao mesmo evento;
+- nenhuma informação pessoal do cadastro é devolvida durante a identificação pública;
+- preservação da origem e auditoria das atualizações escolhidas em `Meus dados mudaram`;
+- acesso direto aos participantes e busca por nome ou telefone;
+- eventos em modo somente leitura para operadores; criação e alterações continuam exclusivas do administrador;
+- validação do evento exibido antes de concluir o envio público;
+- índice único no PostgreSQL garantindo no máximo um evento ativo;
 - relatórios e filtro de contatos por evento;
 - exportação de contatos em CSV e Excel exclusiva para administradores;
 - backup completo do PostgreSQL pelo painel, exclusivo para administradores e com auditoria SHA-256;
@@ -123,13 +131,14 @@ No App Platform, configure:
 
 ## Validação atual
 
-Em 23/07/2026:
+Em 24/07/2026:
 
 - schema criado em banco vazio de teste: 22 tabelas;
 - banco principal recriado exclusivamente pelo schema completo, sem migrations;
 - backup prévio restaurado e validado em banco separado;
-- `npm test`: 279 verificações aprovadas;
-- `npm run testar:importacao-carga`: 2.500 contatos importados e validados, com limpeza automática;
+- `npm test`: 300 verificações aprovadas;
+- `npm run testar:importacao-carga`: 15.000 contatos importados e validados, com limpeza automática;
+- limite máximo validado: arquivo único com 20.000 contatos;
 - `npm run build`: 61 módulos transformados;
 - banco principal validado com 166 bairros, 1 contato, 1 evento ativo e o administrador Gabriel preservado como ID 1;
 - sequências das 22 tabelas sincronizadas.

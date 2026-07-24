@@ -1,4 +1,5 @@
 require('dotenv').config({ quiet: true });
+process.env.PUBLICO_LIMITE_MAXIMO = '20';
 
 const assert = require('assert');
 const bcrypt = require('bcrypt');
@@ -39,7 +40,7 @@ function cabecalhos(token) {
 
 async function limparDadosTeste() {
   const emails = ['eventos.admin@invalid.local', 'eventos.operador@invalid.local'];
-  const telefones = ['21999001122', '21999001133'];
+  const telefones = ['21999001122', '21999001133', '21999001144', '21999001155'];
   await banco.query(
     `DELETE FROM consentimentos
      WHERE contato_id_original IN (
@@ -83,6 +84,7 @@ async function executar() {
   const emailOperador = 'eventos.operador@invalid.local';
   const telefoneEvento = '21999001122';
   const telefoneGeral = '21999001133';
+  const telefoneExistenteEvento = '21999001144';
 
   try {
     await limparDadosTeste();
@@ -121,6 +123,32 @@ async function executar() {
 
     verificar((await requisitar(baseUrl, '/api/admin/eventos')).status === 401, 'Eventos sem JWT não retornou 401.');
     verificar((await requisitar(baseUrl, '/api/admin/eventos', { method: 'POST', headers: operadorHeaders, body: '{}' })).status === 403, 'Operador conseguiu criar evento.');
+
+    const cadastroAnterior = await requisitar(baseUrl, '/api/publico/contatos', {
+      method: 'POST',
+      body: JSON.stringify({
+        nome: 'Contato já cadastrado',
+        telefone: telefoneExistenteEvento,
+        idade: 34,
+        bairro: 'Bangu',
+        problema: 'Educação',
+        aceitePrivacidade: true,
+        autorizacaoMensagens: false,
+        autorizacaoLigacoes: false,
+        eventoIdExibido: null
+      })
+    });
+    verificar(
+      cadastroAnterior.status === 201 && cadastroAnterior.corpo.evento === null,
+      'Cadastro geral anterior ao evento falhou.'
+    );
+    const contatoAnterior = await banco.query(
+      `SELECT id, origem_id, nome, bairro, problema, idade
+       FROM contatos WHERE telefone_normalizado = $1`,
+      [telefoneExistenteEvento]
+    );
+    const origemOriginalId = contatoAnterior.rows[0].origem_id;
+
     const hoje = formatarDataRio(new Date());
     const criacao = await requisitar(baseUrl, '/api/admin/eventos', {
       method: 'POST',
@@ -137,17 +165,250 @@ async function executar() {
     verificar(edicao.status === 200, 'Evento em rascunho não foi editado.');
     verificar((await requisitar(baseUrl, '/api/admin/eventos/' + eventoId + '/ativar', { method: 'POST', headers: adminHeaders })).status === 200, 'Evento não foi ativado.');
 
+    const contextoDesatualizado = await requisitar(baseUrl, '/api/publico/contatos', {
+      method: 'POST',
+      body: JSON.stringify({
+        nome: 'Contexto desatualizado',
+        telefone: '21999001155',
+        idade: 30,
+        bairro: 'Bangu',
+        problema: 'Educação',
+        aceitePrivacidade: true,
+        autorizacaoMensagens: false,
+        autorizacaoLigacoes: false,
+        eventoIdExibido: null
+      })
+    });
+    verificar(
+      contextoDesatualizado.status === 409,
+      'Formulário com contexto de evento desatualizado não foi recusado.'
+    );
+    const contatoContextoDesatualizado = await banco.query(
+      'SELECT COUNT(*)::integer AS total FROM contatos WHERE telefone_normalizado = $1',
+      ['21999001155']
+    );
+    verificar(
+      contatoContextoDesatualizado.rows[0].total === 0,
+      'Contexto desatualizado persistiu contato parcialmente.'
+    );
+
+    const dadosDivergentes = {
+      nome: 'Nome diferente informado no evento',
+      telefone: '(21) 99900-1144',
+      idade: 45,
+      bairro: 'Vila Kennedy',
+      problema: 'Saúde',
+      aceitePrivacidade: true,
+      autorizacaoMensagens: false,
+      autorizacaoLigacoes: false,
+      eventoIdExibido: eventoId
+    };
+    const inscricaoExistente = await requisitar(baseUrl, '/api/publico/contatos', {
+      method: 'POST',
+      body: JSON.stringify(dadosDivergentes)
+    });
+    verificar(
+      inscricaoExistente.status === 422,
+      'Nome divergente conseguiu usar um telefone já cadastrado.'
+    );
+    let contatoDepoisDaInscricao = await banco.query(
+      `SELECT id, origem_id, nome, bairro, problema, idade
+       FROM contatos WHERE telefone_normalizado = $1`,
+      [telefoneExistenteEvento]
+    );
+    verificar(
+      contatoDepoisDaInscricao.rows[0].origem_id === origemOriginalId,
+      'Participação no evento alterou a origem original do contato.'
+    );
+    verificar(
+      contatoDepoisDaInscricao.rows[0].nome === 'Contato já cadastrado',
+      'Tentativa divergente alterou o cadastro existente.'
+    );
+    let totalVinculosExistente = await banco.query(
+      'SELECT COUNT(*)::integer AS total FROM contato_eventos WHERE contato_id = $1 AND evento_id = $2',
+      [contatoDepoisDaInscricao.rows[0].id, eventoId]
+    );
+    verificar(totalVinculosExistente.rows[0].total === 0, 'Tentativa divergente criou vínculo com evento.');
+
+    const identificacaoDivergente = await requisitar(
+      baseUrl,
+      '/api/publico/contatos/verificar-evento',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          nome: dadosDivergentes.nome,
+          telefone: dadosDivergentes.telefone,
+          eventoIdExibido: eventoId
+        })
+      }
+    );
+    verificar(
+      identificacaoDivergente.status === 422 &&
+        !Object.prototype.hasOwnProperty.call(identificacaoDivergente.corpo, 'contato'),
+      'Identificação divergente expôs ou confirmou dados do contato.'
+    );
+
+    const identificacaoExistente = await requisitar(
+      baseUrl,
+      '/api/publico/contatos/verificar-evento',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          nome: '  contato JÁ cadastrado  ',
+          telefone: '(21) 99900-1144',
+          eventoIdExibido: eventoId
+        })
+      }
+    );
+    verificar(
+      identificacaoExistente.status === 200 &&
+        identificacaoExistente.corpo.situacao === 'contato_encontrado' &&
+        !Object.prototype.hasOwnProperty.call(identificacaoExistente.corpo, 'contato'),
+      'Nome completo e telefone válidos não identificaram o cadastro com privacidade.'
+    );
+
+    const dadosConfirmacao = {
+      nome: 'Contato já cadastrado',
+      telefone: '(21) 99900-1144',
+      eventoIdExibido: eventoId
+    };
+    const confirmacaoExistente = await requisitar(
+      baseUrl,
+      '/api/publico/contatos/inscrever-evento',
+      {
+        method: 'POST',
+        body: JSON.stringify(dadosConfirmacao)
+      }
+    );
+    verificar(
+      confirmacaoExistente.status === 200 &&
+        confirmacaoExistente.corpo.inscricaoEventoCriada === true,
+      'Contato existente não foi inscrito após a confirmação.'
+    );
+
+    const inscricaoRepetida = await requisitar(baseUrl, '/api/publico/contatos/inscrever-evento', {
+      method: 'POST',
+      body: JSON.stringify(dadosConfirmacao)
+    });
+    verificar(
+      inscricaoRepetida.status === 200 &&
+        inscricaoRepetida.corpo.jaInscritoEvento === true &&
+        inscricaoRepetida.corpo.mensagem.includes('já está registrada'),
+      'Inscrição repetida não informou que o contato já participava do evento.'
+    );
+    totalVinculosExistente = await banco.query(
+      'SELECT COUNT(*)::integer AS total FROM contato_eventos WHERE contato_id = $1 AND evento_id = $2',
+      [contatoDepoisDaInscricao.rows[0].id, eventoId]
+    );
+    verificar(
+      totalVinculosExistente.rows[0].total === 1,
+      'Confirmação repetida duplicou o vínculo com o evento.'
+    );
+
+    const atualizacaoDeclarada = await requisitar(baseUrl, '/api/publico/contatos', {
+      method: 'POST',
+      body: JSON.stringify({
+        nome: 'Contato atualizado no evento',
+        nomeConfirmacao: 'Contato já cadastrado',
+        atualizarDadosEvento: true,
+        telefone: '(21) 99900-1144',
+        idade: 35,
+        bairro: 'Vila Kennedy',
+        problema: 'Saúde',
+        aceitePrivacidade: true,
+        autorizacaoMensagens: false,
+        autorizacaoLigacoes: false,
+        eventoIdExibido: eventoId
+      })
+    });
+    verificar(
+      atualizacaoDeclarada.status === 200 &&
+        atualizacaoDeclarada.corpo.jaInscritoEvento === true,
+      'Atualização declarada antes da participação falhou.'
+    );
+    contatoDepoisDaInscricao = await banco.query(
+      `SELECT id, origem_id, nome, bairro, problema, idade
+       FROM contatos WHERE telefone_normalizado = $1`,
+      [telefoneExistenteEvento]
+    );
+    verificar(
+      contatoDepoisDaInscricao.rows[0].nome === 'Contato atualizado no evento' &&
+        contatoDepoisDaInscricao.rows[0].bairro === 'Vila Kennedy' &&
+        contatoDepoisDaInscricao.rows[0].problema === 'Saúde' &&
+        contatoDepoisDaInscricao.rows[0].idade === 35 &&
+        contatoDepoisDaInscricao.rows[0].origem_id === origemOriginalId,
+      'Atualização não preservou os dados declarados ou a origem original.'
+    );
+    const historicoAtualizacao = await banco.query(
+      `SELECT COUNT(*)::integer AS total FROM historico_contatos
+       WHERE contato_id = $1 AND tipo_evento = 'atualizacao_cadastro_publico_evento'`,
+      [contatoDepoisDaInscricao.rows[0].id]
+    );
+    verificar(
+      historicoAtualizacao.rows[0].total === 1,
+      'Atualização declarada não gerou uma única entrada de auditoria.'
+    );
+
+    const buscaNomeParticipante = await requisitar(
+      baseUrl,
+      '/api/admin/contatos?eventoId=' + eventoId + '&nome=' +
+        encodeURIComponent('Contato atualizado no evento'),
+      { headers: operadorHeaders }
+    );
+    verificar(
+      buscaNomeParticipante.status === 200 &&
+        buscaNomeParticipante.corpo.contatos.some(function (contato) {
+          return contato.telefone === telefoneExistenteEvento;
+        }),
+      'Busca de participante por nome completo falhou.'
+    );
+    const buscaTelefoneParticipante = await requisitar(
+      baseUrl,
+      '/api/admin/contatos?eventoId=' + eventoId + '&telefone=' +
+        encodeURIComponent('(21) 99900-1144'),
+      { headers: operadorHeaders }
+    );
+    verificar(
+      buscaTelefoneParticipante.status === 200 &&
+        buscaTelefoneParticipante.corpo.contatos.length === 1,
+      'Busca de participante por telefone formatado falhou.'
+    );
+
     const opcoesComEvento = await requisitar(baseUrl, '/api/publico/contatos/opcoes');
     verificar(opcoesComEvento.status === 200 && opcoesComEvento.corpo.eventoAtivo.id === eventoId, 'Formulário não informou o evento ativo.');
+    const identificacaoContatoNovo = await requisitar(
+      baseUrl,
+      '/api/publico/contatos/verificar-evento',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          nome: 'Contato Evento',
+          telefone: telefoneEvento,
+          eventoIdExibido: eventoId
+        })
+      }
+    );
+    verificar(
+      identificacaoContatoNovo.status === 200 &&
+        identificacaoContatoNovo.corpo.situacao === 'novo',
+      'Telefone novo não abriu o fluxo de cadastro completo.'
+    );
     const cadastroEvento = await requisitar(baseUrl, '/api/publico/contatos', {
       method: 'POST',
-      body: JSON.stringify({ nome: 'Contato Evento', telefone: telefoneEvento, idade: 30, bairro: 'Vila Kennedy', problema: 'Saúde', aceitePrivacidade: true, autorizacaoMensagens: true, autorizacaoLigacoes: true })
+      body: JSON.stringify({ nome: 'Contato Evento', telefone: telefoneEvento, idade: 30, bairro: 'Vila Kennedy', problema: 'Saúde', aceitePrivacidade: true, autorizacaoMensagens: true, autorizacaoLigacoes: true, eventoIdExibido: eventoId })
     });
     verificar(cadastroEvento.status === 201 && cadastroEvento.corpo.evento.id === eventoId, 'Cadastro não foi vinculado ao evento.');
     const filtroEvento = await requisitar(baseUrl, '/api/admin/contatos?eventoId=' + eventoId, { headers: operadorHeaders });
-    verificar(filtroEvento.status === 200 && filtroEvento.corpo.contatos.length === 1, 'Filtro por evento falhou.');
-    verificar(filtroEvento.corpo.contatos[0].eventos[0].nome === 'Mutirão do bairro', 'Listagem não mostrou evento e data de vínculo.');
-    const contatoId = filtroEvento.corpo.contatos[0].id;
+    verificar(filtroEvento.status === 200 && filtroEvento.corpo.contatos.length === 2, 'Filtro por evento falhou.');
+    verificar(filtroEvento.corpo.contatos.some(function (contato) {
+      return contato.eventos.some(function (evento) {
+        return evento.nome === 'Mutirão do bairro' && Boolean(evento.cadastradoEm);
+      });
+    }), 'Listagem não mostrou evento e data de vínculo.');
+    const contatoInscritoNovo = filtroEvento.corpo.contatos.find(function (contato) {
+      return contato.telefone === telefoneEvento;
+    });
+    const contatoId = contatoInscritoNovo.id;
 
     verificar((await requisitar(baseUrl, '/api/admin/relatorios/exportar.csv', { headers: operadorHeaders })).status === 403, 'Operador conseguiu exportar CSV.');
     verificar((await requisitar(baseUrl, '/api/admin/relatorios/exportar.xlsx', { headers: operadorHeaders })).status === 403, 'Operador conseguiu exportar Excel.');
@@ -185,7 +446,7 @@ async function executar() {
     verificar(opcoesGerais.corpo.eventoAtivo === null && opcoesGerais.corpo.contextoCadastro === null, 'Formulário sem evento exibiu contexto desnecessário.');
     const cadastroGeral = await requisitar(baseUrl, '/api/publico/contatos', {
       method: 'POST',
-      body: JSON.stringify({ nome: 'Contato Geral', telefone: telefoneGeral, idade: 40, bairro: 'Vila Kennedy', problema: 'Educação', aceitePrivacidade: true, autorizacaoMensagens: false, autorizacaoLigacoes: false })
+      body: JSON.stringify({ nome: 'Contato Geral', telefone: telefoneGeral, idade: 40, bairro: 'Vila Kennedy', problema: 'Educação', aceitePrivacidade: true, autorizacaoMensagens: false, autorizacaoLigacoes: false, eventoIdExibido: null })
     });
     verificar(cadastroGeral.status === 201 && cadastroGeral.corpo.evento === null, 'Cadastro geral sem evento foi bloqueado ou vinculado indevidamente.');
     const semEvento = await requisitar(baseUrl, '/api/admin/contatos?eventoId=sem_evento', { headers: adminHeaders });
