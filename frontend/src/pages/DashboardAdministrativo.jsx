@@ -249,7 +249,7 @@ function ColunaLateralDashboard(propriedades) {
 
       <Link className="chamada-lateral-dashboard" to="/participar">
         <span>Formulário público</span>
-        <strong>A Voz do Bairro</strong>
+        <strong>Acorda VK</strong>
         <small>Abrir página de participação →</small>
       </Link>
     </aside>

@@ -108,7 +108,7 @@ async function executar() {
     assert.ok(respostaCsvAdministrador.headers.get('content-type').includes('text/csv'));
     assert.match(
       respostaCsvAdministrador.headers.get('content-disposition') || '',
-      /^attachment; filename="a-voz-do-bairro-contatos-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.csv"$/
+      /^attachment; filename="acorda-vk-contatos-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.csv"$/
     );
     const csv = await respostaCsvAdministrador.text();
     assert.ok(csv.includes('Relatório Teste'));
@@ -124,7 +124,7 @@ async function executar() {
     assert.ok(respostaExcel.headers.get('content-type').includes('spreadsheetml.sheet'));
     assert.match(
       respostaExcel.headers.get('content-disposition') || '',
-      /^attachment; filename="a-voz-do-bairro-contatos-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.xlsx"$/
+      /^attachment; filename="acorda-vk-contatos-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.xlsx"$/
     );
     const pasta = new ExcelJS.Workbook();
     await pasta.xlsx.load(Buffer.from(await respostaExcel.arrayBuffer()));

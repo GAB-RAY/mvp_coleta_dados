@@ -1,6 +1,6 @@
 # Frontend — Central de Comunicação
 
-Interface React/Vite do projeto A Voz do Bairro. O frontend consome somente rotas reais do backend e não usa dados simulados.
+Interface React/Vite do projeto Acorda VK. O frontend consome somente rotas reais do backend e não usa dados simulados.
 
 ## Instalação
 
@@ -51,6 +51,8 @@ Campos atuais:
 
 O formulário não exibe descrição do problema. O mesmo link é usado sempre. Sem evento ativo, o cadastro completo continua funcionando normalmente e não mostra aviso adicional.
 
+O visual público usa a identidade `Acorda VK`, cabeçalho laranja, apresentação destacada e laterais com elementos laranja discretos. Nome, bairro e categoria ocupam a largura total; telefone e idade ficam lado a lado quando houver espaço e são empilhados no celular. A aba do formulário mostra `Acorda VK`, enquanto login e painel usam `Central de Comunicação`.
+
 Quando existe evento ativo, a primeira etapa solicita somente nome completo e telefone. Se o telefone não existir, o formulário completo é aberto com os dois campos preservados. Se ambos corresponderem a um contato existente, a tela permite confirmar a inscrição sem mostrar dados pessoais nem exigir novamente bairro, idade, categoria ou consentimentos. Nome divergente não cria contato nem vínculo. Se a inscrição já existir, a tela apenas informa o resultado sem duplicar o registro.
 
 Depois da identificação, `Meus dados mudaram` abre o formulário completo. O telefone fica bloqueado, os dados declarados são enviados com o nome usado na confirmação e o backend registra as alterações no histórico antes de concluir o vínculo.
@@ -71,7 +73,7 @@ A importação aceita um único arquivo CSV ou XLSX com até 5 MB e 20.000 linha
 
 Ao gerar um backup, o frontend baixa o arquivo retornado pelo backend e exibe o hash SHA-256. O histórico informa responsável, data, estado, tamanho e hash, sem expor credenciais do banco.
 
-Os arquivos possuem nomes distintos: o backup restaurável usa `a-voz-do-bairro-backup-completo-postgresql-AAAA-MM-DD_HH-mm-ss.backup`; as planilhas usam `a-voz-do-bairro-contatos-AAAA-MM-DD_HH-mm-ss.xlsx` ou `.csv`.
+Os arquivos possuem nomes distintos: o backup restaurável usa `acorda-vk-backup-completo-postgresql-AAAA-MM-DD_HH-mm-ss.backup`; as planilhas usam `acorda-vk-contatos-AAAA-MM-DD_HH-mm-ss.xlsx` ou `.csv`.
 
 Sessões expiradas removem o token local e redirecionam ao login. O frontend esconde ações sem permissão, mas a autorização definitiva é sempre conferida pelo backend.
 
@@ -95,3 +97,5 @@ Resultado de 23/07/2026: Vite 8.1.5, 61 módulos transformados e build concluíd
 4. Faça novo deploy após alterar variáveis.
 5. Configure `FRONTEND_URL` no backend com o domínio final da Vercel.
 6. Confirme os cabeçalhos de segurança no domínio publicado.
+
+A Vercel informa o domínio final na página do projeto. Use esse mesmo domínio com `/participar` para o formulário e `/login` para o acesso administrativo. O formulário não exibe link para o login.

@@ -1,4 +1,4 @@
-# Central de Comunicação — A Voz do Bairro
+# Central de Comunicação — Acorda VK
 
 Sistema real de coleta e gestão de contatos comunitários. O projeto possui formulário público, painel administrativo, controle de usuários, eventos, consentimentos, pedidos de exclusão, importações e relatórios.
 
@@ -113,6 +113,14 @@ Reinicie o Vite depois de alterar a variável. O botão apenas abre uma conversa
 - Banco: PostgreSQL gerenciado.
 
 Configure `VITE_API_URL` no frontend e `DATABASE_URL`, `JWT_SECRET`, `JWT_TEMPO_EXPIRACAO`, `FRONTEND_URL` e as configurações de SSL no backend. Aplique `criar_banco.sql` somente no banco vazio antes de iniciar o backend.
+
+Depois do deploy, a Vercel mostra o domínio público na página do projeto e em `Deployments`, normalmente no formato `https://nome-do-projeto.vercel.app`. A partir desse domínio:
+
+- formulário: `https://nome-do-projeto.vercel.app/participar`;
+- login administrativo: `https://nome-do-projeto.vercel.app/login`;
+- painel após autenticação: `https://nome-do-projeto.vercel.app/admin`.
+
+A URL da DigitalOcean é da API e deve ser configurada em `VITE_API_URL`; ela não é o endereço que a equipe usa para abrir o painel.
 
 O plano de 512 MiB e o PostgreSQL de nó único são adequados para a publicação inicial controlada, mas não oferecem alta disponibilidade completa. Antes de um evento de grande alcance, faça teste de carga no ambiente de homologação. Para eliminar pontos únicos de falha, use pelo menos duas instâncias do backend e PostgreSQL com nó standby.
 

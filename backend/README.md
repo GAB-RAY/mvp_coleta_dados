@@ -1,6 +1,6 @@
 # Backend — Central de Comunicação
 
-API do projeto A Voz do Bairro construída com Node.js, Express, PostgreSQL, CommonJS e SQL parametrizado. A organização é modular por funcionalidade: controller → service → model.
+API do projeto Acorda VK construída com Node.js, Express, PostgreSQL, CommonJS e SQL parametrizado. A organização é modular por funcionalidade: controller → service → model.
 
 ## Instalação e ambiente
 
@@ -78,6 +78,14 @@ psql --set ON_ERROR_STOP=1 --dbname criar_banco --file database/criar_banco.sql
 ```
 
 O projeto não utiliza migrations. Para atualizar um banco existente, gere e valide um backup completo, crie um banco vazio com `database/criar_banco.sql` e restaure somente os dados expressamente aprovados. Nunca execute o schema em um banco com estrutura ou dados.
+
+Para aplicar a identidade pública `Acorda VK` em um banco existente sem apagar o aviso anterior:
+
+```powershell
+npm run atualizar-identidade-publica
+```
+
+O comando é idempotente, desativa somente a versão anterior do aviso e mantém todo o histórico já registrado.
 
 O schema atual tem 22 tabelas:
 
@@ -189,7 +197,7 @@ npm run banco:sincronizar-sequencias
 
 No painel, um administrador também pode gerar e baixar um backup em `/admin/backups`. O servidor precisa ter `pg_dump` compatível com a versão do PostgreSQL. Configure `PG_DUMP_CAMINHO` quando o executável não estiver no `PATH`.
 
-O backup técnico usa o nome `a-voz-do-bairro-backup-completo-postgresql-AAAA-MM-DD_HH-mm-ss.backup`. Ele é restaurável pelo PostgreSQL e não deve ser confundido com as exportações de contatos, baixadas como `a-voz-do-bairro-contatos-AAAA-MM-DD_HH-mm-ss.xlsx` ou `.csv`.
+O backup técnico usa o nome `acorda-vk-backup-completo-postgresql-AAAA-MM-DD_HH-mm-ss.backup`. Ele é restaurável pelo PostgreSQL e não deve ser confundido com as exportações de contatos, baixadas como `acorda-vk-contatos-AAAA-MM-DD_HH-mm-ss.xlsx` ou `.csv`.
 
 Para não afetar o formulário durante picos, o painel recusa iniciar backup quando a fila do banco já está acima do limite configurado. Também há limite preventivo de tamanho para o arquivo temporário. Em produção, o mecanismo principal deve ser o backup/PITR do PostgreSQL gerenciado; o backup do painel deve ser executado em horário de menor movimento, baixado e armazenado fora da App Platform.
 

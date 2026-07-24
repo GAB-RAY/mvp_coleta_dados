@@ -1,6 +1,6 @@
 # README técnico — Central de Comunicação
 
-Este documento descreve o estado atual do frontend e do backend do projeto **A Voz do Bairro**. Ele foi produzido a partir do código, do schema PostgreSQL e dos scripts existentes no repositório.
+Este documento descreve o estado atual do frontend e do backend do projeto **Acorda VK**. Ele foi produzido a partir do código, do schema PostgreSQL e dos scripts existentes no repositório.
 
 ## 1. Visão geral
 
@@ -15,7 +15,7 @@ Componentes da solução:
 - dois perfis internos: `operador` e `administrador`;
 - schema completo para criação de banco vazio em `backend/database/criar_banco.sql`.
 
-O formulário público usa o nome **A Voz do Bairro**. O painel interno usa a identidade **Central de Comunicação**.
+O formulário público usa o nome **Acorda VK**. O painel interno usa a identidade **Central de Comunicação**.
 
 ## 2. Estrutura do repositório
 
@@ -234,7 +234,7 @@ Regras principais:
 - vínculo novo de contato existente retorna `200` com `inscricaoEventoCriada: true`;
 - vínculo já existente retorna `200` com `jaInscritoEvento: true` e mensagem de inscrição repetida;
 - se nada mudou, não é criado histórico repetido;
-- a mensagem de sucesso é: `Cadastro realizado com sucesso. Obrigado por contribuir com o projeto A Voz do Bairro.`
+- a mensagem de sucesso é: `Cadastro realizado com sucesso. Obrigado por contribuir com o projeto Acorda VK.`
 
 ### 3.6 Rotas administrativas
 
@@ -386,7 +386,7 @@ Exportações:
 - planilha XLSX;
 - exclusivas para administrador;
 - usam os mesmos filtros do relatório;
-- nomes no formato `a-voz-do-bairro-contatos-AAAA-MM-DD_HH-mm-ss`.
+- nomes no formato `acorda-vk-contatos-AAAA-MM-DD_HH-mm-ss`.
 
 Backup:
 
@@ -397,7 +397,7 @@ Backup:
 - calcula SHA-256;
 - registra responsável, estado, nome, tamanho, hash e eventual erro;
 - remove o arquivo temporário do servidor depois do download;
-- nome no formato `a-voz-do-bairro-backup-completo-postgresql-AAAA-MM-DD_HH-mm-ss.backup`.
+- nome no formato `acorda-vk-backup-completo-postgresql-AAAA-MM-DD_HH-mm-ss.backup`.
 
 ### 3.13 Banco de dados
 
@@ -453,7 +453,7 @@ Não há biblioteca visual externa. Componentes, layout responsivo e gráficos s
 | Rota | Página | Acesso |
 |---|---|---|
 | `/` | Redireciona para `/participar` | público |
-| `/participar` | Formulário A Voz do Bairro | público |
+| `/participar` | Formulário Acorda VK | público |
 | `/login` | Login administrativo | público |
 | `/admin` | Visão geral com indicadores | operador/admin |
 | `/admin/contatos` | Listagem, filtros e paginação | operador/admin |
@@ -490,11 +490,13 @@ O token e os dados básicos do usuário são mantidos no armazenamento local do 
 
 ### 4.4 Formulário público e visual
 
-- layout de uma coluna;
+- nome, bairro e categoria em largura total;
+- telefone e idade lado a lado em telas com espaço e em uma coluna no celular;
 - responsivo para celulares, notebooks e telas maiores;
 - cor principal `#ff5c00`;
 - cabeçalho discreto, formulário direto e rodapé;
-- identificação A Voz do Bairro e Diogo Ventura;
+- identificação Acorda VK e Diogo Ventura;
+- título da aba `Acorda VK` no formulário e `Central de Comunicação` nas rotas administrativas;
 - seletor pesquisável de bairro;
 - categoria em seleção fechada;
 - consentimentos desmarcados inicialmente;

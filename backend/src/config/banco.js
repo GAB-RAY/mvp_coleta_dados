@@ -43,7 +43,7 @@ const configuracaoPool = {
     300000
   ),
   keepAlive: true,
-  application_name: 'a-voz-do-bairro-api'
+  application_name: 'acorda-vk-api'
 };
 
 if (process.env.DATABASE_URL) {

@@ -1,4 +1,4 @@
--- Criação completa do banco de dados do projeto A Voz do Bairro.
+-- Criação completa do banco de dados do projeto Acorda VK.
 -- Representa o estado estrutural atual e adiciona somente a base aprovada
 -- para uma futura integração com o ManyChat.
 --
@@ -1313,8 +1313,8 @@ INSERT INTO public.textos_formulario (tipo, versao, texto)
 VALUES
   (
     'aviso_privacidade',
-    'aviso_privacidade_v1',
-    'Li o Aviso de Privacidade e autorizo o tratamento dos dados informados para participação no projeto A Voz do Bairro.'
+    'aviso_privacidade_v2',
+    'Li o Aviso de Privacidade e autorizo o tratamento dos dados informados para participação no projeto Acorda VK.'
   ),
   (
     'mensagens',

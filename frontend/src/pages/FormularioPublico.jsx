@@ -344,24 +344,33 @@ function FormularioPublico() {
   return (
     <main className="pagina-publica">
       <header className="cabecalho-publico">
-        <div className="identidade-projeto">
-          <span className="simbolo-projeto" aria-hidden="true" />
-          <span className="nome-projeto">A VOZ DO BAIRRO</span>
+        <div className="conteudo-cabecalho-publico">
+          <div className="identidade-projeto">
+            <svg className="simbolo-projeto" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 11v2h4l6 4V7l-6 4H4Z" />
+              <path d="M17 9c1.3 1.4 1.3 4.6 0 6M19.5 6.5c3 3 3 8 0 11" />
+            </svg>
+            <span className="nome-projeto">ACORDA VK</span>
+          </div>
+          <span className="responsavel-cabecalho-publico">
+            Diogo Ventura · Rio de Janeiro
+          </span>
         </div>
       </header>
 
-      <section className="cartao cartao-formulario" aria-labelledby="titulo-formulario">
-        <div className="introducao-formulario">
-          <h1 id="titulo-formulario">Sua voz pode ajudar a transformar o seu bairro.</h1>
-          <p className="promocao-projeto">
-            <strong>Projeto de participação cidadã promovido por Diogo Ventura.</strong>
-          </p>
-          <p>
-            Informe a principal necessidade da sua região e ajude a identificar
-            as demandas dos bairros do Rio de Janeiro.
-          </p>
-        </div>
+      <section className="apresentacao-publica" aria-labelledby="titulo-formulario">
+        <span>Participação cidadã</span>
+        <h1 id="titulo-formulario">Sua voz pode ajudar a transformar o seu bairro.</h1>
+        <p>
+          Informe a principal necessidade da sua região e ajude a identificar
+          as demandas dos bairros do Rio de Janeiro.
+        </p>
+        <p className="promocao-projeto">
+          <strong>Projeto de participação cidadã promovido por Diogo Ventura.</strong>
+        </p>
+      </section>
 
+      <section className="cartao cartao-formulario" aria-labelledby="titulo-formulario">
         {contextoCadastro && (
           <p className="contexto-cadastro-publico">{contextoCadastro}</p>
         )}
@@ -506,18 +515,6 @@ function FormularioPublico() {
                 inputMode="tel"
               />
 
-              <CampoSelecaoPesquisavel
-                id="bairro"
-                rotulo="Bairro"
-                valor={dadosFormulario.bairro}
-                aoAlterar={alterarBairro}
-                aoSelecionar={selecionarBairro}
-                opcoes={bairros}
-                placeholder="Digite para buscar"
-                obrigatorio
-                desabilitado={enviando || carregandoOpcoes}
-              />
-
               <CampoFormulario
                 id="idade"
                 rotulo="Idade"
@@ -531,6 +528,18 @@ function FormularioPublico() {
                 maximo={120}
                 passo={1}
                 inputMode="numeric"
+              />
+
+              <CampoSelecaoPesquisavel
+                id="bairro"
+                rotulo="Bairro"
+                valor={dadosFormulario.bairro}
+                aoAlterar={alterarBairro}
+                aoSelecionar={selecionarBairro}
+                opcoes={bairros}
+                placeholder="Digite para buscar"
+                obrigatorio
+                desabilitado={enviando || carregandoOpcoes}
               />
 
               <CampoSelecao
@@ -648,7 +657,7 @@ function FormularioPublico() {
           </p>
           <p>
             Ao enviar este formulário, autorizo o tratamento dos meus dados pessoais
-            para participação no projeto <strong>A Voz do Bairro</strong>, promovido
+            para participação no projeto <strong>Acorda VK</strong>, promovido
             por <strong>Diogo Ventura</strong>, conforme as finalidades descritas
             neste formulário.
           </p>
@@ -657,7 +666,7 @@ function FormularioPublico() {
 
       <footer className="rodape-publico">
         <div className="identificacao-rodape">
-          <span>A VOZ DO BAIRRO</span>
+          <span>ACORDA VK</span>
           <p>
             <strong>Responsável pela iniciativa e pelo tratamento dos dados:</strong>{' '}
             Diogo Ventura.

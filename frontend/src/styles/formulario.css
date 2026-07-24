@@ -4,10 +4,13 @@
   overflow-x: clip;
   min-height: 100vh;
   min-height: 100svh;
-  padding: 1.4rem 1.5rem 1rem;
-  background: #fff8f3;
+  padding: 0 1.5rem 1.5rem;
+  background:
+    radial-gradient(circle at 3% 22%, rgba(255, 92, 0, 0.14) 0 95px, transparent 97px),
+    radial-gradient(circle at 97% 48%, rgba(255, 92, 0, 0.12) 0 135px, transparent 137px),
+    linear-gradient(90deg, #fff0e6 0, #f8f5f2 18%, #f8f5f2 82%, #fff0e6 100%);
   --cor-primaria: #ff5c00;
-  --cor-primaria-escura: #963600;
+  --cor-primaria-escura: #9b3800;
   --cor-primaria-clara: #fff0e7;
 }
 
@@ -20,34 +23,43 @@
 }
 
 .pagina-publica::before {
-  top: -160px;
-  left: -150px;
-  width: 520px;
-  height: 420px;
-  border-radius: 46% 54% 62% 38%;
-  background: #ff5c00;
-  opacity: 0.3;
-  transform: rotate(-12deg);
+  top: 460px;
+  left: -210px;
+  width: 390px;
+  height: 620px;
+  border-radius: 48% 52% 58% 42%;
+  background: linear-gradient(145deg, rgba(255, 92, 0, 0.3), rgba(255, 133, 64, 0.12));
+  transform: rotate(15deg);
 }
 
 .pagina-publica::after {
-  top: -170px;
-  right: -110px;
-  width: 190px;
-  height: 430px;
-  border-radius: 999px;
-  background: #ff5c00;
-  opacity: 0.4;
-  transform: rotate(42deg);
+  top: 1050px;
+  right: -220px;
+  width: 430px;
+  height: 560px;
+  border-radius: 44% 56% 42% 58%;
+  background: linear-gradient(145deg, rgba(255, 92, 0, 0.24), rgba(255, 170, 119, 0.1));
+  transform: rotate(-17deg);
 }
 
 .cabecalho-publico {
   display: flex;
-  width: min(100%, 680px);
+  width: 100vw;
   align-items: center;
-  justify-content: center;
-  margin: 0 auto 1rem;
-  min-height: 36px;
+  margin-left: calc(50% - 50vw);
+  min-height: 46px;
+  background: var(--cor-primaria);
+  color: #ffffff;
+  box-shadow: 0 4px 18px rgba(118, 43, 0, 0.14);
+}
+
+.conteudo-cabecalho-publico {
+  display: flex;
+  width: min(100% - 2rem, 1180px);
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 auto;
+  gap: 1rem;
 }
 
 .identidade-projeto {
@@ -57,32 +69,26 @@
 }
 
 .simbolo-projeto {
-  position: relative;
-  display: inline-block;
-  width: 30px;
-  height: 25px;
-  border: 2px solid var(--cor-primaria);
-  border-radius: 50%;
-}
-
-.simbolo-projeto::after {
-  position: absolute;
-  right: 0;
-  bottom: -5px;
-  width: 8px;
-  height: 8px;
-  border-right: 2px solid var(--cor-primaria);
-  border-bottom: 2px solid var(--cor-primaria);
-  background: #fff8f3;
-  content: "";
-  transform: rotate(24deg);
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
 }
 
 .nome-projeto {
-  color: var(--cor-primaria-escura);
+  color: #ffffff;
   font-size: 0.88rem;
   font-weight: 850;
-  letter-spacing: 0.11em;
+  letter-spacing: 0.06em;
+}
+
+.responsavel-cabecalho-publico {
+  color: rgba(255, 255, 255, 0.94);
+  font-size: 0.74rem;
+  font-weight: 650;
 }
 
 .link-administrativo,
@@ -98,46 +104,90 @@
 }
 
 .cartao-formulario {
-  width: min(100%, 680px);
+  width: min(100%, 560px);
   min-width: 0;
   margin: 0 auto;
-  border: 0;
-  border-radius: 10px;
-  padding: clamp(1.7rem, 5vw, 3rem);
-  box-shadow: 0 24px 65px rgba(125, 73, 45, 0.16);
+  border: 1px solid rgba(231, 218, 210, 0.9);
+  border-radius: 18px;
+  padding: clamp(1.35rem, 4vw, 2rem);
+  box-shadow: 0 22px 58px rgba(91, 55, 34, 0.12);
 }
 
-.introducao-formulario {
-  max-width: 540px;
-  margin: 0 auto 1.8rem;
-  text-align: center;
+.apresentacao-publica {
+  position: relative;
+  overflow: hidden;
+  width: min(100%, 560px);
+  margin: 1.75rem auto 1.1rem;
+  border-radius: 18px;
+  padding: clamp(1.5rem, 4.5vw, 2.25rem);
+  background: linear-gradient(135deg, #ff5c00 0%, #ff8647 100%);
+  color: #ffffff;
+  box-shadow: 0 18px 40px rgba(196, 70, 0, 0.2);
 }
 
-.introducao-formulario h1 {
-  margin-bottom: 0.7rem;
-  color: #63311f;
-  font-size: clamp(1.55rem, 3.6vw, 2.05rem);
-  font-style: italic;
-  line-height: 1.2;
-  letter-spacing: -0.025em;
+.apresentacao-publica::before,
+.apresentacao-publica::after {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.13);
+  content: "";
 }
 
-.introducao-formulario p {
-  margin-bottom: 0;
-  color: var(--cor-texto-suave);
-  line-height: 1.52;
+.apresentacao-publica::before {
+  top: -44px;
+  right: -24px;
+  width: 140px;
+  height: 140px;
 }
 
-.introducao-formulario .promocao-projeto {
+.apresentacao-publica::after {
+  right: 20px;
+  bottom: -48px;
+  width: 105px;
+  height: 105px;
+}
+
+.apresentacao-publica > span {
+  position: relative;
+  z-index: 1;
+  display: block;
   margin-bottom: 0.65rem;
-  color: #963600;
-  font-size: 0.9rem;
-  line-height: 1.45;
+  font-size: 0.76rem;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.apresentacao-publica h1 {
+  position: relative;
+  z-index: 1;
+  max-width: 430px;
+  margin-bottom: 0.65rem;
+  color: #ffffff;
+  font-size: clamp(1.55rem, 4.2vw, 2.15rem);
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+}
+
+.apresentacao-publica p {
+  position: relative;
+  z-index: 1;
+  max-width: 455px;
+  margin-bottom: 0;
+  color: rgba(255, 255, 255, 0.96);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.apresentacao-publica .promocao-projeto {
+  margin-top: 0.65rem;
+  color: #ffffff;
+  font-size: 0.78rem;
 }
 
 .formulario-publico {
   display: flex;
-  width: min(100%, 500px);
+  width: 100%;
   flex-direction: column;
   margin: 0 auto;
   gap: 1.15rem;
@@ -145,8 +195,18 @@
 
 .grade-formulario {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.95rem;
+}
+
+.formulario-publico:not(.formulario-identificacao-evento) .grade-formulario > :nth-child(1),
+.formulario-publico:not(.formulario-identificacao-evento) .grade-formulario > :nth-child(4),
+.formulario-publico:not(.formulario-identificacao-evento) .grade-formulario > :nth-child(5) {
+  grid-column: 1 / -1;
+}
+
+.formulario-identificacao-evento .grade-formulario {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .pagina-publica .grupo-campo label {
@@ -157,9 +217,9 @@
 .pagina-publica .campo-input,
 .pagina-publica .campo-textarea {
   min-height: 48px;
-  border-color: transparent;
-  border-radius: 5px;
-  background: #fff0e7;
+  border-color: #eadfd8;
+  border-radius: 10px;
+  background: #fbfaf9;
 }
 
 .pagina-publica .campo-textarea {
@@ -438,7 +498,7 @@
 
 .uso-dos-dados {
   display: grid;
-  width: min(100%, 680px);
+  width: min(100%, 560px);
   grid-template-columns: minmax(190px, 0.7fr) minmax(0, 1.8fr);
   margin: 1rem auto 0;
   border-left: 3px solid var(--cor-primaria);
@@ -469,7 +529,7 @@
 
 .rodape-publico {
   display: flex;
-  width: min(100%, 680px);
+  width: min(100%, 560px);
   align-items: center;
   justify-content: space-between;
   margin: 1.1rem auto 0;
@@ -508,36 +568,60 @@
   }
 }
 
+@media (max-width: 620px) {
+  .grade-formulario {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .formulario-publico:not(.formulario-identificacao-evento) .grade-formulario > * {
+    grid-column: auto;
+  }
+}
+
 @media (max-width: 520px) {
   .pagina-publica {
-    padding: 0.8rem 0.75rem 0.85rem;
+    padding: 0 0.75rem 0.85rem;
+    background:
+      radial-gradient(circle at 0 26%, rgba(255, 92, 0, 0.12) 0 68px, transparent 70px),
+      linear-gradient(90deg, #fff3eb, #f8f5f2 24%, #f8f5f2 76%, #fff3eb);
   }
 
   .pagina-publica::before {
-    top: -220px;
-    left: -250px;
+    top: 680px;
+    left: -320px;
   }
 
   .pagina-publica::after {
-    top: -260px;
-    right: -145px;
+    top: 1450px;
+    right: -350px;
   }
 
   .cartao-formulario {
-    border-radius: 8px;
+    border-radius: 14px;
     padding: 1.35rem 1rem;
   }
 
   .cabecalho-publico {
-    margin-bottom: 0.6rem;
+    min-height: 48px;
   }
 
-  .introducao-formulario {
-    margin-bottom: 1.05rem;
+  .conteudo-cabecalho-publico {
+    width: min(100% - 1.25rem, 1180px);
   }
 
-  .introducao-formulario h1 {
-    font-size: 1.45rem;
+  .responsavel-cabecalho-publico {
+    display: none;
+  }
+
+  .apresentacao-publica {
+    margin-top: 1rem;
+    border-radius: 14px;
+    padding: 1.35rem 1.15rem;
+  }
+
+  .apresentacao-publica h1 {
+    max-width: 310px;
+    font-size: 1.48rem;
   }
 
   .formulario-publico {
@@ -563,7 +647,8 @@
   }
 
   .botao-whatsapp-publico {
-    align-self: center;
+    width: 100%;
+    align-self: stretch;
   }
 
   .uso-dos-dados {
@@ -584,7 +669,6 @@
 
   .cabecalho-publico {
     justify-content: flex-start;
-    padding-left: 0.25rem;
   }
 
   .nome-projeto {
@@ -596,8 +680,8 @@
     padding: 1.2rem 0.85rem;
   }
 
-  .introducao-formulario h1 {
-    font-size: 1.32rem;
+  .apresentacao-publica h1 {
+    font-size: 1.34rem;
   }
 
   .opcao-consentimento {
@@ -614,7 +698,6 @@
 
 @media (min-width: 1440px) {
   .pagina-publica {
-    padding-top: 2rem;
     padding-bottom: 1.5rem;
   }
 }

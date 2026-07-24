@@ -2,7 +2,7 @@ const relatorioService = require('./relatorioService');
 
 function criarNomeArquivo(extensao) {
   const data = new Date().toISOString().slice(0, 19).replace('T', '_').replace(/:/g, '-');
-  return 'a-voz-do-bairro-contatos-' + data + '.' + extensao;
+  return 'acorda-vk-contatos-' + data + '.' + extensao;
 }
 
 async function resumir(requisicao, resposta, proximo) {

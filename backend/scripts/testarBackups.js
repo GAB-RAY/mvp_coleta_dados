@@ -89,7 +89,7 @@ async function executar() {
     });
     verificar(resposta.status === 200, 'Administrador não conseguiu gerar backup.');
     verificar(
-      /^attachment; filename="a-voz-do-bairro-backup-completo-postgresql-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.backup"$/.test(
+      /^attachment; filename="acorda-vk-backup-completo-postgresql-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.backup"$/.test(
         resposta.headers.get('content-disposition') || ''
       ),
       'Nome do arquivo de backup não segue o padrão oficial.'

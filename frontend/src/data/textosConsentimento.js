@@ -1,5 +1,5 @@
 const TEXTO_AVISO_PRIVACIDADE =
-  'Li o Aviso de Privacidade e autorizo o tratamento dos dados informados para participação no projeto A Voz do Bairro.';
+  'Li o Aviso de Privacidade e autorizo o tratamento dos dados informados para participação no projeto Acorda VK.';
 
 const TEXTO_MENSAGENS =
   'Autorizo o recebimento de futuras mensagens sobre ações sociais, projetos comunitários, pesquisas, conteúdos políticos, eventos e iniciativas relacionadas à melhoria dos bairros.';

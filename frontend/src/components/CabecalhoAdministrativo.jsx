@@ -135,7 +135,7 @@ function CabecalhoAdministrativo(propriedades) {
 
         <div className="rodape-barra-admin">
           <span className="rotulo-navegacao-admin">Projeto</span>
-          <p>A Voz do Bairro</p>
+          <p>Acorda VK</p>
           <button type="button" className="botao-sair-admin" onClick={propriedades.aoSair}>
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M10 4H4v16h6M15 8l4 4-4 4M8 12h11" />
