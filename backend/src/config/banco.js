@@ -28,6 +28,26 @@ function criarConfiguracaoSsl() {
   return configuracaoSsl;
 }
 
+function prepararStringConexao() {
+  if (process.env.BANCO_SSL !== 'true') {
+    return process.env.DATABASE_URL;
+  }
+
+  const endereco = new URL(process.env.DATABASE_URL);
+  const parametrosSslControladosPelaAplicacao = [
+    'sslmode',
+    'sslcert',
+    'sslkey',
+    'sslrootcert'
+  ];
+
+  parametrosSslControladosPelaAplicacao.forEach(function (parametro) {
+    endereco.searchParams.delete(parametro);
+  });
+
+  return endereco.toString();
+}
+
 const configuracaoPool = {
   max: lerInteiro('BANCO_POOL_MAX', 5, 1, 10),
   idleTimeoutMillis: lerInteiro('BANCO_POOL_OCIOSO_MS', 30000, 1000, 600000),
@@ -48,7 +68,7 @@ const configuracaoPool = {
 
 if (process.env.DATABASE_URL) {
   configuracaoBanco = Object.assign({}, configuracaoPool, {
-    connectionString: process.env.DATABASE_URL
+    connectionString: prepararStringConexao()
   });
 
   if (process.env.BANCO_SSL === 'true') {
