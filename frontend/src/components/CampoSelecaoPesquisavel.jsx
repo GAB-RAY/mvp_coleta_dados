@@ -3,20 +3,21 @@ import { useState } from 'react';
 const LIMITE_SUGESTOES = 8;
 
 function normalizarTexto(valor) {
-  return valor
+  return String(valor || '')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLocaleLowerCase('pt-BR');
 }
 
 function filtrarOpcoes(opcoes, pesquisa) {
-  const pesquisaNormalizada = normalizarTexto(pesquisa.trim());
+  const pesquisaNormalizada = normalizarTexto(pesquisa).trim();
+  const opcoesDisponiveis = Array.isArray(opcoes) ? opcoes : [];
 
   if (!pesquisaNormalizada) {
-    return opcoes.slice(0, LIMITE_SUGESTOES);
+    return opcoesDisponiveis.slice(0, LIMITE_SUGESTOES);
   }
 
-  return opcoes.filter(function (opcao) {
+  return opcoesDisponiveis.filter(function (opcao) {
     return normalizarTexto(opcao).includes(pesquisaNormalizada);
   }).slice(0, LIMITE_SUGESTOES);
 }

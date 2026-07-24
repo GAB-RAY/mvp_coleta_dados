@@ -1,4 +1,5 @@
 const path = require('path');
+const { Readable } = require('stream');
 const ExcelJS = require('exceljs');
 const importacaoModel = require('./importacaoModel');
 const criarAppError = require('../../utils/AppError');
@@ -78,25 +79,40 @@ function textoCelula(celula) {
 }
 
 async function analisarXlsx(buffer) {
-  const pasta = new ExcelJS.Workbook();
-  await pasta.xlsx.load(buffer);
-  const planilha = pasta.worksheets[0];
-  const linhas = [];
-
-  if (!planilha) {
-    return linhas;
-  }
-
-  planilha.eachRow({ includeEmpty: true }, function (linhaExcel) {
-    const valores = [];
-    let indice;
-
-    for (indice = 1; indice <= linhaExcel.cellCount; indice += 1) {
-      valores.push(textoCelula(linhaExcel.getCell(indice)));
-    }
-
-    linhas.push(valores);
+  const leitor = new ExcelJS.stream.xlsx.WorkbookReader(Readable.from(buffer), {
+    worksheets: 'emit',
+    sharedStrings: 'cache',
+    styles: 'ignore',
+    hyperlinks: 'ignore'
   });
+  const linhas = [];
+  let primeiraPlanilhaEncontrada = false;
+
+  try {
+    for await (const planilha of leitor) {
+      if (primeiraPlanilhaEncontrada) {
+        break;
+      }
+
+      primeiraPlanilhaEncontrada = true;
+
+      for await (const linhaExcel of planilha) {
+        const valores = [];
+        let indice;
+
+        for (indice = 1; indice <= linhaExcel.cellCount; indice += 1) {
+          valores.push(textoCelula(linhaExcel.getCell(indice)));
+        }
+
+        linhas.push(valores);
+      }
+    }
+  } catch (erro) {
+    throw criarAppError(
+      'Não foi possível ler o arquivo XLSX. Verifique se a planilha está válida.',
+      400
+    );
+  }
 
   return linhas;
 }

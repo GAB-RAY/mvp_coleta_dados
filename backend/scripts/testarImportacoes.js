@@ -188,8 +188,21 @@ async function executar() {
 
     const pasta = new ExcelJS.Workbook();
     const planilha = pasta.addWorksheet('Contatos');
-    planilha.addRow(['telefone', 'nome', 'bairro', 'idade', 'categoria']);
-    planilha.addRow([PREFIXO + '004', 'Contato XLSX', 'Centro', 29, 'Educação']);
+    planilha.addTable({
+      name: 'TabelaContatosTeste',
+      ref: 'A1',
+      headerRow: true,
+      columns: [
+        { name: 'telefone' },
+        { name: 'nome' },
+        { name: 'bairro' },
+        { name: 'idade' },
+        { name: 'categoria' }
+      ],
+      rows: [
+        [PREFIXO + '004', 'Contato XLSX', 'Centro', 29, 'Educação']
+      ]
+    });
     const bufferXlsx = await pasta.xlsx.writeBuffer();
     const visualizacaoXlsx = await requisitar(baseUrl, '/api/admin/importacoes/pre-visualizar', {
       method: 'POST',
@@ -210,6 +223,22 @@ async function executar() {
     assert.strictEqual(confirmacaoXlsx.status, 200);
     assert.strictEqual(confirmacaoXlsx.corpo.relatorio.criados, 1);
 
+    const xlsxInvalido = await requisitar(baseUrl, '/api/admin/importacoes/pre-visualizar', {
+      method: 'POST',
+      headers: cabecalhos,
+      body: criarFormulario(
+        Buffer.from('arquivo xlsx inválido'),
+        'arquivo-invalido.xlsx',
+        ORIGENS[1],
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      )
+    });
+    assert.strictEqual(xlsxInvalido.status, 400);
+    assert.strictEqual(
+      xlsxInvalido.corpo.mensagem,
+      'Não foi possível ler o arquivo XLSX. Verifique se a planilha está válida.'
+    );
+
     const novaVisualizacao = await requisitar(baseUrl, '/api/admin/importacoes/pre-visualizar', {
       method: 'POST',
       headers: cabecalhos,
@@ -227,7 +256,7 @@ async function executar() {
     );
     assert.strictEqual(repetida.corpo.relatorio.ignorados, 1);
 
-    console.log('Importações: 22 verificações aprovadas.');
+    console.log('Importações: 24 verificações aprovadas.');
     console.log('CSV, XLSX, inválidos, duplicados, complementação e reimportação aprovados.');
   } finally {
     if (servidor) {

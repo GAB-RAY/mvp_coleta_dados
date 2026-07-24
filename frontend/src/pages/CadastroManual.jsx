@@ -82,18 +82,25 @@ function CadastroManual() {
         setOrigens(opcoes);
 
         if (detalhes) {
+          const contato = detalhes.contato;
+          const bairroDoContato = contato.bairro || '';
+
           setDados(Object.assign({}, DADOS_INICIAIS, {
-            nome: detalhes.contato.nome,
-            telefone: detalhes.contato.telefone,
-            bairro: detalhes.contato.bairro,
-            idade: String(detalhes.contato.idade || ''),
-            problema: detalhes.contato.problema,
-            origemId: detalhes.contato.origem && detalhes.contato.origem.id
-              ? String(detalhes.contato.origem.id)
+            nome: contato.nome || '',
+            telefone: contato.telefone || '',
+            bairro: bairroDoContato,
+            idade: contato.idade === null || contato.idade === undefined
+              ? ''
+              : String(contato.idade),
+            problema: contato.problema || '',
+            origemId: contato.origem && contato.origem.id
+              ? String(contato.origem.id)
               : '',
-            status: detalhes.contato.statusContato || 'ativo'
+            status: contato.statusContato || 'ativo'
           }));
-          setBairroConfirmado(true);
+          setBairroConfirmado(
+            Boolean(bairroDoContato) && bairrosRecebidos.includes(bairroDoContato)
+          );
           return;
         }
 
