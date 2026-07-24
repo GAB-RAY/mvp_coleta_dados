@@ -4,8 +4,11 @@
   "private": true,
   "description": "Backend do MVP de coleta de dados",
   "main": "src/server.js",
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
-    "test": "npm run testar:banco && npm run testar:publico && npm run testar:admin && npm run testar:manual && npm run testar:importacoes && npm run testar:relatorios && npm run testar:seguranca && npm run testar:privacidade && npm run testar:eventos-exclusoes && npm run testar:backups",
+    "test": "npm run testar:banco && npm run testar:publico && npm run testar:admin && npm run testar:manual && npm run testar:importacoes && npm run testar:relatorios && npm run testar:seguranca && npm run testar:privacidade && npm run testar:eventos-exclusoes && npm run testar:backups && npm run testar:resiliencia",
     "start": "node src/server.js",
     "criar-admin": "node scripts/criarAdministrador.js",
     "banco:sincronizar-sequencias": "node scripts/sincronizarSequencias.js",
@@ -14,19 +17,23 @@
     "testar:admin": "node scripts/testarAdministracao.js",
     "testar:manual": "node scripts/testarCadastroManual.js",
     "testar:importacoes": "node scripts/testarImportacoes.js",
+    "testar:importacao-carga": "node scripts/testarImportacaoCarga.js",
     "testar:relatorios": "node scripts/testarRelatorios.js",
     "testar:seguranca": "node scripts/testarSegurancaUsuarios.js",
     "testar:privacidade": "node scripts/testarPrivacidadeAdministrativa.js",
     "testar:eventos-exclusoes": "node scripts/testarEventosExclusoes.js",
     "testar:backups": "node scripts/testarBackups.js",
+    "testar:resiliencia": "node scripts/testarResiliencia.js",
     "testar:schema-vazio": "node scripts/testarSchemaVazio.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
+    "compression": "^1.8.1",
     "cors": "^2.8.6",
     "dotenv": "^17.2.1",
     "exceljs": "^4.4.0",
     "express": "^5.1.0",
+    "express-rate-limit": "^8.6.0",
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.2.0",

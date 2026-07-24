@@ -13,6 +13,7 @@ npm start
 Variáveis principais:
 
 ```env
+NODE_ENV=development
 PORTA=3000
 BANCO_HOST=localhost
 BANCO_PORTA=5432
@@ -20,15 +21,53 @@ BANCO_USUARIO=postgres
 BANCO_SENHA=sua_senha
 BANCO_NOME=criar_banco
 BANCO_SSL=false
+BANCO_SSL_REJEITAR_NAO_AUTORIZADO=true
+BANCO_POOL_MAX=5
+BANCO_POOL_OCIOSO_MS=30000
+BANCO_CONEXAO_TEMPO_LIMITE_MS=5000
+BANCO_CONEXAO_TEMPO_MAXIMO_SEGUNDOS=300
+BANCO_COMANDO_TEMPO_LIMITE_MS=15000
+BANCO_CONSULTA_TEMPO_LIMITE_MS=20000
+BANCO_BLOQUEIO_TEMPO_LIMITE_MS=5000
+BANCO_TRANSACAO_OCIOSA_TEMPO_LIMITE_MS=15000
 JWT_SECRET=troque_por_um_segredo_forte
 JWT_TEMPO_EXPIRACAO=8h
 FRONTEND_URL=http://localhost:5173
+API_REQUISICOES_CONCORRENTES=100
+API_LIMITE_JANELA_MS=60000
+API_LIMITE_MAXIMO=1200
+PUBLICO_LIMITE_JANELA_MS=900000
+PUBLICO_LIMITE_MAXIMO=5
+BAIRROS_CACHE_MS=300000
 PG_DUMP_CAMINHO=
 BACKUP_TEMPO_LIMITE_MS=600000
+BACKUP_CONEXAO_TEMPO_LIMITE_SEGUNDOS=10
+BACKUP_MAX_FILA_BANCO=2
+BACKUP_BANCO_TAMANHO_MAXIMO_BYTES=2147483648
 RELATORIO_LIMITE_REGISTROS=50000
 ```
 
 Também é possível usar `DATABASE_URL`. O `.env` não deve ser versionado.
+
+Em produção, `DATABASE_URL` deve usar `sslmode=require`, `verify-ca` ou `verify-full`; `JWT_SECRET` deve possuir pelo menos 32 bytes; `FRONTEND_URL` deve ser HTTPS. A aplicação falha antes de abrir a porta quando uma dessas configurações críticas está insegura ou ausente.
+
+## Resiliência e carga pública
+
+- o catálogo de 166 bairros permanece em cache por cinco minutos, com proteção contra várias cargas simultâneas;
+- as opções públicas usam cache HTTP curto de 30 segundos;
+- cada combinação de IP e telefone pode tentar o cadastro cinco vezes em 15 minutos por padrão;
+- o limite global padrão é alto, 1.200 requisições por IP/minuto, para não bloquear eventos legítimos;
+- no máximo 100 requisições ficam ativas por processo; excesso recebe 503 e `Retry-After`;
+- o pool usa cinco conexões por instância, com limites de conexão, consulta, comando, bloqueio e transação ociosa;
+- falhas temporárias de PostgreSQL retornam 503 sem expor detalhes;
+- conexões ociosas com erro são removidas do pool sem derrubar silenciosamente a API;
+- cada resposta possui `X-Request-Id` para investigação;
+- respostas JSON maiores que 1 KB são comprimidas;
+- corpos JSON são limitados a 32 KB;
+- SIGTERM/SIGINT encerram servidor e pool de forma graciosa;
+- filtros, eventos e relatórios usam explicitamente `America/Sao_Paulo`.
+
+Os limites são configuráveis. Não os aumente antes de um teste de carga em homologação. Em múltiplas instâncias, o rate limit em memória passa a valer por instância; para proteção global contra ataque distribuído, configure também WAF/rate limiting na borda.
 
 ## Banco de dados
 
@@ -73,6 +112,8 @@ Públicas:
 | Método | Rota | Função |
 |---|---|---|
 | GET | `/api/teste` | Saúde da API e PostgreSQL. |
+| GET | `/api/saude/vivo` | Liveness sem depender do banco. |
+| GET | `/api/saude/pronto` | Readiness com consulta ao PostgreSQL. |
 | GET | `/api/publico/contatos/opcoes` | Bairros, categorias e contexto do evento ativo. |
 | POST | `/api/publico/contatos` | Cadastro público e vínculo automático ao evento. |
 | POST | `/api/autenticacao/login` | Login e emissão do JWT. |
@@ -139,15 +180,18 @@ No painel, um administrador também pode gerar e baixar um backup em `/admin/bac
 
 O backup técnico usa o nome `a-voz-do-bairro-backup-completo-postgresql-AAAA-MM-DD_HH-mm-ss.backup`. Ele é restaurável pelo PostgreSQL e não deve ser confundido com as exportações de contatos, baixadas como `a-voz-do-bairro-contatos-AAAA-MM-DD_HH-mm-ss.xlsx` ou `.csv`.
 
+Para não afetar o formulário durante picos, o painel recusa iniciar backup quando a fila do banco já está acima do limite configurado. Também há limite preventivo de tamanho para o arquivo temporário. Em produção, o mecanismo principal deve ser o backup/PITR do PostgreSQL gerenciado; o backup do painel deve ser executado em horário de menor movimento, baixado e armazenado fora da App Platform.
+
 ## Testes
 
 ```powershell
 npm test
 node --check src/app.js
 npm run testar:schema-vazio
+npm run testar:importacao-carga
 ```
 
-Resultado de 23/07/2026: 257 verificações aprovadas.
+Resultado de 23/07/2026: 279 verificações aprovadas.
 
 - estrutura, 166 bairros e proteções ManyChat: 26;
 - cadastro público: 27;
@@ -159,8 +203,11 @@ Resultado de 23/07/2026: 257 verificações aprovadas.
 - privacidade: 15;
 - eventos, permissões e exclusão física: 28;
 - backups, permissões, integridade e auditoria: 18.
+- resiliência, rate limit, concorrência, saúde, pool e configuração: 22.
 
 O teste de schema cria um banco temporário vazio, aplica `database/criar_banco.sql`, valida 22 tabelas e 166 bairros e remove o banco temporário ao final.
+
+O teste de carga de importação gera 2.500 contatos temporários, percorre pré-visualização, confirmação e persistência, confere o resultado, remove todos os dados de teste e ressincroniza as sequências utilizadas. Ele recusa execução quando `NODE_ENV=production`. A pré-visualização grava as linhas no PostgreSQL em lotes parametrizados de 500; a confirmação continua transacional por contato para preservar duplicidade, complementação e histórico. O limite funcional permanece em 5.000 linhas por arquivo e 5 MB.
 
 O backup mais recente anterior à atualização estrutural está fora do repositório em `C:\Users\gabriellindo\Backups\A_Voz_do_Bairro\criar_banco\2026-07-23_170901\`, com SHA-256 `E2E3B6C244B64D989BD0B1FD5EA261F5E386B4704504BE8A792AD4A51741A9A3`. A restauração validada `criar_banco_backup_20260723_170901` foi mantida para conferência.
 

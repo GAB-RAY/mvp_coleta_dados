@@ -26,6 +26,9 @@ Sistema real de coleta e gestão de contatos comunitários. O projeto possui for
 - relatórios e filtro de contatos por evento;
 - exportação de contatos em CSV e Excel exclusiva para administradores;
 - backup completo do PostgreSQL pelo painel, exclusivo para administradores e com auditoria SHA-256;
+- proteção do formulário público com limite por IP/telefone, cache e controle de concorrência;
+- pool PostgreSQL limitado, tempos máximos, recuperação de conexões e desligamento gracioso;
+- endpoints separados de vida e prontidão para monitoramento em produção;
 - estrutura reservada para futura integração com ManyChat.
 
 ## Permissões
@@ -103,6 +106,16 @@ Reinicie o Vite depois de alterar a variável. O botão apenas abre uma conversa
 
 Configure `VITE_API_URL` no frontend e `DATABASE_URL`, `JWT_SECRET`, `JWT_TEMPO_EXPIRACAO`, `FRONTEND_URL` e as configurações de SSL no backend. Aplique `criar_banco.sql` somente no banco vazio antes de iniciar o backend.
 
+O plano de 512 MiB e o PostgreSQL de nó único são adequados para a publicação inicial controlada, mas não oferecem alta disponibilidade completa. Antes de um evento de grande alcance, faça teste de carga no ambiente de homologação. Para eliminar pontos únicos de falha, use pelo menos duas instâncias do backend e PostgreSQL com nó standby.
+
+No App Platform, configure:
+
+- readiness: `/api/saude/pronto`;
+- liveness: `/api/saude/vivo`;
+- alertas de falha de deploy, reinício, CPU, memória e latência;
+- `NODE_ENV=production` e `DIGITALOCEAN_CONFIAR_IP=true`;
+- conexão PostgreSQL privada/VPC, TLS e trusted sources.
+
 ## Documentação técnica
 
 - [Backend](backend/README.md)
@@ -115,7 +128,8 @@ Em 23/07/2026:
 - schema criado em banco vazio de teste: 22 tabelas;
 - banco principal recriado exclusivamente pelo schema completo, sem migrations;
 - backup prévio restaurado e validado em banco separado;
-- `npm test`: 257 verificações aprovadas;
+- `npm test`: 279 verificações aprovadas;
+- `npm run testar:importacao-carga`: 2.500 contatos importados e validados, com limpeza automática;
 - `npm run build`: 61 módulos transformados;
 - banco principal validado com 166 bairros, 1 contato, 1 evento ativo e o administrador Gabriel preservado como ID 1;
 - sequências das 22 tabelas sincronizadas.

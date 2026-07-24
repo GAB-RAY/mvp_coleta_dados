@@ -1,6 +1,20 @@
 const bairroModel = require('./bairroModel');
 const criarAppError = require('../../utils/AppError');
 
+let bairrosEmCache = null;
+let cacheValidoAte = 0;
+let carregamentoEmAndamento = null;
+
+function obterDuracaoCache() {
+  const duracao = Number(process.env.BAIRROS_CACHE_MS || 300000);
+
+  if (!Number.isInteger(duracao) || duracao < 10000 || duracao > 86400000) {
+    throw new Error('BAIRROS_CACHE_MS possui valor inválido.');
+  }
+
+  return duracao;
+}
+
 function criarChaveBairro(valor) {
   return String(valor || '')
     .trim()
@@ -28,11 +42,27 @@ function encontrarNomeCanonico(valor, bairros) {
 }
 
 async function listarNomesAtivos() {
-  const registros = await bairroModel.listarAtivos();
+  if (bairrosEmCache && Date.now() < cacheValidoAte) {
+    return bairrosEmCache.slice();
+  }
 
-  return registros.map(function (registro) {
-    return registro.nome;
-  });
+  if (!carregamentoEmAndamento) {
+    carregamentoEmAndamento = bairroModel.listarAtivos()
+      .then(function (registros) {
+        bairrosEmCache = registros.map(function (registro) {
+          return registro.nome;
+        });
+        cacheValidoAte = Date.now() + obterDuracaoCache();
+        return bairrosEmCache;
+      })
+      .finally(function () {
+        carregamentoEmAndamento = null;
+      });
+  }
+
+  const bairros = await carregamentoEmAndamento;
+
+  return bairros.slice();
 }
 
 async function validarBairroAtivo(valor) {

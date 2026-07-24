@@ -4,6 +4,7 @@ const assert = require('assert');
 const bcrypt = require('bcrypt');
 const aplicacao = require('../src/app');
 const banco = require('../src/config/banco');
+const formatarDataRio = require('../src/utils/formatarDataRio');
 
 const EMAIL_TESTE = 'teste.admin.mvp@invalid.local';
 const TELEFONE_TESTE = '21999987001';
@@ -96,7 +97,7 @@ async function executar() {
     });
     assert.strictEqual(cadastro.status, 201);
 
-    const hoje = new Date().toISOString().slice(0, 10);
+    const hoje = formatarDataRio(new Date());
     const parametros = new URLSearchParams({
       nome: 'Administrativo',
       telefone: '(21) 99998-7001',

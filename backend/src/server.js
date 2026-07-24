@@ -1,9 +1,78 @@
 require('dotenv').config({ quiet: true });
 
 const aplicacao = require('./app');
+const banco = require('./config/banco');
+const validarAmbiente = require('./config/validarAmbiente');
 
 const porta = Number(process.env.PORT || process.env.PORTA) || 3000;
 
-aplicacao.listen(porta, function () {
+validarAmbiente();
+
+const servidor = aplicacao.listen(porta, function () {
   console.log('Servidor iniciado na porta ' + porta + '.');
+});
+
+servidor.requestTimeout = 30000;
+servidor.headersTimeout = 65000;
+servidor.keepAliveTimeout = 60000;
+servidor.maxRequestsPerSocket = 1000;
+
+let encerramentoIniciado = false;
+
+function encerrarAplicacao(motivo, erroFatal) {
+  if (encerramentoIniciado) {
+    return;
+  }
+
+  encerramentoIniciado = true;
+  const codigoSaida = erroFatal ? 1 : 0;
+  console.log('Encerrando aplicação: ' + motivo + '.');
+
+  const temporizador = setTimeout(function () {
+    console.error('Encerramento forçado após exceder o tempo limite.');
+    process.exit(1);
+  }, 25000);
+  temporizador.unref();
+
+  servidor.close(function (erroFechamento) {
+    banco.end()
+      .then(function () {
+        clearTimeout(temporizador);
+
+        if (erroFechamento) {
+          console.error('Erro ao encerrar o servidor:', erroFechamento.message);
+          process.exitCode = 1;
+          return;
+        }
+
+        process.exitCode = codigoSaida;
+      })
+      .catch(function (erroBanco) {
+        clearTimeout(temporizador);
+        console.error('Erro ao encerrar o pool PostgreSQL:', erroBanco.message);
+        process.exitCode = 1;
+      });
+  });
+
+  if (typeof servidor.closeIdleConnections === 'function') {
+    servidor.closeIdleConnections();
+  }
+}
+
+process.once('SIGTERM', function () {
+  encerrarAplicacao('SIGTERM', false);
+});
+
+process.once('SIGINT', function () {
+  encerrarAplicacao('SIGINT', false);
+});
+
+process.once('uncaughtException', function (erro) {
+  console.error('Exceção não tratada:', erro);
+  encerrarAplicacao('uncaughtException', true);
+});
+
+process.once('unhandledRejection', function (motivo) {
+  console.error('Promise rejeitada sem tratamento:', motivo);
+  encerrarAplicacao('unhandledRejection', true);
 });

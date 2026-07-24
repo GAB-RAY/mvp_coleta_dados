@@ -1,6 +1,8 @@
 const banco = require('../../config/banco');
 const historicoContatoModel = require('../contatos/historicoContatoModel');
 
+const TAMANHO_LOTE_PRE_VISUALIZACAO = 500;
+
 async function obterOuCriarOrigem(cliente, nome, slugBase) {
   const existente = await cliente.query(
     `
@@ -58,25 +60,47 @@ async function criarPreVisualizacao(dados, linhas) {
       `,
       [dados.nomeArquivo, dados.formato, origem.id, dados.usuarioId, linhas.length]
     );
-    let indice;
+    let inicioLote;
 
-    for (indice = 0; indice < linhas.length; indice += 1) {
-      const linha = linhas[indice];
+    for (
+      inicioLote = 0;
+      inicioLote < linhas.length;
+      inicioLote += TAMANHO_LOTE_PRE_VISUALIZACAO
+    ) {
+      const lote = linhas
+        .slice(inicioLote, inicioLote + TAMANHO_LOTE_PRE_VISUALIZACAO)
+        .map(function (linha) {
+          return {
+            numero_linha: linha.numeroLinha,
+            dados: linha.dados,
+            valida: linha.valida,
+            erro_validacao: linha.erroValidacao,
+            resultado: linha.resultado
+          };
+        });
+
       await cliente.query(
         `
           INSERT INTO importacao_linhas (
             importacao_id, numero_linha, dados, valida, erro_validacao, resultado
           )
-          VALUES ($1, $2, $3::jsonb, $4, $5, $6)
+          SELECT
+            $1,
+            linha.numero_linha,
+            linha.dados,
+            linha.valida,
+            linha.erro_validacao,
+            linha.resultado
+          FROM jsonb_to_recordset($2::jsonb) AS linha (
+            numero_linha INTEGER,
+            dados JSONB,
+            valida BOOLEAN,
+            erro_validacao TEXT,
+            resultado VARCHAR(30)
+          )
+          ORDER BY linha.numero_linha
         `,
-        [
-          importacao.rows[0].id,
-          linha.numeroLinha,
-          JSON.stringify(linha.dados),
-          linha.valida,
-          linha.erroValidacao,
-          linha.resultado
-        ]
+        [importacao.rows[0].id, JSON.stringify(lote)]
       );
     }
 

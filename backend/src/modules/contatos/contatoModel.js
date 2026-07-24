@@ -742,13 +742,17 @@ function construirFiltros(filtros) {
 
   if (filtros.dataInicial) {
     valores.push(filtros.dataInicial);
-    condicoes.push('contato.criado_em >= $' + valores.length + '::date');
+    condicoes.push(
+      "contato.criado_em >= ($" + valores.length +
+      "::date::timestamp AT TIME ZONE 'America/Sao_Paulo')"
+    );
   }
 
   if (filtros.dataFinal) {
     valores.push(filtros.dataFinal);
     condicoes.push(
-      'contato.criado_em < ($' + valores.length + '::date + INTERVAL \'1 day\')'
+      "contato.criado_em < ((($" + valores.length +
+      "::date + 1)::timestamp) AT TIME ZONE 'America/Sao_Paulo')"
     );
   }
 

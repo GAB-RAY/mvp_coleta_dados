@@ -2,6 +2,7 @@ import { obterToken } from '../utils/armazenamentoToken';
 
 const MENSAGEM_FALHA_CONEXAO =
   'Não foi possível conectar ao servidor. Tente novamente em alguns instantes.';
+const ATRASOS_NOVA_TENTATIVA = [400, 1200, 3000];
 
 function obterUrlBase() {
   const urlConfigurada = import.meta.env.VITE_API_URL;
@@ -55,9 +56,42 @@ async function lerRespostaJson(resposta) {
   }
 }
 
-async function requisitar(caminho, opcoes) {
-  const url = obterUrlBase() + caminho;
-  const configuracao = prepararConfiguracao(opcoes);
+function aguardar(tempoMs, sinal) {
+  return new Promise(function (resolver, rejeitar) {
+    if (sinal && sinal.aborted) {
+      rejeitar(new DOMException('Operação cancelada.', 'AbortError'));
+      return;
+    }
+
+    const temporizador = setTimeout(function () {
+      if (sinal) {
+        sinal.removeEventListener('abort', cancelar);
+      }
+      resolver();
+    }, tempoMs);
+
+    function cancelar() {
+      clearTimeout(temporizador);
+      rejeitar(new DOMException('Operação cancelada.', 'AbortError'));
+    }
+
+    if (sinal) {
+      sinal.addEventListener('abort', cancelar, { once: true });
+    }
+  });
+}
+
+function podeRepetir(configuracao, erro, tentativa) {
+  const metodo = String(configuracao.method || 'GET').toUpperCase();
+  const estadosTemporarios = [0, 502, 503, 504];
+
+  return metodo === 'GET' &&
+    erro.name !== 'AbortError' &&
+    estadosTemporarios.includes(erro.statusHttp) &&
+    tentativa < ATRASOS_NOVA_TENTATIVA.length;
+}
+
+async function executarRequisicao(url, configuracao) {
   let resposta;
 
   try {
@@ -84,6 +118,25 @@ async function requisitar(caminho, opcoes) {
   }
 
   return dados;
+}
+
+async function requisitar(caminho, opcoes) {
+  const url = obterUrlBase() + caminho;
+  const configuracao = prepararConfiguracao(opcoes);
+  let tentativa = 0;
+
+  while (true) {
+    try {
+      return await executarRequisicao(url, configuracao);
+    } catch (erro) {
+      if (!podeRepetir(configuracao, erro, tentativa)) {
+        throw erro;
+      }
+
+      await aguardar(ATRASOS_NOVA_TENTATIVA[tentativa], configuracao.signal);
+      tentativa += 1;
+    }
+  }
 }
 
 export default requisitar;

@@ -48,6 +48,16 @@ function criarNomeArquivo() {
   return 'a-voz-do-bairro-backup-completo-postgresql-' + data + '.backup';
 }
 
+function lerInteiro(nome, valorPadrao, minimo, maximo) {
+  const valor = Number(process.env[nome] || valorPadrao);
+
+  if (!Number.isInteger(valor) || valor < minimo || valor > maximo) {
+    throw new Error(nome + ' possui valor inválido.');
+  }
+
+  return valor;
+}
+
 function executarPgDump(executavel, argumentos, ambiente, limiteMs) {
   return new Promise(function (resolver, rejeitar) {
     const processo = childProcess.spawn(executavel, argumentos, {
@@ -109,6 +119,15 @@ function resumirErro(erro) {
 }
 
 async function gerar(usuario) {
+  const limiteFila = lerInteiro('BACKUP_MAX_FILA_BANCO', 2, 0, 100);
+
+  if (banco.waitingCount > limiteFila) {
+    throw criarAppError(
+      'O banco está atendendo muitas solicitações. Tente gerar o backup em um horário de menor movimento.',
+      503
+    );
+  }
+
   const clienteBloqueio = await banco.connect();
   let bloqueio;
 
@@ -131,6 +150,23 @@ async function gerar(usuario) {
 
   try {
     registroId = await backupModel.iniciar(usuario.id);
+    const limiteTamanhoBanco = lerInteiro(
+      'BACKUP_BANCO_TAMANHO_MAXIMO_BYTES',
+      2147483648,
+      10485760,
+      17179869184
+    );
+    const tamanhoBanco = await clienteBloqueio.query(
+      'SELECT pg_database_size(current_database()) AS tamanho_bytes'
+    );
+
+    if (Number(tamanhoBanco.rows[0].tamanho_bytes) > limiteTamanhoBanco) {
+      throw criarAppError(
+        'O banco excede o limite seguro para backup temporário pelo painel. Use o backup gerenciado do provedor.',
+        503
+      );
+    }
+
     const configuracao = lerConfiguracaoBanco();
     const limiteMs = Number(process.env.BACKUP_TEMPO_LIMITE_MS || 600000);
     if (!Number.isInteger(limiteMs) || limiteMs < 10000 || limiteMs > 3600000) {
@@ -144,6 +180,7 @@ async function gerar(usuario) {
       '--format=custom',
       '--blobs',
       '--no-owner',
+      '--no-password',
       '--host=' + configuracao.host,
       '--port=' + configuracao.porta,
       '--username=' + configuracao.usuario,
@@ -151,7 +188,13 @@ async function gerar(usuario) {
       configuracao.banco
     ];
     const ambiente = Object.assign({}, process.env, {
-      PGPASSWORD: configuracao.senha
+      PGPASSWORD: configuracao.senha,
+      PGCONNECT_TIMEOUT: String(lerInteiro(
+        'BACKUP_CONEXAO_TEMPO_LIMITE_SEGUNDOS',
+        10,
+        1,
+        120
+      ))
     });
 
     if (configuracao.ssl) {

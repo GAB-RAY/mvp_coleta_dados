@@ -65,6 +65,10 @@ Os arquivos possuem nomes distintos: o backup restaurável usa `a-voz-do-bairro-
 
 Sessões expiradas removem o token local e redirecionam ao login. O frontend esconde ações sem permissão, mas a autorização definitiva é sempre conferida pelo backend.
 
+Consultas `GET` repetem automaticamente falhas transitórias de conexão ou respostas 502/503/504, usando atrasos progressivos. Envios e alterações não são repetidos automaticamente, evitando duplicação acidental.
+
+Na Vercel, `vercel.json` aplica CSP, bloqueio de iframe, `nosniff`, política de referência, política de permissões e HSTS. A CSP permite comunicação HTTPS com a API e bloqueia scripts, objetos e frames externos.
+
 ## Build
 
 ```powershell
@@ -80,3 +84,4 @@ Resultado de 23/07/2026: Vite 8.1.5, 61 módulos transformados e build concluíd
 3. Configure `VITE_WHATSAPP_NUMERO`.
 4. Faça novo deploy após alterar variáveis.
 5. Configure `FRONTEND_URL` no backend com o domínio final da Vercel.
+6. Confirme os cabeçalhos de segurança no domínio publicado.

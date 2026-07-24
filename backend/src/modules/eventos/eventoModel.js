@@ -1,4 +1,5 @@
 const banco = require('../../config/banco');
+const formatarDataRio = require('../../utils/formatarDataRio');
 
 function selecionarCampos() {
   return `
@@ -39,7 +40,8 @@ async function buscarAtivo(clienteRecebido) {
       SELECT id, nome, motivo, data_inicial, data_final, status
       FROM eventos
       WHERE status = 'ativo'
-        AND CURRENT_DATE BETWEEN data_inicial AND data_final
+        AND (CURRENT_TIMESTAMP AT TIME ZONE 'America/Sao_Paulo')::date
+          BETWEEN data_inicial AND data_final
       LIMIT 1
     `
   );
@@ -144,7 +146,7 @@ async function alterarStatus(id, novoStatus, usuarioId) {
     }
 
     if (novoStatus === 'ativo') {
-      const dataAtual = new Date().toISOString().slice(0, 10);
+      const dataAtual = formatarDataRio(new Date());
       const dataInicial = new Date(atual.rows[0].data_inicial).toISOString().slice(0, 10);
       const dataFinal = new Date(atual.rows[0].data_final).toISOString().slice(0, 10);
 

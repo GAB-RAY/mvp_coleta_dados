@@ -1,6 +1,7 @@
 const contatoService = require('../contatos/contatoService');
 const ExcelJS = require('exceljs');
 const criarAppError = require('../../utils/AppError');
+const formatarDataRio = require('../../utils/formatarDataRio');
 
 function obterLimiteRelatorio() {
   const limite = Number(process.env.RELATORIO_LIMITE_REGISTROS || 50000);
@@ -70,7 +71,7 @@ function obterDiaCadastro(valor) {
     return null;
   }
 
-  return data.toISOString().slice(0, 10);
+  return formatarDataRio(data);
 }
 
 async function gerarResumo(parametros) {

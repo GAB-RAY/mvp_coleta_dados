@@ -1,6 +1,7 @@
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
+const compression = require('compression');
 const testeRoutes = require('./modules/teste/testeRoutes');
 const contatoPublicoRoutes = require('./modules/contatos/contatoPublicoRoutes');
 const contatoAdminRoutes = require('./modules/contatos/contatoAdminRoutes');
@@ -13,6 +14,9 @@ const eventoRoutes = require('./modules/eventos/eventoRoutes');
 const solicitacaoExclusaoRoutes = require('./modules/exclusoes/solicitacaoExclusaoRoutes');
 const backupRoutes = require('./modules/backups/backupRoutes');
 const autenticarUsuario = require('./middlewares/autenticarUsuario');
+const identificarRequisicao = require('./middlewares/identificarRequisicao');
+const criarLimitadorConcorrencia = require('./middlewares/limitarConcorrencia');
+const limitadores = require('./middlewares/limitarRequisicoes');
 const rotaNaoEncontrada = require('./middlewares/rotaNaoEncontrada');
 const tratarErro = require('./middlewares/tratarErro');
 
@@ -27,9 +31,17 @@ if (Number.isInteger(saltosProxy) && saltosProxy > 0) {
 aplicacao.use(helmet());
 aplicacao.use(cors({
   origin: process.env.FRONTEND_URL,
-  exposedHeaders: ['Content-Disposition', 'X-Backup-SHA256']
+  exposedHeaders: ['Content-Disposition', 'X-Backup-SHA256', 'X-Request-Id']
 }));
-aplicacao.use(express.json());
+aplicacao.use(identificarRequisicao);
+aplicacao.use(compression({ threshold: 1024 }));
+aplicacao.use(limitadores.criarLimitadorGlobal());
+aplicacao.use(criarLimitadorConcorrencia());
+aplicacao.use(express.json({ limit: '32kb', strict: true }));
+aplicacao.post(
+  '/api/publico/contatos',
+  limitadores.criarLimitadorCadastroPublico()
+);
 aplicacao.use('/api', testeRoutes);
 aplicacao.use('/api/publico/contatos', contatoPublicoRoutes);
 aplicacao.use('/api/autenticacao', autenticacaoRoutes);

@@ -4,6 +4,7 @@ const assert = require('assert');
 const bcrypt = require('bcrypt');
 const aplicacao = require('../src/app');
 const banco = require('../src/config/banco');
+const formatarDataRio = require('../src/utils/formatarDataRio');
 
 const SENHA = 'TesteEventos123!';
 let total = 0;
@@ -120,7 +121,7 @@ async function executar() {
 
     verificar((await requisitar(baseUrl, '/api/admin/eventos')).status === 401, 'Eventos sem JWT não retornou 401.');
     verificar((await requisitar(baseUrl, '/api/admin/eventos', { method: 'POST', headers: operadorHeaders, body: '{}' })).status === 403, 'Operador conseguiu criar evento.');
-    const hoje = new Date().toISOString().slice(0, 10);
+    const hoje = formatarDataRio(new Date());
     const criacao = await requisitar(baseUrl, '/api/admin/eventos', {
       method: 'POST',
       headers: adminHeaders,
