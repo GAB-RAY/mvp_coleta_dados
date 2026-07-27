@@ -38,6 +38,12 @@ function obterTotalPorNome(itens, nome) {
   return itemEncontrado ? itemEncontrado.total : 0;
 }
 
+function criarDestinoFiltro(filtro, valor) {
+  const parametros = new URLSearchParams();
+  parametros.set(filtro, valor);
+  return '/admin/contatos?' + parametros.toString();
+}
+
 function formatarData(dataRecebida) {
   const data = new Date(dataRecebida);
 
@@ -108,12 +114,17 @@ function GraficoBarrasHorizontais(propriedades) {
         {itens.map(function (item) {
           const largura = maiorTotal ? Math.max((item.total / maiorTotal) * 100, 7) : 0;
           return (
-            <div className="linha-barra-admin" key={item.nome}>
+            <Link
+              className="linha-barra-admin"
+              key={item.nome}
+              to={criarDestinoFiltro(propriedades.filtro, item.nome)}
+              title={'Mostrar contatos de ' + item.nome}
+            >
               <div><span title={item.nome}>{item.nome}</span><strong>{item.total}</strong></div>
               <span className="trilho-barra-admin">
                 <span style={{ width: largura + '%' }} />
               </span>
-            </div>
+            </Link>
           );
         })}
       </div>
@@ -141,13 +152,18 @@ function GraficoBarrasVerticais(propriedades) {
           {itens.map(function (item) {
             const altura = maiorTotal ? Math.max((item.total / maiorTotal) * 100, 10) : 0;
             return (
-              <div className="coluna-grafico-admin" key={item.nome}>
+              <Link
+                className="coluna-grafico-admin"
+                key={item.nome}
+                to={criarDestinoFiltro(propriedades.filtro, item.nome)}
+                title={'Mostrar contatos de ' + item.nome}
+              >
                 <strong>{item.total}</strong>
                 <span className="area-coluna-admin">
                   <span style={{ height: altura + '%' }} />
                 </span>
                 <small title={item.nome}>{item.nome}</small>
-              </div>
+              </Link>
             );
           })}
         </div>
@@ -347,11 +363,13 @@ function DashboardAdministrativo() {
                   titulo="Contatos por bairro"
                   itens={resumo.porBairro}
                   destino="/admin/relatorios"
+                  filtro="bairro"
                 />
                 <GraficoBarrasVerticais
                   titulo="Principais necessidades"
                   itens={resumo.porProblema}
                   destino="/admin/relatorios"
+                  filtro="problema"
                 />
               </div>
 

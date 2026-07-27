@@ -49,6 +49,10 @@ Campos atuais:
 - autorização opcional para ligações;
 - aceite obrigatório do Aviso de Privacidade.
 
+As autorizações opcionais de mensagens e ligações iniciam marcadas e podem ser
+desmarcadas antes do envio. O aceite obrigatório do Aviso de Privacidade inicia
+desmarcado e exige ação direta da pessoa.
+
 O formulário não exibe descrição do problema. O mesmo link é usado sempre. Sem evento ativo, o cadastro completo continua funcionando normalmente e não mostra aviso adicional.
 
 O visual público usa a identidade `Acorda VK`, cabeçalho laranja, apresentação destacada e laterais com elementos laranja discretos. Nome, bairro e categoria ocupam a largura total; telefone e idade ficam lado a lado quando houver espaço e são empilhados no celular. A aba do formulário mostra `Acorda VK`, enquanto login e painel usam `Central de Comunicação`.
@@ -59,11 +63,21 @@ Depois da identificação, `Meus dados mudaram` abre o formulário completo. O t
 
 O identificador do evento exibido acompanha o envio. Se o administrador trocar ou encerrar o evento enquanto a pessoa preenche, o backend retorna `409`; o frontend atualiza o contexto, mantém os campos preenchidos e pede um novo envio consciente.
 
+Ao ativar um evento, o administrador pode visualizar, copiar e baixar um QR Code
+SVG exclusivo. Ele aponta para `/participar?evento=<id>` e deixa de aceitar
+inscrições quando o evento é encerrado ou sai do período. O endereço normal
+`/participar` permanece disponível para o cadastro geral e para o evento ativo.
+
 ## Painel e permissões
 
 Operadores e administradores podem cadastrar, editar, consultar, revogar consentimentos, solicitar exclusão e abrir a tela de eventos. Para operador, eventos são somente leitura e permitem acessar participantes. Somente administradores veem os controles de criação, edição, ativação e encerramento, além de usuários, fila de exclusões e backups. Os botões de exportação CSV e Excel também aparecem somente para administrador.
 
 Na tela de eventos, o botão `Ver participantes` abre a listagem de contatos com o evento previamente selecionado. Os campos de nome e telefone continuam disponíveis para conferir rapidamente a inscrição.
+
+Na visão geral e nos relatórios, bairros, categorias e demais barras são
+clicáveis e abrem a listagem com o filtro correspondente. O relatório inclui a
+quantidade de contatos por bairro e a distribuição das necessidades dentro de
+cada bairro. Bairro e categoria também são filtros em formato de seleção.
 
 Na gestão de usuários, o administrador pode atualizar o próprio nome e criar contas com perfil de operador ou administrador. Outros administradores aparecem protegidos e não podem ter seus dados ou senha alterados; a redefinição administrativa de senha fica disponível somente para operadores.
 
@@ -87,7 +101,7 @@ Na Vercel, `vercel.json` aplica CSP, bloqueio de iframe, `nosniff`, política de
 npm run build
 ```
 
-Resultado de 23/07/2026: Vite 8.1.5, 61 módulos transformados e build concluído.
+Resultado de 27/07/2026: Vite 8.1.5, 62 módulos transformados e build concluído.
 
 ## Vercel
 

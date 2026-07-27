@@ -69,13 +69,24 @@ function prepararFiltros(filtros) {
 }
 
 function criarFiltrosIniciais(parametrosBusca) {
-  const eventoId = parametrosBusca.get('eventoId') || '';
+  const filtros = Object.assign({}, FILTROS_INICIAIS);
 
-  if (!/^\d+$/.test(eventoId)) {
-    return FILTROS_INICIAIS;
+  Object.keys(FILTROS_INICIAIS).forEach(function (chave) {
+    const valor = parametrosBusca.get(chave);
+    if (valor !== null && valor !== '') {
+      filtros[chave] = valor;
+    }
+  });
+
+  if (
+    filtros.eventoId &&
+    filtros.eventoId !== 'sem_evento' &&
+    !/^\d+$/.test(filtros.eventoId)
+  ) {
+    filtros.eventoId = '';
   }
 
-  return Object.assign({}, FILTROS_INICIAIS, { eventoId });
+  return filtros;
 }
 
 function ContatosAdministrativos() {

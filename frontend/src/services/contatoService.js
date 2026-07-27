@@ -7,10 +7,19 @@ async function cadastrarContato(dadosDoContato) {
   });
 }
 
-async function buscarOpcoesFormulario(forcarAtualizacao) {
-  const caminho = forcarAtualizacao
-    ? '/api/publico/contatos/opcoes?atualizacao=' + Date.now()
-    : '/api/publico/contatos/opcoes';
+async function buscarOpcoesFormulario(forcarAtualizacao, eventoId) {
+  const parametros = new URLSearchParams();
+
+  if (forcarAtualizacao) {
+    parametros.set('atualizacao', String(Date.now()));
+  }
+
+  if (eventoId) {
+    parametros.set('eventoId', String(eventoId));
+  }
+
+  const consulta = parametros.toString();
+  const caminho = '/api/publico/contatos/opcoes' + (consulta ? '?' + consulta : '');
 
   return requisitar(caminho, {
     method: 'GET'

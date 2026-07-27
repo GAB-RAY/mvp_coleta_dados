@@ -30,7 +30,8 @@
   left: 1.1rem;
   display: flex;
   width: 13.75rem;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   flex-direction: column;
   border: 1px solid rgba(146, 44, 0, 0.18);
   border-radius: 5px;
@@ -40,6 +41,15 @@
     linear-gradient(160deg, #ff6b18 0%, var(--admin-laranja) 42%, #c93c00 100%);
   box-shadow: 0 18px 42px rgba(190, 59, 0, 0.2);
   color: #ffffff;
+}
+
+.barra-lateral-admin::-webkit-scrollbar {
+  width: 0.4rem;
+}
+
+.barra-lateral-admin::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.36);
 }
 
 .marca-admin {
@@ -99,7 +109,7 @@
   display: block;
   margin: 0 0.65rem 0.65rem;
   color: rgba(255, 255, 255, 0.54);
-  font-size: 0.62rem;
+  font-size: 0.7rem;
   font-weight: 750;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -113,7 +123,7 @@
   padding: 0.68rem 0.75rem;
   gap: 0.68rem;
   color: rgba(255, 255, 255, 0.76);
-  font-size: 0.8rem;
+  font-size: 0.88rem;
   font-weight: 650;
   text-decoration: none;
   transition: background 150ms ease, color 150ms ease, transform 150ms ease;
@@ -453,7 +463,22 @@
   justify-content: space-between;
   margin-bottom: 0.26rem;
   gap: 1rem;
-  font-size: 0.8rem;
+  font-size: 0.88rem;
+}
+
+.linha-barra-admin {
+  display: block;
+  border-radius: 6px;
+  padding: 0.18rem 0.25rem;
+  color: inherit;
+  text-decoration: none;
+  transition: background 150ms ease, transform 150ms ease;
+}
+
+.linha-barra-admin:hover,
+.linha-barra-admin:focus-visible {
+  background: #fff4ed;
+  transform: translateX(2px);
 }
 
 .linha-barra-admin > div span {
@@ -481,6 +506,7 @@
   height: 100%;
   border-radius: inherit;
   background: linear-gradient(90deg, #ff9b62, var(--admin-laranja));
+  transition: width 300ms ease;
 }
 
 .grafico-vertical-admin {
@@ -499,6 +525,16 @@
   flex: 1;
   flex-direction: column;
   align-items: center;
+  border-radius: 7px;
+  color: inherit;
+  text-decoration: none;
+  transition: background 150ms ease, transform 150ms ease;
+}
+
+.coluna-grafico-admin:hover,
+.coluna-grafico-admin:focus-visible {
+  background: #fff4ed;
+  transform: translateY(-2px);
 }
 
 .coluna-grafico-admin > strong {
@@ -522,6 +558,7 @@
   min-height: 0.45rem;
   border-radius: 4px 4px 0 0;
   background: linear-gradient(180deg, #ff7a2d, var(--admin-laranja));
+  transition: height 300ms ease;
 }
 
 .coluna-grafico-admin > small {
@@ -530,7 +567,7 @@
   overflow: hidden;
   padding-top: 0.4rem;
   color: #7c848d;
-  font-size: 0.68rem;
+  font-size: 0.76rem;
   line-height: 1.25;
   text-align: center;
 }
@@ -1004,7 +1041,23 @@
 }
 
 .item-grafico-relatorio {
+  width: 100%;
   min-width: 0;
+  border: 0;
+  border-radius: 7px;
+  padding: 0.25rem 0.35rem;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 150ms ease, transform 150ms ease;
+}
+
+.item-grafico-relatorio:hover,
+.item-grafico-relatorio:focus-visible {
+  background: #fff4ed;
+  transform: translateX(2px);
 }
 
 .rotulo-grafico-relatorio {
@@ -1058,6 +1111,103 @@
   border-radius: inherit;
   background: linear-gradient(90deg, #ffad7e 0%, #ff7a2d 45%, var(--admin-laranja) 100%);
   box-shadow: 0 2px 8px rgba(255, 92, 0, 0.2);
+  transition: width 300ms ease;
+}
+
+.painel-problemas-bairro,
+.painel-qr-evento {
+  margin-bottom: 1rem;
+  padding: clamp(1.15rem, 2.5vw, 1.7rem);
+}
+
+.tabela-problemas-bairro {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+}
+
+.tabela-problemas-bairro th,
+.tabela-problemas-bairro td {
+  border-bottom: 1px solid var(--admin-borda);
+  padding: 0.8rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.tabela-problemas-bairro th {
+  background: #f8f8f6;
+  color: #69727b;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+}
+
+.tabela-problemas-bairro td > button,
+.lista-problemas-bairro button {
+  border: 0;
+  background: transparent;
+  color: var(--admin-laranja-escuro);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.lista-problemas-bairro {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.lista-problemas-bairro button {
+  border: 1px solid #ffd4bc;
+  border-radius: 999px;
+  padding: 0.35rem 0.55rem;
+  background: #fff7f2;
+  color: #5b463c;
+}
+
+.lista-problemas-bairro button:hover,
+.tabela-problemas-bairro td > button:hover {
+  color: var(--admin-laranja);
+}
+
+.lista-problemas-bairro strong {
+  margin-left: 0.25rem;
+  color: var(--admin-laranja-escuro);
+}
+
+.conteudo-qr-evento {
+  display: grid;
+  align-items: center;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2rem;
+}
+
+.conteudo-qr-evento h2 {
+  margin: 0.35rem 0 0.5rem;
+}
+
+.conteudo-qr-evento p {
+  color: var(--admin-texto-suave);
+}
+
+.link-qr-evento {
+  width: 100%;
+  margin-bottom: 1rem;
+  border: 1px solid var(--admin-borda);
+  border-radius: 7px;
+  padding: 0.72rem;
+  background: #fafaf8;
+  color: var(--admin-texto);
+  font-size: 0.88rem;
+}
+
+.imagem-qr-evento {
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--admin-borda);
+  border-radius: 10px;
+  padding: 0.8rem;
+  background: #ffffff;
 }
 
 .observacao-grafico-relatorio {
@@ -1533,6 +1683,7 @@
     width: 100%;
     margin-bottom: 1rem;
     padding: 0.9rem;
+    overflow: visible;
   }
 
   .marca-admin {
@@ -1597,6 +1748,14 @@
   .grade-graficos-relatorio,
   .grade-graficos-relatorio-principal {
     grid-template-columns: 1fr;
+  }
+
+  .conteudo-qr-evento {
+    grid-template-columns: 1fr;
+  }
+
+  .imagem-qr-evento {
+    justify-self: center;
   }
 
   .chamada-lateral-dashboard {

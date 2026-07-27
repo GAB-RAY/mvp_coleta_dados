@@ -215,7 +215,8 @@ Regras principais:
 - idade deve ser inteira entre 16 e 120;
 - o bairro deve existir e estar ativo no catálogo do banco;
 - a categoria deve existir no catálogo centralizado do backend;
-- mensagens e ligações são escolhas independentes e explícitas;
+- mensagens e ligações são escolhas independentes; no formulário público,
+  ambas iniciam marcadas e podem ser desmarcadas;
 - o telefone é reduzido a dígitos e deve ter de 10 a 15 números;
 - o formulário não contém descrição do problema nem pergunta eleitoral;
 - se houver evento ativo e dentro do período, o vínculo é automático;
@@ -374,11 +375,13 @@ Não existe endpoint de exclusão direta de contato, revogação ou histórico.
 - inscrições repetidas retornam uma confirmação clara sem criar outro vínculo;
 - operadores acessam a tela em modo somente leitura e podem abrir a lista de participantes;
 - somente administradores veem e executam criação, edição, ativação e encerramento;
+- a ativação disponibiliza um QR Code SVG com `/participar?evento=<id>`;
+- o backend valida o identificador do QR e retorna `410` quando o evento foi encerrado ou saiu do período;
 - listagem e relatórios podem filtrar pelo evento ou por ausência de evento.
 
 ### 3.12 Relatórios, exportação e backup
 
-Relatórios apresentam totais e agrupamentos por bairro, categoria, origem, idade, data e evento. A quantidade máxima carregada é limitada por `RELATORIO_LIMITE_REGISTROS`.
+Relatórios apresentam totais e agrupamentos por bairro, categoria, origem, idade, data e evento. Também relacionam cada bairro às necessidades registradas. Gráficos e itens territoriais abrem a listagem com os filtros correspondentes. A quantidade máxima carregada é limitada por `RELATORIO_LIMITE_REGISTROS`.
 
 Exportações:
 
@@ -443,10 +446,11 @@ O projeto atual não possui migrations. O script completo recusa execução em b
 - React DOM;
 - React Router DOM 7;
 - Vite 8;
+- `qrcode.react` para renderizar o QR Code exclusivo dos eventos;
 - JavaScript e CSS, sem TypeScript;
 - Fetch API nativa.
 
-Não há biblioteca visual externa. Componentes, layout responsivo e gráficos são implementados no próprio frontend.
+Os componentes, o layout responsivo e os gráficos são implementados no próprio frontend; `qrcode.react` é utilizado somente para a codificação visual do QR Code.
 
 ### 4.2 Rotas e páginas
 
@@ -499,7 +503,8 @@ O token e os dados básicos do usuário são mantidos no armazenamento local do 
 - título da aba `Acorda VK` no formulário e `Central de Comunicação` nas rotas administrativas;
 - seletor pesquisável de bairro;
 - categoria em seleção fechada;
-- consentimentos desmarcados inicialmente;
+- autorizações opcionais de mensagens e ligações marcadas inicialmente e livremente desmarcáveis;
+- aceite de privacidade desmarcado inicialmente e obrigatório;
 - contexto de evento exibido somente quando há evento ativo;
 - com evento ativo, primeira etapa reduzida a nome completo e telefone;
 - contato existente recebe confirmação curta; contato novo segue ao formulário completo;
@@ -561,7 +566,7 @@ O conjunto `npm test` executa verificações de:
 - eventos e exclusões;
 - backups.
 
-Último resultado documentado no projeto, em 24/07/2026: 300 verificações do backend aprovadas e build do frontend concluído com 61 módulos transformados.
+Último resultado documentado no projeto, em 27/07/2026: 307 verificações do backend aprovadas e build do frontend concluído com 62 módulos transformados.
 
 O teste adicional `testar:importacao-carga` valida separadamente 15.000 contatos temporários em um único arquivo, a rejeição de 20.001 linhas, pré-visualização, confirmação, contagem persistida, limpeza automática e ressincronização das sequências utilizadas. O limite aceito de 20.000 linhas também foi executado com sucesso. O script recusa execução em produção.
 

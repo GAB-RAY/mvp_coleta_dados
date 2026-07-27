@@ -78,6 +78,8 @@ async function executar() {
     assert.strictEqual(resumo.totalContatos, 1);
     assert.strictEqual(resumo.porBairro[0].nome, 'Vila Kennedy');
     assert.strictEqual(resumo.porProblema[0].nome, 'Saúde');
+    assert.strictEqual(resumo.problemasPorBairro[0].bairro, 'Vila Kennedy');
+    assert.strictEqual(resumo.problemasPorBairro[0].problemas[0].nome, 'Saúde');
     assert.strictEqual(resumo.porFaixaEtaria[0].nome, '35 a 44');
     assert.strictEqual(Array.isArray(resumo.porOrigem), true);
     assert.strictEqual(resumo.porAutorizacaoMensagens[0].nome, 'autorizado');
@@ -134,7 +136,7 @@ async function executar() {
     assert.strictEqual(planilha.getCell('B2').value, 'Relatório Teste');
     assert.strictEqual(planilha.getCell('C2').value, TELEFONE);
 
-    console.log('Relatórios: 23 verificações aprovadas.');
+    console.log('Relatórios: 25 verificações aprovadas.');
     console.log('Agregações e exportações CSV/XLSX autenticadas aprovadas.');
   } finally {
     if (servidor) {

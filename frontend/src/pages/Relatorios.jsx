@@ -9,6 +9,7 @@ import { baixarCsv, baixarExcel, buscarResumo } from '../services/relatorioServi
 import { removerToken } from '../utils/armazenamentoToken';
 import { obterUsuario } from '../utils/armazenamentoToken';
 import { listarEventos } from '../services/eventoService';
+import { buscarOpcoesFormulario } from '../services/contatoService';
 
 const FILTROS_INICIAIS = {
   bairro: '',
@@ -75,15 +76,21 @@ function GraficoResumo(propriedades) {
           const percentual = total ? Math.round((item.total / total) * 100) : 0;
 
           return (
-            <div className="item-grafico-relatorio" key={item.nome}>
-              <div className="rotulo-grafico-relatorio">
+            <button
+              className="item-grafico-relatorio"
+              key={item.nome}
+              type="button"
+              onClick={function () { propriedades.aoSelecionar(item); }}
+              title={'Mostrar contatos: ' + formatarRotulo(item.nome)}
+            >
+              <span className="rotulo-grafico-relatorio">
                 <span title={formatarRotulo(item.nome)}>{formatarRotulo(item.nome)}</span>
                 <span><strong>{item.total}</strong><small>{percentual}%</small></span>
-              </div>
+              </span>
               <span className="trilho-grafico-relatorio">
                 <span style={{ width: largura + '%' }} />
               </span>
-            </div>
+            </button>
           );
         })}
       </div>
@@ -93,6 +100,63 @@ function GraficoResumo(propriedades) {
           Exibindo {propriedades.limite} de {itensRecebidos.length} resultados.
         </small>
       )}
+    </section>
+  );
+}
+
+function ProblemasPorBairro(propriedades) {
+  const bairros = (propriedades.itens || []).slice(0, 15);
+
+  return (
+    <section className="cartao painel-problemas-bairro">
+      <div className="cabecalho-grafico-relatorio">
+        <div>
+          <span>Análise territorial</span>
+          <h2>Principais necessidades por bairro</h2>
+        </div>
+        <strong>{(propriedades.itens || []).length}</strong>
+      </div>
+
+      {bairros.length === 0 && (
+        <p className="sem-dados-relatorio">Sem dados para os filtros aplicados.</p>
+      )}
+
+      <div className="tabela-responsiva">
+        <table className="tabela-problemas-bairro">
+          <thead>
+            <tr><th>Bairro</th><th>Cadastros</th><th>Necessidades registradas</th></tr>
+          </thead>
+          <tbody>
+            {bairros.map(function (item) {
+              return (
+                <tr key={item.bairro}>
+                  <td>
+                    <button type="button" onClick={function () { propriedades.aoSelecionar(item.bairro, ''); }}>
+                      {item.bairro}
+                    </button>
+                  </td>
+                  <td>{item.total}</td>
+                  <td>
+                    <div className="lista-problemas-bairro">
+                      {item.problemas.map(function (problema) {
+                        return (
+                          <button
+                            key={problema.nome}
+                            type="button"
+                            onClick={function () { propriedades.aoSelecionar(item.bairro, problema.nome); }}
+                          >
+                            {problema.nome} <strong>{problema.total}</strong>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }
@@ -115,14 +179,20 @@ function Relatorios() {
   const [carregando, setCarregando] = useState(true);
   const [mensagem, setMensagem] = useState('');
   const [eventos, setEventos] = useState([]);
+  const [bairros, setBairros] = useState([]);
+  const [categoriasProblema, setCategoriasProblema] = useState([]);
   const usuario = obterUsuario();
   const podeExportar = usuario && usuario.perfil === 'administrador';
 
   useEffect(function () {
-    listarEventos().then(function (resposta) {
-      setEventos(resposta.eventos || []);
+    Promise.all([listarEventos(), buscarOpcoesFormulario()]).then(function (respostas) {
+      setEventos(respostas[0].eventos || []);
+      setBairros(respostas[1].bairros || []);
+      setCategoriasProblema(respostas[1].categoriasProblema || []);
     }).catch(function () {
       setEventos([]);
+      setBairros([]);
+      setCategoriasProblema([]);
     });
   }, []);
 
@@ -163,6 +233,57 @@ function Relatorios() {
   function aplicar(evento) {
     evento.preventDefault();
     setFiltrosAplicados(Object.assign({}, filtros));
+  }
+
+  function abrirContatos(filtro, valor) {
+    const parametros = new URLSearchParams();
+
+    Object.keys(filtrosAplicados).forEach(function (chave) {
+      if (filtrosAplicados[chave]) {
+        parametros.set(chave, filtrosAplicados[chave]);
+      }
+    });
+    parametros.set(filtro, valor);
+    navegacao('/admin/contatos?' + parametros.toString());
+  }
+
+  function abrirFaixaEtaria(item) {
+    const faixas = {
+      '16 a 24': [16, 24],
+      '25 a 34': [25, 34],
+      '35 a 44': [35, 44],
+      '45 a 59': [45, 59],
+      '60 ou mais': [60, 120]
+    };
+    const faixa = faixas[item.nome];
+
+    if (!faixa) {
+      navegacao('/admin/contatos');
+      return;
+    }
+
+    navegacao('/admin/contatos?idadeMinima=' + faixa[0] + '&idadeMaxima=' + faixa[1]);
+  }
+
+  function abrirProblemasBairro(bairro, problema) {
+    const parametros = new URLSearchParams({ bairro });
+    if (problema) {
+      parametros.set('problema', problema);
+    }
+    navegacao('/admin/contatos?' + parametros.toString());
+  }
+
+  function abrirDiaCadastro(item) {
+    const parametros = new URLSearchParams();
+
+    Object.keys(filtrosAplicados).forEach(function (chave) {
+      if (filtrosAplicados[chave]) {
+        parametros.set(chave, filtrosAplicados[chave]);
+      }
+    });
+    parametros.set('dataInicial', item.nome);
+    parametros.set('dataFinal', item.nome);
+    navegacao('/admin/contatos?' + parametros.toString());
   }
 
   async function exportar(formato) {
@@ -210,8 +331,8 @@ function Relatorios() {
           </div>
           <form className="formulario-filtros" onSubmit={aplicar}>
             <fieldset className="grade-filtros">
-              <CampoFormulario id="bairro" rotulo="Bairro" valor={filtros.bairro} aoAlterar={alterar} />
-              <CampoFormulario id="problema" rotulo="Categoria" valor={filtros.problema} aoAlterar={alterar} />
+              <CampoSelecao id="bairro" rotulo="Bairro" valor={filtros.bairro} aoAlterar={alterar} opcoes={bairros} placeholder="Todos" />
+              <CampoSelecao id="problema" rotulo="Categoria" valor={filtros.problema} aoAlterar={alterar} opcoes={categoriasProblema} placeholder="Todas" />
               <CampoFormulario id="origem" rotulo="Origem" valor={filtros.origem} aoAlterar={alterar} />
               <CampoFormulario id="idadeMinima" rotulo="Idade mínima" tipo="number" valor={filtros.idadeMinima} aoAlterar={alterar} minimo={16} maximo={120} />
               <CampoFormulario id="idadeMaxima" rotulo="Idade máxima" tipo="number" valor={filtros.idadeMaxima} aoAlterar={alterar} minimo={16} maximo={120} />
@@ -243,17 +364,19 @@ function Relatorios() {
             </section>
 
             <div className="grade-graficos-relatorio grade-graficos-relatorio-principal">
-              <GraficoResumo titulo="Contatos por bairro" subtitulo="Distribuição territorial" itens={resumo.porBairro} limite={10} destaque />
-              <GraficoResumo titulo="Principais necessidades" subtitulo="Categorias informadas" itens={resumo.porProblema} limite={10} destaque />
+              <GraficoResumo titulo="Contatos por bairro" subtitulo="Distribuição territorial" itens={resumo.porBairro} limite={10} destaque aoSelecionar={function (item) { abrirContatos('bairro', item.nome); }} />
+              <GraficoResumo titulo="Principais necessidades" subtitulo="Categorias informadas" itens={resumo.porProblema} limite={10} destaque aoSelecionar={function (item) { abrirContatos('problema', item.nome); }} />
             </div>
 
             <div className="grade-graficos-relatorio">
-              <GraficoResumo titulo="Faixa etária" subtitulo="Perfil dos contatos" itens={resumo.porFaixaEtaria} limite={8} />
-              <GraficoResumo titulo="Origem dos contatos" subtitulo="Canais de entrada" itens={resumo.porOrigem} limite={8} />
-              <GraficoResumo titulo="Mensagens" subtitulo="Autorizações" itens={resumo.porAutorizacaoMensagens} limite={8} />
-              <GraficoResumo titulo="Ligações" subtitulo="Autorizações" itens={resumo.porAutorizacaoLigacoes} limite={8} />
-              <GraficoResumo titulo="Cadastros por dia" subtitulo="Evolução recente" itens={resumo.porPeriodo} limite={12} preservarOrdem />
+              <GraficoResumo titulo="Faixa etária" subtitulo="Perfil dos contatos" itens={resumo.porFaixaEtaria} limite={8} aoSelecionar={abrirFaixaEtaria} />
+              <GraficoResumo titulo="Origem dos contatos" subtitulo="Canais de entrada" itens={resumo.porOrigem} limite={8} aoSelecionar={function (item) { abrirContatos('origem', item.nome); }} />
+              <GraficoResumo titulo="Mensagens" subtitulo="Autorizações" itens={resumo.porAutorizacaoMensagens} limite={8} aoSelecionar={function (item) { abrirContatos('autorizacaoMensagens', item.nome); }} />
+              <GraficoResumo titulo="Ligações" subtitulo="Autorizações" itens={resumo.porAutorizacaoLigacoes} limite={8} aoSelecionar={function (item) { abrirContatos('autorizacaoLigacoes', item.nome); }} />
+              <GraficoResumo titulo="Cadastros por dia" subtitulo="Evolução recente" itens={resumo.porPeriodo} limite={12} preservarOrdem aoSelecionar={abrirDiaCadastro} />
             </div>
+
+            <ProblemasPorBairro itens={resumo.problemasPorBairro} aoSelecionar={abrirProblemasBairro} />
           </>
         )}
       </div>

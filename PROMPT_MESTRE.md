@@ -58,7 +58,7 @@ Considere este cenário somente quando não houver implementação aproveitável
 
 #### Estado de referência deste documento
 
-Na atualização de 24/07/2026, o repositório original já possuía backend, frontend e schema completo implementados. A suíte `npm test` do backend concluiu 300 verificações e o build do frontend concluiu com 61 módulos transformados. O schema novo possui 22 tabelas e 166 bairros. Esses números servem como referência de regressão, não como substitutos para uma nova execução dos testes no ambiente recebido.
+Na atualização de 27/07/2026, o repositório original já possuía backend, frontend e schema completo implementados. A suíte `npm test` do backend concluiu 307 verificações e o build do frontend concluiu com 62 módulos transformados. O schema novo possui 22 tabelas e 166 bairros. Esses números servem como referência de regressão, não como substitutos para uma nova execução dos testes no ambiente recebido.
 
 No cenário de continuidade, parta do princípio de que a base descrita abaixo pode estar pronta e primeiro confirme isso. No cenário de reconstrução, use todas as seções seguintes como contrato do resultado final.
 
@@ -242,7 +242,9 @@ O botão `Falar pelo WhatsApp`:
 - abre `wa.me` em outra aba;
 - não envia dados do formulário automaticamente.
 
-Consentimentos opcionais iniciam desmarcados e não podem impedir o envio. O aceite de privacidade deve estar separado e é obrigatório.
+As autorizações opcionais de mensagens e ligações iniciam marcadas, podem ser
+desmarcadas e não impedem o envio. O aceite de privacidade permanece separado,
+inicia desmarcado e é obrigatório.
 
 Mensagem exata de sucesso:
 
@@ -296,7 +298,8 @@ As categorias ficam centralizadas no backend e são retornadas ao formulário. C
 - criar histórico apenas para campos efetivamente preenchidos ou alterados;
 - se não houver novidade, não criar histórico repetido;
 - não revelar dados privados do registro anterior;
-- consentimento só muda quando a pessoa fornece resposta explícita.
+- consentimento só muda quando o formulário envia uma resposta para aquele
+  tipo; ausência do campo não autoriza alteração.
 
 No painel, operador e administrador podem cadastrar ou atualizar contato, sempre com origem e auditoria.
 
@@ -346,6 +349,10 @@ Regras:
 - oferecer acesso direto aos participantes e busca combinável por nome completo ou telefone.
 - permitir que operador abra eventos em modo somente leitura e consulte participantes;
 - manter criação, edição, ativação e encerramento exclusivos do administrador.
+- ao ativar um evento, gerar no frontend um QR Code exclusivo para
+  `/participar?evento=<id>`;
+- validar o identificador no backend e recusar o QR com `410` quando o evento
+  estiver encerrado ou fora do período, sem criar nova tabela para a imagem;
 
 ### 9. Autenticação e usuários
 
@@ -539,8 +546,10 @@ Gerar indicadores por:
 - faixa etária;
 - data de cadastro;
 - evento.
+- problemas por bairro.
 
-Criar gráficos simples e responsivos no frontend.
+Criar gráficos simples, responsivos e clicáveis no frontend. O clique deve abrir
+a listagem de contatos com os filtros correspondentes.
 
 Exportação:
 

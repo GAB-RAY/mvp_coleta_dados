@@ -38,9 +38,14 @@ async function cadastrar(requisicao, resposta, proximo) {
 
 async function listarOpcoes(requisicao, resposta, proximo) {
   try {
-    const opcoes = await contatoService.listarOpcoesFormulario();
+    const opcoes = await contatoService.listarOpcoesFormulario(requisicao.query.eventoId);
 
-    resposta.setHeader('Cache-Control', 'public, max-age=30, stale-while-revalidate=60');
+    resposta.setHeader(
+      'Cache-Control',
+      requisicao.query.eventoId
+        ? 'no-store'
+        : 'public, max-age=30, stale-while-revalidate=60'
+    );
     return resposta.status(200).json({
       bairros: opcoes.bairros,
       categoriasProblema: opcoes.categoriasProblema,

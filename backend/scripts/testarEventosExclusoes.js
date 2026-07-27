@@ -376,6 +376,19 @@ async function executar() {
 
     const opcoesComEvento = await requisitar(baseUrl, '/api/publico/contatos/opcoes');
     verificar(opcoesComEvento.status === 200 && opcoesComEvento.corpo.eventoAtivo.id === eventoId, 'Formulário não informou o evento ativo.');
+    const opcoesQrEvento = await requisitar(
+      baseUrl,
+      '/api/publico/contatos/opcoes?eventoId=' + eventoId
+    );
+    verificar(
+      opcoesQrEvento.status === 200 &&
+        opcoesQrEvento.corpo.eventoAtivo.id === eventoId,
+      'QR Code exclusivo não confirmou o evento ativo.'
+    );
+    verificar(
+      (await requisitar(baseUrl, '/api/publico/contatos/opcoes?eventoId=invalido')).status === 400,
+      'QR Code com identificador inválido não foi recusado.'
+    );
     const identificacaoContatoNovo = await requisitar(
       baseUrl,
       '/api/publico/contatos/verificar-evento',
@@ -442,6 +455,13 @@ async function executar() {
     verificar(Number((await banco.query('SELECT COUNT(*) AS total FROM solicitacoes_exclusao WHERE id = $1 AND status = \'aprovada\' AND contato_id IS NULL', [solicitacaoId])).rows[0].total) === 1, 'Pedido aprovado não foi preservado sem dados pessoais.');
 
     verificar((await requisitar(baseUrl, '/api/admin/eventos/' + eventoId + '/encerrar', { method: 'POST', headers: adminHeaders })).status === 200, 'Evento não foi encerrado.');
+    verificar(
+      (await requisitar(
+        baseUrl,
+        '/api/publico/contatos/opcoes?eventoId=' + eventoId
+      )).status === 410,
+      'QR Code continuou aceitando inscrições após o encerramento do evento.'
+    );
     const opcoesGerais = await requisitar(baseUrl, '/api/publico/contatos/opcoes');
     verificar(opcoesGerais.corpo.eventoAtivo === null && opcoesGerais.corpo.contextoCadastro === null, 'Formulário sem evento exibiu contexto desnecessário.');
     const cadastroGeral = await requisitar(baseUrl, '/api/publico/contatos', {

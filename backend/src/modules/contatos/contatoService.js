@@ -323,8 +323,27 @@ async function inscreverContatoExistenteEvento(dadosRecebidos) {
   }
 }
 
-async function listarOpcoesFormulario() {
-  const eventoAtivo = await eventoModel.buscarAtivo();
+async function listarOpcoesFormulario(eventoIdRecebido) {
+  let eventoAtivo;
+
+  if (eventoIdRecebido !== undefined && eventoIdRecebido !== null && eventoIdRecebido !== '') {
+    const eventoId = Number(eventoIdRecebido);
+
+    if (!Number.isInteger(eventoId) || eventoId < 1) {
+      throw criarAppError('O identificador do evento é inválido.', 400);
+    }
+
+    eventoAtivo = await eventoModel.buscarAtivoPorId(eventoId);
+
+    if (!eventoAtivo) {
+      throw criarAppError(
+        'Este evento foi encerrado ou não está mais disponível para inscrições.',
+        410
+      );
+    }
+  } else {
+    eventoAtivo = await eventoModel.buscarAtivo();
+  }
 
   return {
     bairros: await bairroService.listarNomesAtivos(),

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { QRCodeSVG } from 'qrcode.react';
 import CabecalhoAdministrativo from '../components/CabecalhoAdministrativo';
 import CampoFormulario from '../components/CampoFormulario';
 import Carregando from '../components/Carregando';
@@ -28,6 +29,7 @@ function EventosAdministrativos() {
   const [eventoEdicao, setEventoEdicao] = useState(null);
   const [carregando, setCarregando] = useState(true);
   const [mensagem, setMensagem] = useState('');
+  const [eventoQr, setEventoQr] = useState(null);
 
   async function carregar() {
     setCarregando(true);
@@ -94,6 +96,11 @@ function EventosAdministrativos() {
     try {
       const resposta = await alterarStatusEvento(id, acao);
       setMensagem(resposta.mensagem);
+      if (acao === 'ativar') {
+        setEventoQr(resposta.evento);
+      } else if (eventoQr && eventoQr.id === id) {
+        setEventoQr(null);
+      }
       await carregar();
     } catch (erro) {
       setMensagem(erro.message);
@@ -103,6 +110,39 @@ function EventosAdministrativos() {
   function cancelarEdicao() {
     setEventoEdicao(null);
     setFormulario(FORMULARIO_INICIAL);
+  }
+
+  function obterLinkEvento(evento) {
+    return window.location.origin + '/participar?evento=' + evento.id;
+  }
+
+  async function copiarLinkEvento() {
+    try {
+      await navigator.clipboard.writeText(obterLinkEvento(eventoQr));
+      setMensagem('Link exclusivo do evento copiado.');
+    } catch (erro) {
+      setMensagem('Não foi possível copiar automaticamente. Selecione o link exibido.');
+    }
+  }
+
+  function baixarQrCode() {
+    const elemento = document.getElementById('qr-evento-' + eventoQr.id);
+
+    if (!elemento) {
+      setMensagem('Não foi possível gerar o arquivo do QR Code.');
+      return;
+    }
+
+    const conteudo = new XMLSerializer().serializeToString(elemento);
+    const arquivo = new Blob([conteudo], { type: 'image/svg+xml;charset=utf-8' });
+    const endereco = URL.createObjectURL(arquivo);
+    const link = document.createElement('a');
+    link.href = endereco;
+    link.download = 'qr-evento-' + eventoQr.id + '.svg';
+    link.click();
+    setTimeout(function () {
+      URL.revokeObjectURL(endereco);
+    }, 0);
   }
 
   function sair() {
@@ -122,6 +162,49 @@ function EventosAdministrativos() {
         />
 
         {mensagem && <MensagemRetorno mensagem={mensagem} tipo="informacao" />}
+
+        {eventoQr && (
+          <section className="cartao painel-qr-evento" aria-labelledby="titulo-qr-evento">
+            <div className="conteudo-qr-evento">
+              <div>
+                <span className="etiqueta-pagina">Inscrição pública</span>
+                <h2 id="titulo-qr-evento">QR Code — {eventoQr.nome}</h2>
+                <p>
+                  Este endereço funciona exclusivamente enquanto o evento estiver ativo,
+                  até {String(eventoQr.dataFinal).slice(0, 10)}.
+                </p>
+                <input
+                  className="link-qr-evento"
+                  type="text"
+                  value={obterLinkEvento(eventoQr)}
+                  readOnly
+                  aria-label="Link exclusivo do evento"
+                />
+                <div className="acoes-filtros">
+                  <button className="botao botao-primario" type="button" onClick={baixarQrCode}>
+                    Baixar QR Code
+                  </button>
+                  <button className="botao botao-secundario" type="button" onClick={copiarLinkEvento}>
+                    Copiar link
+                  </button>
+                  <button className="botao botao-secundario" type="button" onClick={function () { setEventoQr(null); }}>
+                    Fechar
+                  </button>
+                </div>
+              </div>
+              <div className="imagem-qr-evento">
+                <QRCodeSVG
+                  id={'qr-evento-' + eventoQr.id}
+                  value={obterLinkEvento(eventoQr)}
+                  size={220}
+                  level="H"
+                  marginSize={2}
+                  title={'Inscrição no evento ' + eventoQr.nome}
+                />
+              </div>
+            </div>
+          </section>
+        )}
 
         {usuarioAdministrador && (
           <section className="cartao painel-filtros">
@@ -192,7 +275,10 @@ function EventosAdministrativos() {
                                 <button className="botao botao-primario" type="button" onClick={function () { mudarStatus(item.id, 'ativar'); }}>Ativar</button>
                               )}
                               {item.status === 'ativo' && (
-                                <button className="botao botao-secundario" type="button" onClick={function () { mudarStatus(item.id, 'encerrar'); }}>Encerrar</button>
+                                <>
+                                  <button className="botao botao-primario" type="button" onClick={function () { setEventoQr(item); }}>QR Code</button>
+                                  <button className="botao botao-secundario" type="button" onClick={function () { mudarStatus(item.id, 'encerrar'); }}>Encerrar</button>
+                                </>
                               )}
                             </>
                           )}

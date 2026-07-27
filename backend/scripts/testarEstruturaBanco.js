@@ -271,14 +271,22 @@ async function validarCatalogo(cliente) {
     `
       SELECT
         (SELECT COUNT(*)::integer FROM bairros WHERE ativo = TRUE) AS bairros,
-        (SELECT COUNT(*)::integer FROM origens WHERE ativa = TRUE) AS origens,
+        (
+          SELECT COUNT(*)::integer
+          FROM origens
+          WHERE ativa = TRUE
+            AND slug IN ('formulario-publico', 'cadastro-manual')
+        ) AS origens_obrigatorias,
         (SELECT COUNT(*)::integer FROM textos_formulario WHERE ativo = TRUE) AS textos,
         to_regclass('public.schema_migrations') IS NULL AS sem_ledger_antigo
     `
   );
 
   verificar(configuracoes.rows[0].bairros === 166, 'Os 166 bairros ativos não existem.');
-  verificar(configuracoes.rows[0].origens === 2, 'As duas origens iniciais não existem.');
+  verificar(
+    configuracoes.rows[0].origens_obrigatorias === 2,
+    'As duas origens obrigatórias não existem.'
+  );
   verificar(configuracoes.rows[0].textos === 3, 'Os três textos ativos não existem.');
   verificar(
     configuracoes.rows[0].sem_ledger_antigo === true,

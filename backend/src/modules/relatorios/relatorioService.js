@@ -41,6 +41,32 @@ function transformarMapa(mapa) {
   });
 }
 
+function adicionarProblemaPorBairro(mapa, bairroRecebido, problemaRecebido) {
+  const bairro = bairroRecebido || 'Não informado';
+  const problema = problemaRecebido || 'Não informado';
+
+  if (!mapa[bairro]) {
+    mapa[bairro] = {};
+  }
+
+  adicionarContagem(mapa[bairro], problema);
+}
+
+function transformarProblemasPorBairro(mapa) {
+  return Object.keys(mapa).sort().map(function (bairro) {
+    const problemas = transformarMapa(mapa[bairro]).sort(function (primeiro, segundo) {
+      return segundo.total - primeiro.total;
+    });
+    const total = problemas.reduce(function (soma, item) {
+      return soma + item.total;
+    }, 0);
+
+    return { bairro, total, problemas };
+  }).sort(function (primeiro, segundo) {
+    return segundo.total - primeiro.total;
+  });
+}
+
 function obterFaixaEtaria(idade) {
   if (!idade) {
     return 'Não informado';
@@ -83,6 +109,7 @@ async function gerarResumo(parametros) {
   const mensagens = {};
   const ligacoes = {};
   const periodo = {};
+  const problemasPorBairro = {};
 
   contatos.forEach(function (contato) {
     adicionarContagem(bairro, contato.bairro);
@@ -92,6 +119,7 @@ async function gerarResumo(parametros) {
     adicionarContagem(mensagens, contato.autorizacaoMensagens);
     adicionarContagem(ligacoes, contato.autorizacaoLigacoes);
     adicionarContagem(periodo, obterDiaCadastro(contato.criadoEm));
+    adicionarProblemaPorBairro(problemasPorBairro, contato.bairro, contato.problema);
   });
 
   return {
@@ -102,7 +130,8 @@ async function gerarResumo(parametros) {
     porOrigem: transformarMapa(origem),
     porAutorizacaoMensagens: transformarMapa(mensagens),
     porAutorizacaoLigacoes: transformarMapa(ligacoes),
-    porPeriodo: transformarMapa(periodo)
+    porPeriodo: transformarMapa(periodo),
+    problemasPorBairro: transformarProblemasPorBairro(problemasPorBairro)
   };
 }
 

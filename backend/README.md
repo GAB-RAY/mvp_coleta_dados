@@ -101,6 +101,9 @@ As colunas anteriores de compatibilidade em `contatos` foram mantidas apenas qua
 
 - O formulário aceita cadastro com ou sem evento ativo.
 - Quando há evento ativo dentro do período, o backend cria automaticamente o vínculo em `contato_eventos`; o frontend não escolhe o evento.
+- O QR exclusivo usa `GET /api/publico/contatos/opcoes?eventoId=<id>`. O backend
+  aceita somente o evento informado que continuar ativo e dentro do período;
+  após encerramento ou expiração, retorna HTTP `410`.
 - O frontend envia `eventoIdExibido`. Se o evento ativo mudar antes do envio, o backend não persiste o cadastro e retorna `409` para atualização do contexto.
 - Um advisory lock transacional compartilhado/exclusivo impede que ativação, encerramento ou edição de evento atravessem uma submissão pública já em processamento.
 - Com evento ativo, o formulário começa solicitando nome completo e telefone. Se o telefone não existir, o preenchimento completo é liberado.
@@ -112,13 +115,16 @@ As colunas anteriores de compatibilidade em `contatos` foram mantidas apenas qua
 - Sem evento ativo, o formulário continua funcionando normalmente e não exibe aviso adicional.
 - Um telefone não sobrescreve silenciosamente dados existentes; somente campos vazios podem ser complementados no fluxo público.
 - A opção `Meus dados mudaram` somente é liberada após a correspondência de nome completo e telefone. As alterações declaradas são aplicadas com o evento em contexto e registradas como `atualizacao_cadastro_publico_evento`.
-- Consentimentos de mensagens e ligações são explícitos e versionados.
+- Autorizações de mensagens e ligações são independentes e versionadas; o
+  frontend as envia conforme o estado visível das caixas no momento do envio.
 - Revogar cria um novo registro ligado ao anterior por `registro_anterior_id`; nenhuma rota apaga revogações.
 - Pedido pendente bloqueia mensagens, ligações e campanhas.
 - Operador pode pedir exclusão, mas não pode aprovar, rejeitar ou exportar.
 - Administrador pode aprovar ou rejeitar. Aprovação exclui fisicamente o contato e dados pessoais relacionados.
 - `consentimentos` e `solicitacoes_exclusao` preservam a trilha administrativa após a exclusão, com `contato_id` nulo e o identificador original numérico.
 - As exportações CSV e Excel exigem perfil `administrador` e aplicam o mesmo conjunto de filtros.
+- O resumo de relatórios também devolve `problemasPorBairro`, com total e
+  distribuição das categorias para cada bairro.
 - A quantidade máxima de registros carregados por uma exportação é configurada em `RELATORIO_LIMITE_REGISTROS`, evitando consumo de memória sem limite.
 - O backup pelo painel exige perfil `administrador`, impede execuções simultâneas, usa `pg_dump` sem shell, gera SHA-256 e registra sucesso ou falha em `backups_banco`.
 
@@ -131,7 +137,7 @@ Públicas:
 | GET | `/api/teste` | Saúde da API e PostgreSQL. |
 | GET | `/api/saude/vivo` | Liveness sem depender do banco. |
 | GET | `/api/saude/pronto` | Readiness com consulta ao PostgreSQL. |
-| GET | `/api/publico/contatos/opcoes` | Bairros, categorias e contexto do evento ativo. |
+| GET | `/api/publico/contatos/opcoes` | Bairros, categorias e contexto do evento ativo; aceita `eventoId` para validar QR exclusivo. |
 | POST | `/api/publico/contatos/verificar-evento` | Verifica nome completo e telefone sem retornar dados pessoais. |
 | POST | `/api/publico/contatos/inscrever-evento` | Confirma o vínculo de um contato existente com o evento ativo. |
 | POST | `/api/publico/contatos` | Cadastro público e vínculo automático ao evento. |
@@ -210,17 +216,17 @@ npm run testar:schema-vazio
 npm run testar:importacao-carga
 ```
 
-Resultado de 24/07/2026: 300 verificações aprovadas.
+Resultado de 27/07/2026: 307 verificações aprovadas.
 
 - estrutura, 166 bairros, unicidades de vínculo/evento ativo e proteções ManyChat: 28;
 - cadastro público: 27;
 - administração e filtros: 21;
 - cadastro manual: 24;
-- importações: 22;
-- relatórios e permissões CSV/Excel: 23;
+- importações: 24;
+- relatórios, necessidades por bairro e permissões CSV/Excel: 25;
 - segurança e usuários: 54;
 - privacidade: 15;
-- eventos, identificação por nome e telefone, contato novo, reinscrição idempotente, atualização auditada, busca de participantes, permissões e exclusão física: 46;
+- eventos, QR exclusivo, identificação por nome e telefone, contato novo, reinscrição idempotente, atualização auditada, busca de participantes, permissões e exclusão física: 49;
 - backups, permissões, integridade e auditoria: 18.
 - resiliência, rate limit, concorrência, saúde, pool e configuração: 22.
 

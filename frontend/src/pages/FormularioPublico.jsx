@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import CampoFormulario from '../components/CampoFormulario';
 import CampoSelecao from '../components/CampoSelecao';
 import CampoSelecaoPesquisavel from '../components/CampoSelecaoPesquisavel';
@@ -26,8 +27,8 @@ const FORMULARIO_INICIAL = {
   bairro: '',
   problema: '',
   aceitePrivacidade: false,
-  autorizacaoMensagens: false,
-  autorizacaoLigacoes: false
+  autorizacaoMensagens: true,
+  autorizacaoLigacoes: true
 };
 
 function validarFormulario(dadosFormulario, bairroConfirmado, bairros, categoriasProblema) {
@@ -85,6 +86,8 @@ function validarIdentificacaoEvento(dadosFormulario) {
 }
 
 function FormularioPublico() {
+  const [parametrosBusca] = useSearchParams();
+  const eventoQr = parametrosBusca.get('evento') || '';
   const numeroWhatsapp = String(import.meta.env.VITE_WHATSAPP_NUMERO || '').replace(/\D/g, '');
   const linkWhatsapp = numeroWhatsapp.length >= 10 && numeroWhatsapp.length <= 15
     ? 'https://wa.me/' + numeroWhatsapp
@@ -101,6 +104,7 @@ function FormularioPublico() {
   const [eventoIdExibido, setEventoIdExibido] = useState(null);
   const [etapaFormulario, setEtapaFormulario] = useState(ETAPA_FORMULARIO_COMPLETO);
   const [nomeConfirmacao, setNomeConfirmacao] = useState('');
+  const [formularioDisponivel, setFormularioDisponivel] = useState(true);
 
   function aplicarContextoFormulario(resposta) {
     const eventoAtivo = resposta.eventoAtivo || null;
@@ -120,7 +124,7 @@ function FormularioPublico() {
 
     async function carregarOpcoes() {
       try {
-        const resposta = await buscarOpcoesFormulario();
+        const resposta = await buscarOpcoesFormulario(false, eventoQr);
 
         const bairrosRecebidos = resposta.bairros;
         const categoriasRecebidas = resposta.categoriasProblema;
@@ -137,12 +141,18 @@ function FormularioPublico() {
         if (paginaAtiva) {
           setBairros(bairrosRecebidos);
           setCategoriasProblema(categoriasRecebidas);
+          setFormularioDisponivel(true);
           aplicarContextoFormulario(resposta);
         }
       } catch (erro) {
         if (paginaAtiva) {
           setTipoMensagem('erro');
-          setMensagem('Não foi possível carregar os bairros. Tente novamente em alguns instantes.');
+          setFormularioDisponivel(erro.statusHttp !== 400 && erro.statusHttp !== 410);
+          setMensagem(
+            erro.statusHttp === 400 || erro.statusHttp === 410
+              ? erro.message
+              : 'Não foi possível carregar os bairros. Tente novamente em alguns instantes.'
+          );
         }
       } finally {
         if (paginaAtiva) {
@@ -156,7 +166,7 @@ function FormularioPublico() {
     return function () {
       paginaAtiva = false;
     };
-  }, []);
+  }, [eventoQr]);
 
   function alterarCampo(evento) {
     const campo = evento.target.name;
@@ -185,7 +195,7 @@ function FormularioPublico() {
 
   async function recarregarContextoEvento() {
     try {
-      const opcoesAtualizadas = await buscarOpcoesFormulario(true);
+      const opcoesAtualizadas = await buscarOpcoesFormulario(true, eventoQr);
       aplicarContextoFormulario(opcoesAtualizadas);
     } catch (erroAtualizacao) {
       setMensagem(
@@ -377,7 +387,7 @@ function FormularioPublico() {
 
         <MensagemRetorno mensagem={mensagem} tipo={tipoMensagem} />
 
-        {eventoIdExibido && etapaFormulario === ETAPA_IDENTIFICACAO && (
+        {formularioDisponivel && eventoIdExibido && etapaFormulario === ETAPA_IDENTIFICACAO && (
           <form
             className="formulario-publico formulario-identificacao-evento"
             onSubmit={verificarCadastroNoEvento}
@@ -440,7 +450,7 @@ function FormularioPublico() {
           </form>
         )}
 
-        {eventoIdExibido && etapaFormulario === ETAPA_CONFIRMACAO && (
+        {formularioDisponivel && eventoIdExibido && etapaFormulario === ETAPA_CONFIRMACAO && (
           <div className="formulario-publico confirmacao-participacao-evento">
             <h2>Confirmar participação</h2>
             <p>
@@ -477,7 +487,7 @@ function FormularioPublico() {
           </div>
         )}
 
-        {etapaFormulario === ETAPA_FORMULARIO_COMPLETO && (
+        {formularioDisponivel && etapaFormulario === ETAPA_FORMULARIO_COMPLETO && (
           <form className="formulario-publico" onSubmit={enviarFormulario} noValidate>
             {eventoIdExibido && (
               <p className="orientacao-etapa-evento">

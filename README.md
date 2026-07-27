@@ -23,6 +23,7 @@ Sistema real de coleta e gestão de contatos comunitários. O projeto possui for
 - pedidos de exclusão pendentes, aprovados ou rejeitados;
 - exclusão física do contato somente após aprovação do administrador;
 - eventos no mesmo formulário público, com identificação inicial por nome completo e telefone;
+- QR Code exclusivo por evento, válido somente enquanto o evento estiver ativo e dentro do período;
 - contato novo segue para o formulário completo; contato existente confirma a inscrição sem preencher tudo novamente;
 - inscrição idempotente: o mesmo contato não é vinculado duas vezes ao mesmo evento;
 - nenhuma informação pessoal do cadastro é devolvida durante a identificação pública;
@@ -31,7 +32,7 @@ Sistema real de coleta e gestão de contatos comunitários. O projeto possui for
 - eventos em modo somente leitura para operadores; criação e alterações continuam exclusivas do administrador;
 - validação do evento exibido antes de concluir o envio público;
 - índice único no PostgreSQL garantindo no máximo um evento ativo;
-- relatórios e filtro de contatos por evento;
+- relatórios clicáveis por bairro, categoria e evento, incluindo necessidades por bairro;
 - exportação de contatos em CSV e Excel exclusiva para administradores;
 - backup completo do PostgreSQL pelo painel, exclusivo para administradores e com auditoria SHA-256;
 - proteção do formulário público com limite por IP/telefone, cache e controle de concorrência;
@@ -139,14 +140,14 @@ No App Platform, configure:
 
 ## Validação atual
 
-Em 24/07/2026:
+Em 27/07/2026:
 
 - schema criado em banco vazio de teste: 22 tabelas;
 - banco principal recriado exclusivamente pelo schema completo, sem migrations;
 - backup prévio restaurado e validado em banco separado;
-- `npm test`: 300 verificações aprovadas;
 - `npm run testar:importacao-carga`: 15.000 contatos importados e validados, com limpeza automática;
 - limite máximo validado: arquivo único com 20.000 contatos;
-- `npm run build`: 61 módulos transformados;
+- `npm test`: 307 verificações aprovadas;
+- `npm run build`: 62 módulos transformados;
 - banco principal validado com 166 bairros, 1 contato, 1 evento ativo e o administrador Gabriel preservado como ID 1;
 - sequências das 22 tabelas sincronizadas.

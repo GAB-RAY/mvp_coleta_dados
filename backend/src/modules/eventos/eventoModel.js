@@ -50,6 +50,24 @@ async function buscarAtivo(clienteRecebido) {
   return resultado.rows[0] || null;
 }
 
+async function buscarAtivoPorId(id, clienteRecebido) {
+  const executor = clienteRecebido || banco;
+  const resultado = await executor.query(
+    `
+      SELECT id, nome, motivo, data_inicial, data_final, status
+      FROM eventos
+      WHERE id = $1
+        AND status = 'ativo'
+        AND (CURRENT_TIMESTAMP AT TIME ZONE 'America/Sao_Paulo')::date
+          BETWEEN data_inicial AND data_final
+      LIMIT 1
+    `,
+    [id]
+  );
+
+  return resultado.rows[0] || null;
+}
+
 async function registrarHistorico(cliente, eventoId, tipoAcao, anteriores, novos, usuarioId) {
   await cliente.query(
     `
@@ -217,6 +235,7 @@ async function alterarStatus(id, novoStatus, usuarioId) {
 module.exports = {
   alterarStatus,
   buscarAtivo,
+  buscarAtivoPorId,
   criar,
   editar,
   listar
