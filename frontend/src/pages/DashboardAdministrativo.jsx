@@ -40,7 +40,7 @@ function obterTotalPorNome(itens, nome) {
 
 function criarDestinoFiltro(filtro, valor) {
   const parametros = new URLSearchParams();
-  parametros.set(filtro, valor);
+  parametros.set(filtro, valor === 'Não informado' ? 'nao_informado' : valor);
   return '/admin/contatos?' + parametros.toString();
 }
 
@@ -95,80 +95,94 @@ function CartaoIndicador(propriedades) {
   );
 }
 
-function GraficoBarrasHorizontais(propriedades) {
+function GraficoDistribuicaoDashboard(propriedades) {
   const itens = limitarItens(propriedades.itens, 6);
   const maiorTotal = obterMaiorTotal(itens);
+  const total = (propriedades.itens || []).reduce(function (soma, item) {
+    return soma + item.total;
+  }, 0);
+  const itensGrafico = itens.slice(0, 4);
 
   return (
-    <section className="cartao cartao-grafico-admin">
+    <section className="cartao cartao-grafico-admin cartao-distribuicao-dashboard">
       <div className="cabecalho-cartao-dashboard">
         <div>
-          <span>Distribuição</span>
+          <span>{propriedades.subtitulo}</span>
           <h2>{propriedades.titulo}</h2>
         </div>
-        <Link to={propriedades.destino}>Ver todos</Link>
-      </div>
-
-      {itens.length === 0 && <p className="sem-dados-dashboard">Ainda não há dados.</p>}
-      <div className="barras-horizontais-admin">
-        {itens.map(function (item) {
-          const largura = maiorTotal ? Math.max((item.total / maiorTotal) * 100, 7) : 0;
-          return (
-            <Link
-              className="linha-barra-admin"
-              key={item.nome}
-              to={criarDestinoFiltro(propriedades.filtro, item.nome)}
-              title={'Mostrar contatos de ' + item.nome}
-            >
-              <div><span title={item.nome}>{item.nome}</span><strong>{item.total}</strong></div>
-              <span className="trilho-barra-admin">
-                <span style={{ width: largura + '%' }} />
-              </span>
-            </Link>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-function GraficoBarrasVerticais(propriedades) {
-  const itens = limitarItens(propriedades.itens, 6);
-  const maiorTotal = obterMaiorTotal(itens);
-
-  return (
-    <section className="cartao cartao-grafico-admin">
-      <div className="cabecalho-cartao-dashboard">
-        <div>
-          <span>Demandas</span>
-          <h2>{propriedades.titulo}</h2>
-        </div>
-        <Link to={propriedades.destino}>Detalhes</Link>
+        <strong className="total-grafico-dashboard">{total.toLocaleString('pt-BR')}</strong>
       </div>
 
       {itens.length === 0 && <p className="sem-dados-dashboard">Ainda não há dados.</p>}
       {itens.length > 0 && (
-        <div className="grafico-vertical-admin">
-          {itens.map(function (item) {
-            const altura = maiorTotal ? Math.max((item.total / maiorTotal) * 100, 10) : 0;
-            return (
-              <Link
-                className="coluna-grafico-admin"
-                key={item.nome}
-                to={criarDestinoFiltro(propriedades.filtro, item.nome)}
-                title={'Mostrar contatos de ' + item.nome}
-              >
-                <strong>{item.total}</strong>
-                <span className="area-coluna-admin">
-                  <span style={{ height: altura + '%' }} />
-                </span>
-                <small title={item.nome}>{item.nome}</small>
-              </Link>
-            );
-          })}
-        </div>
+        <>
+          <div className="visual-grafico-dashboard" aria-label={propriedades.titulo}>
+            {itensGrafico.map(function (item) {
+              const altura = maiorTotal ? Math.max((item.total / maiorTotal) * 100, 8) : 0;
+              return (
+                <Link
+                  className="barra-vertical-dashboard"
+                  key={item.nome}
+                  to={criarDestinoFiltro(propriedades.filtro, item.nome)}
+                  title={'Mostrar contatos: ' + item.nome}
+                >
+                  <span className="area-barra-vertical-dashboard">
+                    <span style={{ height: altura + '%' }} />
+                  </span>
+                  <small>{item.nome}</small>
+                </Link>
+              );
+            })}
+          </div>
+
+          <div className="legenda-grafico-dashboard">
+            {itens.map(function (item) {
+              const percentual = total ? Math.round((item.total / total) * 100) : 0;
+              return (
+                <Link
+                  key={item.nome}
+                  to={criarDestinoFiltro(propriedades.filtro, item.nome)}
+                  title={'Mostrar contatos: ' + item.nome}
+                >
+                  <span className="marcador-grafico-dashboard" />
+                  <span>{item.nome}</span>
+                  <strong>{item.total}</strong>
+                  <small>{percentual}%</small>
+                </Link>
+              );
+            })}
+          </div>
+
+          <Link className="link-detalhes-grafico-dashboard" to={propriedades.destino}>
+            Ver relatório completo
+          </Link>
+        </>
       )}
     </section>
+  );
+}
+
+function GraficoBarrasHorizontais(propriedades) {
+  return (
+    <GraficoDistribuicaoDashboard
+      titulo={propriedades.titulo}
+      subtitulo="Distribuição territorial"
+      itens={propriedades.itens}
+      destino={propriedades.destino}
+      filtro={propriedades.filtro}
+    />
+  );
+}
+
+function GraficoBarrasVerticais(propriedades) {
+  return (
+    <GraficoDistribuicaoDashboard
+      titulo={propriedades.titulo}
+      subtitulo="Categorias informadas"
+      itens={propriedades.itens}
+      destino={propriedades.destino}
+      filtro={propriedades.filtro}
+    />
   );
 }
 

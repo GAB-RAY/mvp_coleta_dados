@@ -10,6 +10,7 @@
   "scripts": {
     "test": "npm run testar:banco && npm run testar:publico && npm run testar:admin && npm run testar:manual && npm run testar:importacoes && npm run testar:relatorios && npm run testar:seguranca && npm run testar:privacidade && npm run testar:eventos-exclusoes && npm run testar:backups && npm run testar:resiliencia",
     "start": "node src/server.js",
+    "heroku-postbuild": "pg_dump --version",
     "criar-admin": "node scripts/criarAdministrador.js",
     "atualizar-identidade-publica": "node scripts/atualizarIdentidadePublica.js",
     "banco:sincronizar-sequencias": "node scripts/sincronizarSequencias.js",

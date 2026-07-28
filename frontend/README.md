@@ -78,6 +78,10 @@ Na visão geral e nos relatórios, bairros, categorias e demais barras são
 clicáveis e abrem a listagem com o filtro correspondente. O relatório inclui a
 quantidade de contatos por bairro e a distribuição das necessidades dentro de
 cada bairro. Bairro e categoria também são filtros em formato de seleção.
+Os gráficos usam cartões claros responsivos, barras verticais, totais destacados
+e legendas com quantidade e percentual para facilitar a leitura em diferentes telas.
+Ao selecionar `Não informado` em bairro, categoria, origem, idade ou consentimento,
+a listagem mostra somente os contatos que realmente não possuem aquele dado.
 
 Na gestão de usuários, o administrador pode atualizar o próprio nome e criar contas com perfil de operador ou administrador. Outros administradores aparecem protegidos e não podem ter seus dados ou senha alterados; a redefinição administrativa de senha fica disponível somente para operadores.
 

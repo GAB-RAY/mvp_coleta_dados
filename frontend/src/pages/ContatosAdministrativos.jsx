@@ -20,6 +20,7 @@ const FILTROS_INICIAIS = {
   status: '',
   idadeMinima: '',
   idadeMaxima: '',
+  idadeNaoInformada: '',
   autorizacaoMensagens: '',
   autorizacaoLigacoes: '',
   dataInicial: '',
@@ -50,15 +51,23 @@ const PAGINACAO_INICIAL = {
 };
 
 function prepararFiltros(filtros) {
+  function prepararTexto(valor) {
+    const texto = valor.trim();
+    return texto.toLocaleLowerCase('pt-BR') === 'não informado'
+      ? 'nao_informado'
+      : texto;
+  }
+
   return {
     nome: filtros.nome.trim(),
     telefone: filtros.telefone.trim(),
-    bairro: filtros.bairro.trim(),
-    problema: filtros.problema.trim(),
-    origem: filtros.origem.trim(),
+    bairro: prepararTexto(filtros.bairro),
+    problema: prepararTexto(filtros.problema),
+    origem: prepararTexto(filtros.origem),
     status: filtros.status.trim(),
     idadeMinima: filtros.idadeMinima,
     idadeMaxima: filtros.idadeMaxima,
+    idadeNaoInformada: filtros.idadeNaoInformada,
     autorizacaoMensagens: filtros.autorizacaoMensagens,
     autorizacaoLigacoes: filtros.autorizacaoLigacoes,
     dataInicial: filtros.dataInicial,
@@ -75,6 +84,12 @@ function criarFiltrosIniciais(parametrosBusca) {
     const valor = parametrosBusca.get(chave);
     if (valor !== null && valor !== '') {
       filtros[chave] = valor;
+    }
+  });
+
+  ['bairro', 'problema', 'origem'].forEach(function (chave) {
+    if (filtros[chave] === 'nao_informado') {
+      filtros[chave] = 'Não informado';
     }
   });
 
@@ -95,7 +110,9 @@ function ContatosAdministrativos() {
   const secaoResultados = useRef(null);
   const filtrosIniciais = criarFiltrosIniciais(parametrosBusca);
   const [filtrosFormulario, setFiltrosFormulario] = useState(filtrosIniciais);
-  const [filtrosAplicados, setFiltrosAplicados] = useState(filtrosIniciais);
+  const [filtrosAplicados, setFiltrosAplicados] = useState(
+    prepararFiltros(filtrosIniciais)
+  );
   const [pagina, setPagina] = useState(1);
   const [paginacao, setPaginacao] = useState(PAGINACAO_INICIAL);
   const [contatos, setContatos] = useState([]);

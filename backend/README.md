@@ -169,7 +169,7 @@ Administrativas com JWT:
 | POST | `/api/admin/importacoes/pre-visualizar` | operador/admin |
 | POST | `/api/admin/importacoes/:id/confirmar` | operador/admin |
 
-A listagem e os relatórios aceitam `eventoId=<id>` ou `eventoId=sem_evento`, além dos filtros documentados no frontend. Na tela de eventos, `Ver participantes` abre a listagem já filtrada; nome completo e telefone formatado podem ser pesquisados junto com o evento.
+A listagem e os relatórios aceitam `eventoId=<id>` ou `eventoId=sem_evento`, além dos filtros documentados no frontend. Os filtros `bairro`, `problema` e `origem` aceitam `nao_informado`; para idade ausente, use `idadeNaoInformada=true`. Na tela de eventos, `Ver participantes` abre a listagem já filtrada; nome completo e telefone formatado podem ser pesquisados junto com o evento.
 
 ## Administradores
 
@@ -203,6 +203,8 @@ npm run banco:sincronizar-sequencias
 
 No painel, um administrador também pode gerar e baixar um backup em `/admin/backups`. O servidor precisa ter `pg_dump` compatível com a versão do PostgreSQL. Configure `PG_DUMP_CAMINHO` quando o executável não estiver no `PATH`.
 
+Na DigitalOcean App Platform, o arquivo `Aptfile` instala o cliente oficial do PostgreSQL 18 durante a compilação. O script `heroku-postbuild` valida a presença do `pg_dump` e interrompe a implantação caso o executável não esteja disponível, evitando publicar o recurso de backup sem sua dependência de sistema.
+
 O backup técnico usa o nome `acorda-vk-backup-completo-postgresql-AAAA-MM-DD_HH-mm-ss.backup`. Ele é restaurável pelo PostgreSQL e não deve ser confundido com as exportações de contatos, baixadas como `acorda-vk-contatos-AAAA-MM-DD_HH-mm-ss.xlsx` ou `.csv`.
 
 Para não afetar o formulário durante picos, o painel recusa iniciar backup quando a fila do banco já está acima do limite configurado. Também há limite preventivo de tamanho para o arquivo temporário. Em produção, o mecanismo principal deve ser o backup/PITR do PostgreSQL gerenciado; o backup do painel deve ser executado em horário de menor movimento, baixado e armazenado fora da App Platform.
@@ -216,11 +218,11 @@ npm run testar:schema-vazio
 npm run testar:importacao-carga
 ```
 
-Resultado de 27/07/2026: 307 verificações aprovadas.
+Resultado de 27/07/2026: 329 verificações aprovadas.
 
 - estrutura, 166 bairros, unicidades de vínculo/evento ativo e proteções ManyChat: 28;
 - cadastro público: 27;
-- administração e filtros: 21;
+- administração e filtros: 43;
 - cadastro manual: 24;
 - importações: 24;
 - relatórios, necessidades por bairro e permissões CSV/Excel: 25;

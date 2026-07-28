@@ -132,7 +132,7 @@ async function executar() {
     } else {
       process.env.PG_DUMP_CAMINHO = caminhoOriginal;
     }
-    verificar(falha.status === 500, 'Falha do pg_dump não retornou erro controlado.');
+    verificar(falha.status === 503, 'Ausência do pg_dump não retornou 503.');
     const historicoComFalha = await requisitarJson(baseUrl, '/api/admin/backups', {
       headers: Object.assign({ 'Content-Type': 'application/json' }, adminHeaders)
     });

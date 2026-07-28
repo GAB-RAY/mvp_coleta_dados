@@ -80,6 +80,13 @@ function executarPgDump(executavel, argumentos, ambiente, limiteMs) {
     });
     processo.once('error', function (erro) {
       clearTimeout(temporizador);
+      if (erro.code === 'ENOENT') {
+        rejeitar(criarAppError(
+          'O servidor não possui o pg_dump necessário para gerar o backup.',
+          503
+        ));
+        return;
+      }
       rejeitar(erro);
     });
     processo.once('close', function (codigo) {

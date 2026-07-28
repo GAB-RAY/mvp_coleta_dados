@@ -547,12 +547,33 @@ function tratarDataFiltro(valor, nomeCampo) {
   return valor;
 }
 
+function tratarFiltroPossivelmenteNaoInformado(valor, nomeCampo) {
+  const texto = tratarFiltroTexto(valor, nomeCampo);
+  const textoComparacao = texto
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+  return textoComparacao === 'nao informado' || texto === 'nao_informado'
+    ? 'nao_informado'
+    : texto;
+}
+
 function prepararFiltros(parametrosRecebidos) {
   const nome = tratarFiltroTexto(parametrosRecebidos.nome, 'nome');
   const telefoneRecebido = tratarFiltroTexto(parametrosRecebidos.telefone, 'telefone');
-  const bairro = tratarFiltroTexto(parametrosRecebidos.bairro, 'bairro');
-  const problema = tratarFiltroTexto(parametrosRecebidos.problema, 'problema');
-  const origem = tratarFiltroTexto(parametrosRecebidos.origem, 'origem');
+  const bairro = tratarFiltroPossivelmenteNaoInformado(
+    parametrosRecebidos.bairro,
+    'bairro'
+  );
+  const problema = tratarFiltroPossivelmenteNaoInformado(
+    parametrosRecebidos.problema,
+    'problema'
+  );
+  const origem = tratarFiltroPossivelmenteNaoInformado(
+    parametrosRecebidos.origem,
+    'origem'
+  );
   const status = tratarFiltroTexto(parametrosRecebidos.status, 'status');
   const consentimentoWhatsapp = tratarFiltroConsentimento(
     parametrosRecebidos.consentimentoWhatsapp,
@@ -564,6 +585,11 @@ function prepararFiltros(parametrosRecebidos) {
   );
   const idadeMinima = tratarIdadeFiltro(parametrosRecebidos.idadeMinima, 'idadeMinima');
   const idadeMaxima = tratarIdadeFiltro(parametrosRecebidos.idadeMaxima, 'idadeMaxima');
+  const idadeNaoInformada = tratarOpcaoFiltro(
+    parametrosRecebidos.idadeNaoInformada,
+    'idadeNaoInformada',
+    ['true']
+  ) === 'true';
   const autorizacaoMensagens = tratarOpcaoFiltro(
     parametrosRecebidos.autorizacaoMensagens,
     'autorizacaoMensagens',
@@ -604,6 +630,10 @@ function prepararFiltros(parametrosRecebidos) {
     throw criarAppError('A idade mínima não pode ser maior que a idade máxima.', 400);
   }
 
+  if (idadeNaoInformada && (idadeMinima !== null || idadeMaxima !== null)) {
+    throw criarAppError('O filtro de idade não informada não pode ser combinado com faixa etária.', 400);
+  }
+
   if (dataInicial && dataFinal && dataInicial > dataFinal) {
     throw criarAppError('A data inicial não pode ser posterior à data final.', 400);
   }
@@ -627,6 +657,7 @@ function prepararFiltros(parametrosRecebidos) {
     status,
     idadeMinima,
     idadeMaxima,
+    idadeNaoInformada,
     autorizacaoMensagens,
     autorizacaoLigacoes,
     dataInicial,

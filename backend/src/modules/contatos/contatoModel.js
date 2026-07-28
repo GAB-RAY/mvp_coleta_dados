@@ -994,20 +994,37 @@ function construirFiltros(filtros) {
   }
 
   if (filtros.bairro) {
-    valores.push('%' + filtros.bairro + '%');
-    condicoes.push('contato.bairro ILIKE $' + valores.length);
+    if (filtros.bairro === 'nao_informado') {
+      condicoes.push("NULLIF(BTRIM(contato.bairro), '') IS NULL");
+    } else {
+      valores.push('%' + filtros.bairro + '%');
+      condicoes.push('contato.bairro ILIKE $' + valores.length);
+    }
   }
 
   if (filtros.problema) {
-    valores.push('%' + filtros.problema + '%');
-    condicoes.push('contato.problema ILIKE $' + valores.length);
+    if (filtros.problema === 'nao_informado') {
+      condicoes.push("NULLIF(BTRIM(contato.problema), '') IS NULL");
+    } else {
+      valores.push('%' + filtros.problema + '%');
+      condicoes.push('contato.problema ILIKE $' + valores.length);
+    }
   }
 
   if (filtros.origem) {
-    valores.push('%' + filtros.origem + '%');
-    condicoes.push(
-      "COALESCE(origem.nome, contato.origem_atual, '') ILIKE $" + valores.length
-    );
+    if (filtros.origem === 'nao_informado') {
+      condicoes.push(`
+        COALESCE(
+          NULLIF(BTRIM(origem.nome), ''),
+          NULLIF(BTRIM(contato.origem_atual), '')
+        ) IS NULL
+      `);
+    } else {
+      valores.push('%' + filtros.origem + '%');
+      condicoes.push(
+        "COALESCE(origem.nome, contato.origem_atual, '') ILIKE $" + valores.length
+      );
+    }
   }
 
   if (filtros.status) {
@@ -1033,12 +1050,14 @@ function construirFiltros(filtros) {
     }
   }
 
-  if (filtros.idadeMinima !== null) {
+  if (filtros.idadeNaoInformada) {
+    condicoes.push('contato.idade IS NULL');
+  } else if (filtros.idadeMinima !== null) {
     valores.push(filtros.idadeMinima);
     condicoes.push('contato.idade >= $' + valores.length);
   }
 
-  if (filtros.idadeMaxima !== null) {
+  if (!filtros.idadeNaoInformada && filtros.idadeMaxima !== null) {
     valores.push(filtros.idadeMaxima);
     condicoes.push('contato.idade <= $' + valores.length);
   }

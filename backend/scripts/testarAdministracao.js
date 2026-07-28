@@ -8,6 +8,7 @@ const formatarDataRio = require('../src/utils/formatarDataRio');
 
 const EMAIL_TESTE = 'teste.admin.mvp@invalid.local';
 const TELEFONE_TESTE = '21999987001';
+const TELEFONE_NAO_INFORMADO = '21999987002';
 
 async function requisitar(baseUrl, caminho, opcoes) {
   const resposta = await fetch(baseUrl + caminho, Object.assign({
@@ -23,13 +24,14 @@ async function limpar() {
 
   try {
     await cliente.query('BEGIN');
-    const contato = await cliente.query(
-      'SELECT id FROM contatos WHERE telefone_normalizado = $1',
-      [TELEFONE_TESTE]
+    const contatos = await cliente.query(
+      'SELECT id FROM contatos WHERE telefone_normalizado = ANY($1::text[])',
+      [[TELEFONE_TESTE, TELEFONE_NAO_INFORMADO]]
     );
 
-    if (contato.rows[0]) {
-      const id = contato.rows[0].id;
+    let indice;
+    for (indice = 0; indice < contatos.rows.length; indice += 1) {
+      const id = contatos.rows[indice].id;
       await cliente.query('DELETE FROM aceites_privacidade WHERE contato_id = $1', [id]);
       await cliente.query('DELETE FROM consentimentos WHERE contato_id = $1', [id]);
       await cliente.query('DELETE FROM historico_contatos WHERE contato_id = $1', [id]);
@@ -80,6 +82,20 @@ async function executar() {
     assert.strictEqual(login.status, 200);
     assert.ok(login.corpo.token);
     const cabecalhos = { Authorization: 'Bearer ' + login.corpo.token };
+
+    const contatoNaoInformado = await banco.query(
+      `
+        INSERT INTO contatos (
+          nome,
+          telefone,
+          telefone_normalizado,
+          consentimento_armazenamento
+        )
+        VALUES ('Contato sem dados complementares', $1, $1, TRUE)
+        RETURNING id
+      `,
+      [TELEFONE_NAO_INFORMADO]
+    );
 
     const cadastro = await requisitar(baseUrl, '/api/publico/contatos', {
       method: 'POST',
@@ -146,7 +162,43 @@ async function executar() {
       headers: cabecalhos
     })).status, 400);
 
-    console.log('Administração: 21 verificações aprovadas.');
+    const filtrosNaoInformados = [
+      'bairro=nao_informado',
+      'problema=nao_informado',
+      'origem=nao_informado',
+      'idadeNaoInformada=true',
+      'bairro=' + encodeURIComponent('Não informado'),
+      'problema=' + encodeURIComponent('Não informado'),
+      'origem=' + encodeURIComponent('Não informado')
+    ];
+
+    let indiceFiltro;
+    for (indiceFiltro = 0; indiceFiltro < filtrosNaoInformados.length; indiceFiltro += 1) {
+      const respostaNaoInformado = await requisitar(
+        baseUrl,
+        '/api/admin/contatos?telefone=' + TELEFONE_NAO_INFORMADO +
+          '&' + filtrosNaoInformados[indiceFiltro],
+        { headers: cabecalhos }
+      );
+      assert.strictEqual(
+        respostaNaoInformado.status,
+        200,
+        JSON.stringify(respostaNaoInformado.corpo)
+      );
+      assert.strictEqual(respostaNaoInformado.corpo.contatos.length, 1);
+      assert.strictEqual(
+        respostaNaoInformado.corpo.contatos[0].id,
+        contatoNaoInformado.rows[0].id
+      );
+    }
+
+    assert.strictEqual((await requisitar(
+      baseUrl,
+      '/api/admin/contatos?idadeNaoInformada=true&idadeMinima=18',
+      { headers: cabecalhos }
+    )).status, 400);
+
+    console.log('Administração: 43 verificações aprovadas.');
     console.log('Login, JWT, filtros combinados, paginação e detalhes aprovados.');
   } finally {
     if (servidor) {

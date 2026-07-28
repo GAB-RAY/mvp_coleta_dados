@@ -38,6 +38,10 @@ function formatarRotulo(nome) {
   return ROTULOS_RELATORIO[nome] || nome || 'Não informado';
 }
 
+function prepararValorFiltro(valor) {
+  return formatarRotulo(valor) === 'Não informado' ? 'nao_informado' : valor;
+}
+
 function ordenarPorTotal(itens) {
   return (itens || []).slice().sort(function (primeiro, segundo) {
     return segundo.total - primeiro.total;
@@ -55,6 +59,7 @@ function GraficoResumo(propriedades) {
   const maiorTotal = itensOrdenados.reduce(function (maior, item) {
     return item.total > maior ? item.total : maior;
   }, 0);
+  const itensGrafico = itensOrdenados.slice(0, 4);
 
   return (
     <section className={'cartao grafico-relatorio ' + (propriedades.destaque ? 'grafico-relatorio-destaque' : '')}>
@@ -70,30 +75,49 @@ function GraficoResumo(propriedades) {
         <p className="sem-dados-relatorio">Sem dados para os filtros aplicados.</p>
       )}
 
-      <div className="barras-relatorio">
-        {itensOrdenados.map(function (item) {
-          const largura = maiorTotal ? Math.max((item.total / maiorTotal) * 100, 4) : 0;
-          const percentual = total ? Math.round((item.total / total) * 100) : 0;
+      {itensOrdenados.length > 0 && (
+        <>
+          <div className="visual-grafico-relatorio" aria-label={propriedades.titulo}>
+            {itensGrafico.map(function (item) {
+              const altura = maiorTotal ? Math.max((item.total / maiorTotal) * 100, 8) : 0;
+              return (
+                <button
+                  className="coluna-grafico-relatorio"
+                  key={item.nome}
+                  type="button"
+                  onClick={function () { propriedades.aoSelecionar(item); }}
+                  title={'Mostrar contatos: ' + formatarRotulo(item.nome)}
+                >
+                  <span className="area-coluna-grafico-relatorio">
+                    <span style={{ height: altura + '%' }} />
+                  </span>
+                  <small>{formatarRotulo(item.nome)}</small>
+                </button>
+              );
+            })}
+          </div>
 
-          return (
-            <button
-              className="item-grafico-relatorio"
-              key={item.nome}
-              type="button"
-              onClick={function () { propriedades.aoSelecionar(item); }}
-              title={'Mostrar contatos: ' + formatarRotulo(item.nome)}
-            >
-              <span className="rotulo-grafico-relatorio">
-                <span title={formatarRotulo(item.nome)}>{formatarRotulo(item.nome)}</span>
-                <span><strong>{item.total}</strong><small>{percentual}%</small></span>
-              </span>
-              <span className="trilho-grafico-relatorio">
-                <span style={{ width: largura + '%' }} />
-              </span>
-            </button>
-          );
-        })}
-      </div>
+          <div className="legenda-grafico-relatorio">
+            {itensOrdenados.map(function (item) {
+              const percentual = total ? Math.round((item.total / total) * 100) : 0;
+              return (
+                <button
+                  className="item-grafico-relatorio"
+                  key={item.nome}
+                  type="button"
+                  onClick={function () { propriedades.aoSelecionar(item); }}
+                  title={'Mostrar contatos: ' + formatarRotulo(item.nome)}
+                >
+                  <span className="marcador-grafico-relatorio" />
+                  <span title={formatarRotulo(item.nome)}>{formatarRotulo(item.nome)}</span>
+                  <strong>{item.total}</strong>
+                  <small>{percentual}%</small>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       {itensRecebidos.length > propriedades.limite && (
         <small className="observacao-grafico-relatorio">
@@ -243,7 +267,7 @@ function Relatorios() {
         parametros.set(chave, filtrosAplicados[chave]);
       }
     });
-    parametros.set(filtro, valor);
+    parametros.set(filtro, prepararValorFiltro(valor));
     navegacao('/admin/contatos?' + parametros.toString());
   }
 
@@ -258,7 +282,11 @@ function Relatorios() {
     const faixa = faixas[item.nome];
 
     if (!faixa) {
-      navegacao('/admin/contatos');
+      if (formatarRotulo(item.nome) === 'Não informado') {
+        navegacao('/admin/contatos?idadeNaoInformada=true');
+      } else {
+        navegacao('/admin/contatos');
+      }
       return;
     }
 
@@ -266,9 +294,9 @@ function Relatorios() {
   }
 
   function abrirProblemasBairro(bairro, problema) {
-    const parametros = new URLSearchParams({ bairro });
+    const parametros = new URLSearchParams({ bairro: prepararValorFiltro(bairro) });
     if (problema) {
-      parametros.set('problema', problema);
+      parametros.set('problema', prepararValorFiltro(problema));
     }
     navegacao('/admin/contatos?' + parametros.toString());
   }
@@ -363,12 +391,9 @@ function Relatorios() {
               <IndicadorRelatorio rotulo="Origens" valor={resumo.porOrigem.length} detalhe="Fontes de cadastro" />
             </section>
 
-            <div className="grade-graficos-relatorio grade-graficos-relatorio-principal">
+            <div className="grade-graficos-relatorio">
               <GraficoResumo titulo="Contatos por bairro" subtitulo="Distribuição territorial" itens={resumo.porBairro} limite={10} destaque aoSelecionar={function (item) { abrirContatos('bairro', item.nome); }} />
               <GraficoResumo titulo="Principais necessidades" subtitulo="Categorias informadas" itens={resumo.porProblema} limite={10} destaque aoSelecionar={function (item) { abrirContatos('problema', item.nome); }} />
-            </div>
-
-            <div className="grade-graficos-relatorio">
               <GraficoResumo titulo="Faixa etária" subtitulo="Perfil dos contatos" itens={resumo.porFaixaEtaria} limite={8} aoSelecionar={abrirFaixaEtaria} />
               <GraficoResumo titulo="Origem dos contatos" subtitulo="Canais de entrada" itens={resumo.porOrigem} limite={8} aoSelecionar={function (item) { abrirContatos('origem', item.nome); }} />
               <GraficoResumo titulo="Mensagens" subtitulo="Autorizações" itens={resumo.porAutorizacaoMensagens} limite={8} aoSelecionar={function (item) { abrirContatos('autorizacaoMensagens', item.nome); }} />

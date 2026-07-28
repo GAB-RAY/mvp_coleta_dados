@@ -147,7 +147,7 @@ Em 27/07/2026:
 - backup prévio restaurado e validado em banco separado;
 - `npm run testar:importacao-carga`: 15.000 contatos importados e validados, com limpeza automática;
 - limite máximo validado: arquivo único com 20.000 contatos;
-- `npm test`: 307 verificações aprovadas;
+- `npm test`: 329 verificações aprovadas;
 - `npm run build`: 62 módulos transformados;
 - banco principal validado com 166 bairros, 1 contato, 1 evento ativo e o administrador Gabriel preservado como ID 1;
 - sequências das 22 tabelas sincronizadas.
