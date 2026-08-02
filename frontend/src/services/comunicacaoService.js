@@ -37,6 +37,7 @@ function prepararComunicacoes(dados) { return chamar('/preparar', 'POST', dados)
 function confirmarEnvio(id, dados) {
   return chamar('/' + id + '/confirmar-envio', 'POST', dados || {});
 }
+function cancelarComunicacao(id) { return chamar('/' + id, 'DELETE'); }
 function listarComunicacoes(parametros) {
   return chamar('/?' + criarBusca(parametros), 'GET');
 }
@@ -47,6 +48,7 @@ function atualizarComunicacao(id, dados) { return chamar('/' + id, 'PATCH', dado
 
 export {
   atualizarComunicacao,
+  cancelarComunicacao,
   confirmarEnvio,
   excluirNumero,
   listarCampanhas,

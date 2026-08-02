@@ -179,7 +179,7 @@ Em 02/08/2026:
 - backup prévio restaurado e validado em banco separado;
 - `npm run testar:importacao-carga`: 15.000 contatos importados e validados, com limpeza automática;
 - limite máximo validado: arquivo único com 20.000 contatos;
-- `npm test`: 376 verificações aprovadas;
+- `npm test`: 385 verificações aprovadas;
 - `npm run build`: 69 módulos transformados;
 - banco principal validado com 166 bairros e integridade estrutural preservada;
 - sincronizador da comunicação executado novamente sem reaplicar estruturas.

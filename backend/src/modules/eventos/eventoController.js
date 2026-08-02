@@ -55,7 +55,18 @@ async function encerrar(requisicao, resposta, proximo) {
   }
 }
 
+async function excluir(requisicao, resposta, proximo) {
+  try {
+    await eventoService.excluir(requisicao.params.id, requisicao.usuario);
+    return resposta.status(200).json({
+      mensagem: 'Evento excluído com sucesso.'
+    });
+  } catch (erro) {
+    return proximo(erro);
+  }
+}
+
 async function listarParticipantes(requisicao,resposta,proximo){try{return resposta.status(200).json({mensagem:'Participantes listados com sucesso.',participantes:await eventoService.listarParticipantes(requisicao.params.id,requisicao.query)});}catch(erro){return proximo(erro);}}
 async function atualizarStatusInscricao(requisicao,resposta,proximo){try{return resposta.status(200).json({mensagem:'Inscrição atualizada com sucesso.',inscricao:await eventoService.atualizarStatusInscricao(requisicao.params.id,requisicao.params.contatoId,requisicao.body.status)});}catch(erro){return proximo(erro);}}
 
-module.exports = { ativar, atualizarStatusInscricao, criar, editar, encerrar, listar, listarParticipantes };
+module.exports = { ativar, atualizarStatusInscricao, criar, editar, encerrar, excluir, listar, listarParticipantes };

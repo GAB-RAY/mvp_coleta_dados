@@ -10,6 +10,7 @@ import {
   atualizarStatusInscricao,
   criarEvento,
   editarEvento,
+  excluirEvento,
   listarEventos,
   listarParticipantesEvento
 } from '../services/eventoService';
@@ -121,6 +122,25 @@ function EventosAdministrativos() {
         setEventoQr(resposta.evento);
       } else if (eventoQr && eventoQr.id === id) {
         setEventoQr(null);
+      }
+      await carregar();
+    } catch (erro) {
+      setMensagem(erro.message);
+    }
+  }
+
+  async function removerEvento(item) {
+    if (!window.confirm(
+      'Excluir o evento "' + item.nome + '"? Ele sairá do painel, mas participantes e históricos serão preservados.'
+    )) {
+      return;
+    }
+    try {
+      const resposta = await excluirEvento(item.id);
+      setMensagem(resposta.mensagem);
+      if (eventoQr && eventoQr.id === item.id) setEventoQr(null);
+      if (eventoParticipantes && eventoParticipantes.id === item.id) {
+        setEventoParticipantes(null);
       }
       await carregar();
     } catch (erro) {
@@ -312,6 +332,7 @@ function EventosAdministrativos() {
                                   <button className="botao botao-secundario" type="button" onClick={function () { mudarStatus(item.id, 'encerrar'); }}>Encerrar</button>
                                 </>
                               )}
+                              <button className="botao botao-perigo" type="button" onClick={function () { removerEvento(item); }}>Excluir</button>
                             </>
                           )}
                         </td>

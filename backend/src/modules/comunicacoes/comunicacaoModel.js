@@ -37,6 +37,38 @@ async function excluirNumero(id) {
   )).rows[0] || null;
 }
 
+async function cancelarPreparada(id, usuarioId, administrador) {
+  const cliente = await banco.connect();
+  try {
+    await cliente.query('BEGIN');
+    const resultado = await cliente.query(
+      'SELECT id,status,operador_usuario_id FROM comunicacoes WHERE id=$1 FOR UPDATE',
+      [id]
+    );
+    const comunicacao = resultado.rows[0];
+    if (!comunicacao) {
+      await cliente.query('ROLLBACK');
+      return 'nao_encontrada';
+    }
+    if (comunicacao.status !== 'preparada') {
+      await cliente.query('ROLLBACK');
+      return 'ja_enviada';
+    }
+    if (!administrador && Number(comunicacao.operador_usuario_id) !== Number(usuarioId)) {
+      await cliente.query('ROLLBACK');
+      return 'sem_permissao';
+    }
+    await cliente.query('DELETE FROM comunicacoes WHERE id=$1', [id]);
+    await cliente.query('COMMIT');
+    return 'cancelada';
+  } catch (erro) {
+    await cliente.query('ROLLBACK');
+    throw erro;
+  } finally {
+    cliente.release();
+  }
+}
+
 async function listarModelos() {
   return (await banco.query(`
     SELECT modelo.*, evento.nome AS evento_nome
@@ -389,6 +421,7 @@ module.exports = {
   atualizar,
   buscarContexto,
   buscarRecebimentosDaCampanha,
+  cancelarPreparada,
   contarComunicacoesDoNumero,
   confirmarEnvio,
   excluirNumero,

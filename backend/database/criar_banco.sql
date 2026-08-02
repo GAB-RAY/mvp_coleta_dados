@@ -143,7 +143,7 @@ CREATE TABLE public.eventos (
   CONSTRAINT eventos_periodo_valido CHECK (data_final >= data_inicial),
   CONSTRAINT eventos_periodo_inscricoes_valido CHECK (inscricoes_fim >= inscricoes_inicio),
   CONSTRAINT eventos_status_valido CHECK (
-    status IN ('rascunho', 'ativo', 'encerrado')
+    status IN ('rascunho', 'ativo', 'encerrado', 'excluido')
   )
 );
 
@@ -157,7 +157,7 @@ CREATE TABLE public.historico_eventos (
   criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT historico_eventos_pkey PRIMARY KEY (id),
   CONSTRAINT historico_eventos_acao_valida CHECK (
-    tipo_acao IN ('criacao', 'edicao', 'ativacao', 'encerramento')
+    tipo_acao IN ('criacao', 'edicao', 'ativacao', 'encerramento', 'exclusao')
   )
 );
 

@@ -197,9 +197,13 @@ function ImportacaoContatos() {
                 />
               </div>
             )}
-            <div className="grupo-campo">
-              <label htmlFor="arquivo-importacao">Arquivo *</label>
-              <input id="arquivo-importacao" className="campo-input" type="file" accept=".csv,.xlsx" onChange={function (evento) { setArquivo(evento.target.files[0] || null); }} />
+            <div className="grupo-campo grupo-arquivo-importacao">
+              <span>Arquivo *</span>
+              <input id="arquivo-importacao" className="input-arquivo-oculto" type="file" accept=".csv,.xlsx" onChange={function (evento) { setArquivo(evento.target.files[0] || null); }} />
+              <label className="seletor-arquivo" htmlFor="arquivo-importacao">
+                <span className="icone-seletor-arquivo" aria-hidden="true">↑</span>
+                <span><strong>{arquivo ? arquivo.name : 'Escolher arquivo'}</strong><small>CSV ou XLSX, até 5 MB</small></span>
+              </label>
             </div>
             <button className="botao botao-primario" disabled={processando} type="submit">
               {processando ? 'Validando...' : 'Pré-visualizar'}

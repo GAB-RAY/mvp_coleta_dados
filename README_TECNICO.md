@@ -260,6 +260,7 @@ Todas exigem JWT.
 | `GET` | `/api/admin/eventos` | operador/admin |
 | `POST` | `/api/admin/eventos` | admin |
 | `PUT` | `/api/admin/eventos/:id` | admin |
+| `DELETE` | `/api/admin/eventos/:id` | admin; exclusão lógica |
 | `POST` | `/api/admin/eventos/:id/ativar` | admin |
 | `POST` | `/api/admin/eventos/:id/encerrar` | admin |
 | `GET` | `/api/admin/solicitacoes-exclusao` | admin |
@@ -380,17 +381,18 @@ Não existe endpoint de exclusão direta de contato, revogação ou histórico.
 
 ### 3.11 Eventos
 
-- estados: `rascunho`, `ativo` e `encerrado`;
+- estados operacionais: `rascunho`, `ativo` e `encerrado`; a exclusão lógica usa `excluido`;
 - vários eventos podem estar ativos simultaneamente;
 - contém nome, descrição, data e horário, local/link e período de inscrições;
-- a criação, edição, ativação e encerramento geram histórico;
+- a criação, edição, ativação, encerramento e exclusão geram histórico;
 - `/participar` permanece como cadastro geral e cada evento usa `/participar?evento=<id>`;
 - o backend decide automaticamente se o telefone é novo ou se nome completo e telefone correspondem a um cadastro existente;
 - o contato permanece único e mantém a origem original quando participa posteriormente de um evento;
 - a restrição única de `contato_eventos` impede repetição do mesmo par contato/evento;
 - inscrições repetidas retornam uma confirmação clara sem criar outro vínculo;
 - operadores acessam a tela em modo somente leitura e podem abrir a lista de participantes;
-- somente administradores veem e executam criação, edição, ativação e encerramento;
+- somente administradores veem e executam criação, edição, ativação, encerramento e exclusão;
+- excluir remove o evento das telas operacionais sem apagar participantes, contatos ou históricos;
 - a criação disponibiliza um QR Code SVG com `/participar?evento=<id>`;
 - o backend valida o identificador do QR e retorna `410` quando o evento foi encerrado ou saiu do período;
 - listagem e relatórios podem filtrar pelo evento ou por ausência de evento.
@@ -402,6 +404,11 @@ textos prontos editáveis. `campanhas` identifica cada ação de comunicação.
 `comunicacoes` registra contato, evento, template, campanha, canal, operador,
 texto, confirmação, status e motivo de reenvio. `historico_comunicacoes`
 preserva cada transição com usuário, data e hora.
+
+Uma comunicação ainda no estado `preparada` pode ser cancelada. A operação
+remove somente o preparo que não foi enviado; registros já confirmados não
+podem ser cancelados. Operadores cancelam os próprios preparos e
+administradores também podem cancelar preparos de outros usuários.
 
 O painel é acessado por `/admin/comunicacoes` e aparece como `Mensagens` no menu. A listagem e os detalhes de contatos abrem essa rota com `contatoId`, pré-selecionando o contato. Todo atendimento exige um texto pronto ativo; não há mensagem livre no preparo. O estado não informado da autorização não impede atendimento manual; revogações e bloqueios explícitos continuam sendo aplicados no backend. Somente administradores cadastram, editam ou excluem canais, e também gerenciam textos prontos e campanhas. Canais com histórico são desativados em vez de excluídos para preservar a auditoria.
 
@@ -592,6 +599,7 @@ npm run criar-admin -- "Nome" "email@dominio.com" "SenhaForte123!"
 npm run testar:schema-vazio
 npm run testar:importacao-carga
 npm run banco:sincronizar-sequencias
+npm run banco:sincronizar-eventos
 ```
 
 O conjunto `npm test` executa verificações de:
@@ -607,7 +615,7 @@ O conjunto `npm test` executa verificações de:
 - eventos e exclusões;
 - backups.
 
-Último resultado documentado no projeto, em 02/08/2026: 376 verificações do backend aprovadas e build do frontend concluído com 69 módulos transformados.
+Último resultado documentado no projeto, em 02/08/2026: 385 verificações do backend aprovadas e build do frontend concluído com 69 módulos transformados.
 
 O teste adicional `testar:importacao-carga` valida separadamente 15.000 contatos temporários em um único arquivo, a rejeição de 20.001 linhas, pré-visualização, confirmação, contagem persistida, limpeza automática e ressincronização das sequências utilizadas. O limite aceito de 20.000 linhas também foi executado com sucesso. O script recusa execução em produção.
 

@@ -328,6 +328,31 @@ async function executar() {
       'Contato sem autorização informada não pôde receber atendimento manual.'
     );
 
+    const comunicacaoCancelada = await requisitar(
+      base,
+      '/api/admin/comunicacoes/preparar',
+      {
+        method: 'POST',
+        headers: cabecalhosOperador,
+        body: JSON.stringify(dadosPreparo(contatoNaoInformado.id))
+      }
+    );
+    const comunicacaoCanceladaId = comunicacaoCancelada.corpo.comunicacoes[0].id;
+    verificar(comunicacaoCancelada.status === 201, 'Mensagem para cancelamento não foi preparada.');
+    verificar(
+      (await requisitar(base, '/api/admin/comunicacoes/' + comunicacaoCanceladaId, {
+        method: 'DELETE', headers: cabecalhosOperador
+      })).status === 200,
+      'Operador não conseguiu cancelar a própria mensagem preparada.'
+    );
+    verificar(
+      Number((await banco.query(
+        'SELECT COUNT(*) AS total FROM comunicacoes WHERE id=$1',
+        [comunicacaoCanceladaId]
+      )).rows[0].total) === 0,
+      'Mensagem cancelada permaneceu no banco.'
+    );
+
     const bairroNaoInformado = await requisitar(
       base,
       '/api/admin/comunicacoes/contatos?bairro=' +
@@ -390,6 +415,12 @@ async function executar() {
         body: '{}'
       })).status === 200,
       'Envio manual não foi confirmado.'
+    );
+    verificar(
+      (await requisitar(base, '/api/admin/comunicacoes/' + comunicacaoId, {
+        method: 'DELETE', headers: cabecalhosOperador
+      })).status === 409,
+      'Mensagem já enviada pôde ser cancelada.'
     );
     const contatosComMensagemEnviada = await requisitar(
       base,

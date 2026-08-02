@@ -24,6 +24,13 @@ async function editarEvento(id, dados) {
   });
 }
 
+async function excluirEvento(id) {
+  return requisitar('/api/admin/eventos/' + id, {
+    method: 'DELETE',
+    autenticado: true
+  });
+}
+
 async function alterarStatusEvento(id, acao) {
   return requisitar('/api/admin/eventos/' + id + '/' + acao, {
     method: 'POST',
@@ -40,4 +47,4 @@ async function atualizarStatusInscricao(eventoId,contatoId,status){
   return requisitar('/api/admin/eventos/'+eventoId+'/participantes/'+contatoId,{method:'PATCH',autenticado:true,body:JSON.stringify({status})});
 }
 
-export { alterarStatusEvento, atualizarStatusInscricao, criarEvento, editarEvento, listarEventos, listarParticipantesEvento };
+export { alterarStatusEvento, atualizarStatusInscricao, criarEvento, editarEvento, excluirEvento, listarEventos, listarParticipantesEvento };

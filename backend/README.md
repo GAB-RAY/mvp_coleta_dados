@@ -10,6 +10,10 @@ Copy-Item .env.example .env
 npm start
 ```
 
+Antes de iniciar o servidor, o `prestart` executa o sincronizador idempotente
+dos estados de exclusão de eventos. Quando a estrutura já está atualizada,
+nenhuma alteração é reaplicada.
+
 Variáveis principais:
 
 ```env
@@ -174,6 +178,7 @@ Administrativas com JWT:
 | POST/PUT | `/api/admin/eventos` e `/api/admin/eventos/:id` | admin |
 | POST | `/api/admin/eventos/:id/ativar` | admin |
 | POST | `/api/admin/eventos/:id/encerrar` | admin |
+| DELETE | `/api/admin/eventos/:id` | admin; exclusão lógica com histórico preservado |
 | GET | `/api/admin/eventos/:id/participantes` | operador/admin |
 | PATCH | `/api/admin/eventos/:id/participantes/:contatoId` | operador/admin |
 | GET/POST/PUT/DELETE | `/api/admin/comunicacoes/numeros` | leitura operador/admin; escrita admin; exclusão somente sem histórico |
@@ -184,6 +189,7 @@ Administrativas com JWT:
 | GET | `/api/admin/comunicacoes` | operador/admin |
 | POST | `/api/admin/comunicacoes/preparar` | operador/admin |
 | POST | `/api/admin/comunicacoes/:id/confirmar-envio` | operador/admin |
+| DELETE | `/api/admin/comunicacoes/:id` | cancela somente mensagem ainda preparada |
 | GET | `/api/admin/comunicacoes/:id/historico` | operador/admin |
 | PATCH | `/api/admin/comunicacoes/:id` | operador/admin |
 | GET | `/api/admin/solicitacoes-exclusao` | admin |
@@ -253,7 +259,7 @@ npm run testar:schema-vazio
 npm run testar:importacao-carga
 ```
 
-Resultado de 02/08/2026: 376 verificações aprovadas.
+Resultado de 02/08/2026: 385 verificações aprovadas.
 
 - estrutura, 166 bairros, eventos simultâneos e integridade: 22;
 - cadastro público, idade mínima, opt-in opcional, textos públicos e metadados versionados: 42;
@@ -263,8 +269,8 @@ Resultado de 02/08/2026: 376 verificações aprovadas.
 - relatórios, necessidades por bairro e permissões CSV/Excel: 25;
 - segurança e usuários: 54;
 - privacidade e bloqueio durante pedido de exclusão: 16;
-- eventos, QR exclusivo, identificação por nome e telefone, contato novo, reinscrição idempotente, atualização auditada, busca de participantes, permissões e exclusão física: 49;
-- comunicação manual, CRUD seguro de números, textos prontos obrigatórios, campanhas, permissões, confirmação explícita, reenvio justificado, auditoria e filtros: 31;
+- eventos, QR exclusivo, identificação por nome e telefone, contato novo, reinscrição idempotente, atualização auditada, busca de participantes, permissões, exclusão lógica de eventos e exclusão física aprovada de contatos: 54;
+- comunicação manual, CRUD seguro de números, textos prontos obrigatórios, campanhas, permissões, confirmação explícita, cancelamento de preparo, reenvio justificado, auditoria e filtros: 35;
 - backups, permissões, integridade e auditoria: 18.
 - resiliência, rate limit, concorrência, saúde, pool e configuração: 22.
 

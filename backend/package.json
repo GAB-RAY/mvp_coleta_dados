@@ -8,6 +8,7 @@
     "node": "24.x"
   },
   "scripts": {
+    "prestart": "npm run banco:sincronizar-eventos",
     "test": "npm run testar:banco && npm run testar:publico && npm run testar:admin && npm run testar:manual && npm run testar:importacoes && npm run testar:relatorios && npm run testar:seguranca && npm run testar:privacidade && npm run testar:eventos-exclusoes && npm run testar:comunicacoes && npm run testar:backups && npm run testar:resiliencia",
     "start": "node src/server.js",
     "heroku-postbuild": "pg_dump --version",
@@ -15,6 +16,7 @@
     "atualizar-identidade-publica": "node scripts/atualizarIdentidadePublica.js",
     "banco:sincronizar-sequencias": "node scripts/sincronizarSequencias.js",
     "banco:sincronizar-comunicacao": "node scripts/sincronizarComunicacaoManual.js",
+    "banco:sincronizar-eventos": "node scripts/sincronizarExclusaoEventos.js",
     "testar:banco": "node scripts/testarEstruturaBanco.js",
     "testar:publico": "node scripts/testarCadastroPublico.js",
     "testar:admin": "node scripts/testarAdministracao.js",

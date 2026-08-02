@@ -137,6 +137,25 @@ async function excluirNumero(idRecebido) {
   }
 }
 
+async function cancelarPreparada(idRecebido, usuario) {
+  const id = validarId(idRecebido, 'Comunicação', false);
+  const resultado = await comunicacaoModel.cancelarPreparada(
+    id,
+    usuario.id,
+    usuario.perfil === 'administrador'
+  );
+
+  if (resultado === 'nao_encontrada') {
+    throw criarAppError('Mensagem preparada não encontrada.', 404);
+  }
+  if (resultado === 'ja_enviada') {
+    throw criarAppError('Somente mensagens ainda não enviadas podem ser canceladas.', 409);
+  }
+  if (resultado === 'sem_permissao') {
+    throw criarAppError('Você não pode cancelar uma mensagem preparada por outro usuário.', 403);
+  }
+}
+
 function validarModelo(dados) {
   const corpo = validarTexto(dados.texto, 'Conteúdo', 5000, false);
   const expressao = /{{\s*([^}]+)\s*}}/g;
@@ -421,6 +440,7 @@ async function listarHistorico(idRecebido) {
 
 module.exports = {
   atualizar,
+  cancelarPreparada,
   confirmarEnvio,
   excluirNumero,
   listar,

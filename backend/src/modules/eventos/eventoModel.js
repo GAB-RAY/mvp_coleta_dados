@@ -13,10 +13,46 @@ function camposEvento() {
 
 async function listar() {
   const resultado = await banco.query(camposEvento() + `
+    WHERE evento.status <> 'excluido'
     GROUP BY evento.id, criador.nome, atualizador.nome
     ORDER BY evento.data_inicial DESC, evento.id DESC
   `);
   return resultado.rows;
+}
+
+async function excluir(id, usuarioId) {
+  const cliente = await banco.connect();
+  try {
+    await cliente.query('BEGIN');
+    const atual = await cliente.query(
+      "SELECT * FROM eventos WHERE id=$1 AND status<>'excluido' FOR UPDATE",
+      [id]
+    );
+    if (!atual.rows[0]) {
+      await cliente.query('ROLLBACK');
+      return null;
+    }
+    const resultado = await cliente.query(`
+      UPDATE eventos
+      SET status='excluido', atualizado_por_usuario_id=$2
+      WHERE id=$1 RETURNING *
+    `, [id, usuarioId]);
+    await registrarHistorico(
+      cliente,
+      id,
+      'exclusao',
+      atual.rows[0],
+      resultado.rows[0],
+      usuarioId
+    );
+    await cliente.query('COMMIT');
+    return resultado.rows[0];
+  } catch (erro) {
+    await cliente.query('ROLLBACK');
+    throw erro;
+  } finally {
+    cliente.release();
+  }
 }
 
 async function buscarDisponivelPorId(id, clienteRecebido) {
@@ -69,7 +105,10 @@ async function editar(id, dados, usuarioId) {
   const cliente = await banco.connect();
   try {
     await cliente.query('BEGIN');
-    const atual = await cliente.query('SELECT * FROM eventos WHERE id = $1 FOR UPDATE', [id]);
+    const atual = await cliente.query(
+      "SELECT * FROM eventos WHERE id=$1 AND status<>'excluido' FOR UPDATE",
+      [id]
+    );
     if (!atual.rows[0]) {
       await cliente.query('ROLLBACK');
       return null;
@@ -96,7 +135,10 @@ async function alterarStatus(id, novoStatus, usuarioId) {
   const cliente = await banco.connect();
   try {
     await cliente.query('BEGIN');
-    const atual = await cliente.query('SELECT * FROM eventos WHERE id=$1 FOR UPDATE', [id]);
+    const atual = await cliente.query(
+      "SELECT * FROM eventos WHERE id=$1 AND status<>'excluido' FOR UPDATE",
+      [id]
+    );
     if (!atual.rows[0]) {
       await cliente.query('ROLLBACK');
       return null;
@@ -125,7 +167,7 @@ async function alterarStatus(id, novoStatus, usuarioId) {
 
 async function listarParticipantes(eventoId, filtros) {
   const valores=[eventoId];
-  const condicoes=['vinculo.evento_id=$1'];
+  const condicoes=["vinculo.evento_id=$1","evento.status<>'excluido'"];
   if(filtros.nome){valores.push('%'+filtros.nome+'%');condicoes.push('contato.nome ILIKE $'+valores.length);}
   if(filtros.telefone){valores.push('%'+filtros.telefone+'%');condicoes.push('contato.telefone_normalizado LIKE $'+valores.length);}
   if(filtros.statusInscricao){valores.push(filtros.statusInscricao);condicoes.push('vinculo.status_inscricao=$'+valores.length);}
@@ -134,13 +176,22 @@ async function listarParticipantes(eventoId, filtros) {
     SELECT contato.id,contato.nome,contato.telefone,contato.bairro,vinculo.status_inscricao,
       vinculo.cadastrado_em,
       COALESCE((SELECT status FROM comunicacoes WHERE contato_id=contato.id AND evento_id=vinculo.evento_id ORDER BY criado_em DESC,id DESC LIMIT 1),'nao_contatado') AS status_mensagem
-    FROM contato_eventos AS vinculo INNER JOIN contatos AS contato ON contato.id=vinculo.contato_id
+    FROM contato_eventos AS vinculo
+    INNER JOIN contatos AS contato ON contato.id=vinculo.contato_id
+    INNER JOIN eventos AS evento ON evento.id=vinculo.evento_id
     WHERE ${condicoes.join(' AND ')} ORDER BY vinculo.cadastrado_em DESC
   `,valores)).rows;
 }
 
 async function atualizarStatusInscricao(eventoId,contatoId,status){
-  return (await banco.query(`UPDATE contato_eventos SET status_inscricao=$3 WHERE evento_id=$1 AND contato_id=$2 RETURNING *`,[eventoId,contatoId,status])).rows[0]||null;
+  return (await banco.query(`
+    UPDATE contato_eventos SET status_inscricao=$3
+    WHERE evento_id=$1 AND contato_id=$2
+      AND EXISTS (
+        SELECT 1 FROM eventos WHERE id=$1 AND status<>'excluido'
+      )
+    RETURNING *
+  `,[eventoId,contatoId,status])).rows[0]||null;
 }
 
-module.exports = { alterarStatus, atualizarStatusInscricao, buscarDisponivelPorId, criar, editar, listar, listarParticipantes };
+module.exports = { alterarStatus, atualizarStatusInscricao, buscarDisponivelPorId, criar, editar, excluir, listar, listarParticipantes };

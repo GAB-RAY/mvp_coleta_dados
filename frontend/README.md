@@ -90,6 +90,8 @@ Ao criar um evento, o administrador pode visualizar, copiar e baixar um QR Code
 SVG exclusivo. Ele aponta para `/participar?evento=<id>` e deixa de aceitar
 inscrições quando o evento é encerrado ou sai do período. O endereço normal
 `/participar` permanece disponível exclusivamente para o cadastro geral.
+O administrador também pode excluir um evento. Ele desaparece do painel e deixa
+de aceitar inscrições, enquanto participantes e históricos permanecem preservados.
 
 ## Comunicação manual
 
@@ -107,6 +109,8 @@ mensagem livre nessa etapa: o conteúdo precisa ser criado previamente pelo
 administrador. O painel exibe apenas uma prévia compacta, monta o texto
 personalizado e abre uma conversa por vez em `wa.me`. Abrir a conversa não registra
 envio. O botão `Confirmar envio` é uma ação posterior e separada.
+Antes da confirmação, a equipe pode usar `Cancelar mensagem`; uma mensagem já
+confirmada como enviada não pode ser cancelada.
 
 Os estados aguardando resposta, respondeu, sem resposta, recusou atendimento,
 telefone inválido e concluído são informados manualmente. Filtros do histórico
@@ -141,6 +145,8 @@ Na gestão de usuários, o administrador pode atualizar o próprio nome e criar 
 Contatos importados somente com telefone mantêm nome, bairro, idade e categoria como `NULL` no banco. Na listagem, nos detalhes e na pré-visualização da importação, esses valores ausentes aparecem visualmente como “Não informado”, permitindo complementação futura sem confundir o texto com um dado real.
 
 A importação aceita um único arquivo CSV ou XLSX com até 5 MB e 20.000 linhas. A origem é escolhida em um dropdown com as fontes de importação existentes, com opção para cadastrar uma nova. Durante a confirmação, o botão permanece bloqueado e informa que a importação está em andamento.
+O seletor de arquivo usa um botão próprio, mostra o nome escolhido e continua
+compatível com teclado e leitores de tela.
 
 A própria página apresenta o histórico resumido dos lotes, com origem, arquivo, status, quantidade, responsável e data, sem mostrar dados dos contatos. Operadores apenas consultam; administradores podem excluir o registro do lote após confirmação explícita. A exclusão preserva todos os contatos já importados.
 

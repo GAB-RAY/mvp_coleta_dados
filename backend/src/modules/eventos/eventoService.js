@@ -72,6 +72,17 @@ async function alterarStatus(idRecebido, status, usuario) {
   }
 }
 
+async function excluir(idRecebido, usuario) {
+  const id = Number(idRecebido);
+  if (!Number.isInteger(id) || id < 1) {
+    throw criarAppError('Identificador do evento inválido.', 400);
+  }
+  const evento = await eventoModel.excluir(id, usuario.id);
+  if (!evento) {
+    throw criarAppError('Evento não encontrado.', 404);
+  }
+}
+
 async function listarParticipantes(idRecebido,filtrosRecebidos){
   const eventoId=Number(idRecebido);if(!Number.isInteger(eventoId)||eventoId<1)throw criarAppError('Identificador do evento inválido.',400);
   const filtros=filtrosRecebidos||{};return eventoModel.listarParticipantes(eventoId,{nome:typeof filtros.nome==='string'?filtros.nome.trim():null,telefone:typeof filtros.telefone==='string'?filtros.telefone.replace(/\D/g,''):null,statusInscricao:filtros.statusInscricao||null,statusMensagem:filtros.statusMensagem||null});
@@ -83,4 +94,4 @@ async function atualizarStatusInscricao(eventoIdRecebido,contatoIdRecebido,statu
   const vinculo=await eventoModel.atualizarStatusInscricao(eventoId,contatoId,status);if(!vinculo)throw criarAppError('Inscrição não encontrada.',404);return vinculo;
 }
 
-module.exports = { alterarStatus, atualizarStatusInscricao, criar, editar, listar, listarParticipantes };
+module.exports = { alterarStatus, atualizarStatusInscricao, criar, editar, excluir, listar, listarParticipantes };

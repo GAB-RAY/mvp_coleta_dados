@@ -9,6 +9,7 @@ import {
 import { listarEventos } from '../services/eventoService';
 import {
   atualizarComunicacao,
+  cancelarComunicacao,
   confirmarEnvio,
   excluirNumero,
   listarCampanhas,
@@ -43,6 +44,10 @@ const MODELO_INICIAL = {
   nome: '', categoria: '', texto: '', eventoId: '', ativo: true
 };
 const CAMPANHA_INICIAL = { nome: '', descricao: '', ativo: true };
+const FILTROS_CONTATOS_INICIAIS = {
+  situacao: '', bairro: '', problema: '', consentimento: '',
+  campanhaNaoRecebidaId: '', cadastroIncompleto: false
+};
 
 function normalizarPesquisa(valor) {
   return String(valor || '')
@@ -90,10 +95,8 @@ function ComunicacoesAdministrativas() {
   const [campanhaEdicao, setCampanhaEdicao] = useState(null);
   const [selecionados, setSelecionados] = useState([]);
   const [buscaContatos, setBuscaContatos] = useState('');
-  const [filtrosContatos, setFiltrosContatos] = useState({
-    situacao: '', bairro: '', problema: '', consentimento: '',
-    campanhaNaoRecebidaId: '', cadastroIncompleto: false
-  });
+  const [filtrosContatos, setFiltrosContatos] = useState(FILTROS_CONTATOS_INICIAIS);
+  const [filtrandoContatos, setFiltrandoContatos] = useState(false);
   const [filaManual, setFilaManual] = useState([]);
   const [mensagem, setMensagem] = useState('');
   const [duplicidade, setDuplicidade] = useState(false);
@@ -199,6 +202,8 @@ function ComunicacoesAdministrativas() {
   }
 
   async function buscarSegmento() {
+    setFiltrandoContatos(true);
+    setMensagem('');
     try {
       const resposta = await listarContatosComunicacao(Object.assign(
         {}, filtrosContatos, { eventoId: preparo.eventoId || '' }
@@ -208,8 +213,28 @@ function ComunicacoesAdministrativas() {
       setSelecionados(function (selecionadosAtuais) {
         return manterSelecionadosVisiveis(selecionadosAtuais, contatosEncontrados);
       });
+      setMensagem(contatosEncontrados.length + ' contato(s) encontrado(s) com os filtros selecionados.');
     } catch (erro) {
       setMensagem(erro.message);
+    } finally {
+      setFiltrandoContatos(false);
+    }
+  }
+
+  async function limparFiltrosPublico() {
+    setFiltrosContatos(FILTROS_CONTATOS_INICIAIS);
+    setFiltrandoContatos(true);
+    try {
+      const resposta = await listarContatosComunicacao({
+        eventoId: preparo.eventoId || ''
+      });
+      setContatos(resposta.contatos || []);
+      setSelecionados([]);
+      setMensagem('Filtros removidos.');
+    } catch (erro) {
+      setMensagem(erro.message);
+    } finally {
+      setFiltrandoContatos(false);
     }
   }
 
@@ -329,6 +354,20 @@ function ComunicacoesAdministrativas() {
   async function confirmar(item) {
     try {
       const resposta = await confirmarEnvio(item.id, {});
+      setFilaManual(filaManual.filter(function (registro) {
+        return registro.id !== item.id;
+      }));
+      setMensagem(resposta.mensagem);
+      await carregar();
+    } catch (erro) {
+      setMensagem(erro.message);
+    }
+  }
+
+  async function cancelar(item) {
+    if (!window.confirm('Cancelar esta mensagem preparada?')) return;
+    try {
+      const resposta = await cancelarComunicacao(item.id);
       setFilaManual(filaManual.filter(function (registro) {
         return registro.id !== item.id;
       }));
@@ -494,7 +533,10 @@ function ComunicacoesAdministrativas() {
             <label>Não recebeu campanha<select className="campo-input" name="campanhaNaoRecebidaId" value={filtrosContatos.campanhaNaoRecebidaId} onChange={alterarEstado(setFiltrosContatos, filtrosContatos)}><option value="">Qualquer</option>{campanhas.map(function (item) { return <option key={item.id} value={item.id}>{item.nome}</option>; })}</select></label>
             <label><input type="checkbox" name="cadastroIncompleto" checked={filtrosContatos.cadastroIncompleto} onChange={alterarEstado(setFiltrosContatos, filtrosContatos)} /> Cadastro incompleto</label>
             </div>
-            <button className="botao botao-secundario" type="button" onClick={buscarSegmento}>Aplicar filtros</button>
+            <div className="acoes-filtros acoes-filtros-publico">
+              <button className="botao botao-primario" type="button" onClick={buscarSegmento} disabled={filtrandoContatos}>{filtrandoContatos ? 'Buscando...' : 'Aplicar filtros'}</button>
+              <button className="botao botao-secundario" type="button" onClick={limparFiltrosPublico} disabled={filtrandoContatos}>Limpar filtros</button>
+            </div>
           </details>
           <div className="cabecalho-etapa-mensagem"><span>2</span><div><strong>Escolha os contatos</strong><small>Pesquise pelo nome ou telefone e marque quem será atendido.</small></div></div>
           <div className="seletor-contatos-comunicacao">
@@ -586,7 +628,7 @@ function ComunicacoesAdministrativas() {
           <section className="cartao painel-resultados">
             <div className="cabecalho-envio-whatsapp"><div><span>ETAPA FINAL</span><h2>Mensagens prontas para envio</h2><p>Abra, envie no WhatsApp e volte para confirmar.</p></div><strong>{filaManual.length} pendente(s)</strong></div>
             {filaManual.map(function (item, indice) {
-              return <article className="registro-historico cartao-envio-manual" key={item.id}><span className="numero-fila-mensagem">{indice + 1}</span><div><strong>Mensagem preparada</strong><p>{item.texto_preparado}</p><div className="acoes-filtros"><button className="botao botao-secundario" type="button" onClick={function () { copiarMensagem(item); }}>Copiar texto</button><a className="botao botao-whatsapp" href={item.linkWhatsapp} target="_blank" rel="noopener noreferrer">Abrir WhatsApp</a><button className="botao botao-confirmar-envio" type="button" onClick={function () { confirmar(item); }}>Confirmar que enviei</button></div></div></article>;
+              return <article className="registro-historico cartao-envio-manual" key={item.id}><span className="numero-fila-mensagem">{indice + 1}</span><div><strong>Mensagem preparada</strong><p>{item.texto_preparado}</p><div className="acoes-filtros"><button className="botao botao-secundario" type="button" onClick={function () { copiarMensagem(item); }}>Copiar texto</button><a className="botao botao-whatsapp" href={item.linkWhatsapp} target="_blank" rel="noopener noreferrer"><span aria-hidden="true">↗</span> Abrir WhatsApp</a><button className="botao botao-confirmar-envio" type="button" onClick={function () { confirmar(item); }}>Confirmar que enviei</button><button className="botao botao-perigo" type="button" onClick={function () { cancelar(item); }}>Cancelar mensagem</button></div></div></article>;
             })}
           </section>
         )}
@@ -610,7 +652,7 @@ function ComunicacoesAdministrativas() {
             <button className="botao botao-primario" type="button" onClick={function () { carregar(filtrosHistorico); }}>Aplicar filtros</button>
           </details>
           <div className="tabela-responsiva">
-            <table className="tabela-contatos"><thead><tr><th>Contato</th><th>Campanha / texto pronto</th><th>WhatsApp / operador</th><th>Status</th><th>Data</th></tr></thead><tbody>{comunicacoes.map(function (item) { return <tr key={item.id}><td>{item.contato_nome}<br /><small>{item.telefone}</small></td><td>{item.campanha_nome || 'Sem campanha'}<br /><small>{item.modelo_nome || 'Texto pronto'}</small></td><td>{item.numero_nome}<br /><small>{item.operador_nome}</small></td><td>{item.status === 'preparada' ? <button className="botao botao-primario" type="button" onClick={function () { confirmar(item); }}>Confirmar envio</button> : <select value={item.status} onChange={function (evento) { mudarStatus(item, evento.target.value); }}><option value="enviada">Mensagem enviada</option>{STATUS.filter(function (status) { return status[0] !== 'preparada' && status[0] !== 'enviada'; }).map(function (status) { return <option key={status[0]} value={status[0]}>{status[1]}</option>; })}</select>}</td><td>{new Date(item.criado_em).toLocaleString('pt-BR')}</td></tr>; })}</tbody></table>
+            <table className="tabela-contatos"><thead><tr><th>Contato</th><th>Campanha / texto pronto</th><th>WhatsApp / operador</th><th>Status</th><th>Data</th></tr></thead><tbody>{comunicacoes.map(function (item) { return <tr key={item.id}><td>{item.contato_nome}<br /><small>{item.telefone}</small></td><td>{item.campanha_nome || 'Sem campanha'}<br /><small>{item.modelo_nome || 'Texto pronto'}</small></td><td>{item.numero_nome}<br /><small>{item.operador_nome}</small></td><td>{item.status === 'preparada' ? <div className="acoes-status-preparada"><button className="botao botao-primario" type="button" onClick={function () { confirmar(item); }}>Confirmar envio</button><button className="botao botao-secundario" type="button" onClick={function () { cancelar(item); }}>Cancelar</button></div> : <select value={item.status} onChange={function (evento) { mudarStatus(item, evento.target.value); }}><option value="enviada">Mensagem enviada</option>{STATUS.filter(function (status) { return status[0] !== 'preparada' && status[0] !== 'enviada'; }).map(function (status) { return <option key={status[0]} value={status[0]}>{status[1]}</option>; })}</select>}</td><td>{new Date(item.criado_em).toLocaleString('pt-BR')}</td></tr>; })}</tbody></table>
           </div>
         </section>
       </div>

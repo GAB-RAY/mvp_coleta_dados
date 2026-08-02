@@ -957,6 +957,80 @@
   gap: 1rem;
 }
 
+.grupo-arquivo-importacao {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.grupo-arquivo-importacao > span {
+  color: var(--admin-texto);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.input-arquivo-oculto {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.seletor-arquivo {
+  display: flex;
+  min-height: 52px;
+  align-items: center;
+  gap: 0.75rem;
+  border: 1px solid var(--admin-borda);
+  border-radius: 12px;
+  padding: 0.55rem 0.75rem;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+}
+
+.seletor-arquivo:hover,
+.input-arquivo-oculto:focus + .seletor-arquivo {
+  border-color: var(--admin-laranja);
+  background: #fffaf7;
+  box-shadow: 0 0 0 3px rgba(255, 92, 0, 0.1);
+}
+
+.seletor-arquivo > span:last-child {
+  display: grid;
+  min-width: 0;
+  gap: 0.12rem;
+}
+
+.seletor-arquivo strong {
+  overflow: hidden;
+  color: var(--admin-texto);
+  font-size: 0.84rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.seletor-arquivo small {
+  color: var(--admin-texto-suave);
+  font-size: 0.72rem;
+}
+
+.icone-seletor-arquivo {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  background: var(--admin-laranja-claro);
+  color: var(--admin-laranja-escuro);
+  font-size: 1.1rem;
+  font-weight: 900;
+}
+
 .tabela-importacao {
   min-width: 760px;
 }
@@ -2124,13 +2198,47 @@
 }
 
 .botao-whatsapp {
+  display: inline-flex;
   min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border-color: #11713c;
   background: #168a4a;
   color: #fff;
+  box-shadow: 0 8px 18px rgba(22, 138, 74, 0.18);
 }
 
 .botao-whatsapp:hover {
   background: #11713c;
+  box-shadow: 0 10px 22px rgba(17, 113, 60, 0.24);
+}
+
+.acoes-filtros-publico {
+  grid-column: 1 / -1;
+  margin-top: 0.15rem;
+}
+
+.acoes-status-preparada {
+  display: flex;
+  min-width: 190px;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.acoes-status-preparada .botao {
+  width: 100%;
+  min-height: 36px;
+}
+
+.filtros-avancados-mensagens {
+  background: #fff;
+  box-shadow: 0 5px 18px rgba(42, 28, 20, 0.04);
+}
+
+.filtros-avancados-mensagens[open] > summary {
+  border-bottom: 1px solid var(--admin-borda);
+  margin-bottom: 1rem;
 }
 
 .botao-confirmar-envio {

@@ -472,6 +472,46 @@ async function executar() {
     const semEvento = await requisitar(baseUrl, '/api/admin/contatos?eventoId=sem_evento', { headers: adminHeaders });
     verificar(semEvento.status === 200 && semEvento.corpo.contatos.some(function (item) { return item.telefone === telefoneGeral; }), 'Filtro de cadastros gerais falhou.');
 
+    const totalInscricoesAntesExclusao = Number((await banco.query(
+      'SELECT COUNT(*) AS total FROM contato_eventos WHERE evento_id=$1',
+      [eventoId]
+    )).rows[0].total);
+    verificar(
+      (await requisitar(baseUrl, '/api/admin/eventos/' + eventoId, {
+        method: 'DELETE', headers: operadorHeaders
+      })).status === 403,
+      'Operador conseguiu excluir evento.'
+    );
+    verificar(
+      (await requisitar(baseUrl, '/api/admin/eventos/' + eventoId, {
+        method: 'DELETE', headers: adminHeaders
+      })).status === 200,
+      'Administrador não conseguiu excluir evento.'
+    );
+    const eventosDepoisDaExclusao = await requisitar(baseUrl, '/api/admin/eventos', {
+      headers: adminHeaders
+    });
+    verificar(
+      !eventosDepoisDaExclusao.corpo.eventos.some(function (item) {
+        return item.id === eventoId;
+      }),
+      'Evento excluído continuou aparecendo no painel.'
+    );
+    verificar(
+      Number((await banco.query(
+        "SELECT COUNT(*) AS total FROM historico_eventos WHERE evento_id=$1 AND tipo_acao='exclusao'",
+        [eventoId]
+      )).rows[0].total) === 1,
+      'Exclusão do evento não foi registrada no histórico.'
+    );
+    verificar(
+      Number((await banco.query(
+        'SELECT COUNT(*) AS total FROM contato_eventos WHERE evento_id=$1',
+        [eventoId]
+      )).rows[0].total) === totalInscricoesAntesExclusao,
+      'Exclusão do evento removeu inscrições existentes.'
+    );
+
     console.log('Eventos, permissões e exclusões: ' + total + ' verificações aprovadas.');
   } finally {
     if (servidor) {

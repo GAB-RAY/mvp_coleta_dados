@@ -60,7 +60,7 @@ Considere este cenário somente quando não houver implementação aproveitável
 
 Na atualização de 31/07/2026, o repositório já possuía backend, frontend e
 schema completo implementados. O schema atual possui 21 tabelas e 166 bairros.
-A suíte do backend concluiu 376 verificações e o build do frontend transformou
+A suíte do backend concluiu 385 verificações e o build do frontend transformou
 69 módulos. Esses resultados servem como referência de regressão, não como
 substitutos para uma nova execução dos testes no ambiente recebido.
 
@@ -353,6 +353,7 @@ Regras:
 - oferecer acesso direto aos participantes e busca combinável por nome completo ou telefone.
 - permitir que operador abra eventos em modo somente leitura e consulte participantes;
 - manter criação, edição, ativação e encerramento exclusivos do administrador.
+- permitir exclusão lógica somente por administrador, ocultando o evento sem apagar participantes ou histórico;
 - ao criar um evento, gerar no frontend um QR Code exclusivo para
   `/participar?evento=<id>`;
 - validar o identificador no backend e recusar o QR com `410` quando o evento
@@ -366,6 +367,7 @@ Regras:
 - cadastrar textos prontos editáveis somente por administrador e exigir um texto pronto ativo em todo atendimento;
 - permitir que operador e administrador preparem mensagens para contatos não bloqueados e abram `wa.me` manualmente;
 - abrir o WhatsApp nunca registra envio;
+- permitir cancelar somente uma mensagem ainda preparada; envio confirmado não pode ser cancelado;
 - registrar manualmente andamento, envio, resposta e responsável;
 - preservar histórico por contato e evento e alertar repetição da mesma campanha;
 - usar somente `{{nome}}`, `{{evento}}`, `{{data}}`, `{{horario}}`, `{{local}}` e `{{link}}` como campos substituíveis.

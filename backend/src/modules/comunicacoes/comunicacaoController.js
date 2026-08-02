@@ -107,6 +107,14 @@ function confirmarEnvio(req, res, next) {
     });
   });
 }
+function cancelarPreparada(req, res, next) {
+  return executar(next, async function responder() {
+    await service.cancelarPreparada(req.params.id, req.usuario);
+    return res.status(200).json({
+      mensagem: 'Mensagem preparada cancelada com sucesso.'
+    });
+  });
+}
 function listar(req, res, next) {
   return executar(next, async function responder() {
     return res.status(200).json({ comunicacoes: await service.listar(req.query) });
@@ -127,7 +135,7 @@ function atualizar(req, res, next) {
 }
 
 module.exports = {
-  atualizar, confirmarEnvio, criarCampanha, criarModelo, criarNumero,
+  atualizar, cancelarPreparada, confirmarEnvio, criarCampanha, criarModelo, criarNumero,
   editarCampanha, editarModelo, editarNumero, excluirNumero, listar, listarCampanhas,
   listarContatos, listarHistorico, listarModelos, listarNumeros,
   listarOperadores, preparar
