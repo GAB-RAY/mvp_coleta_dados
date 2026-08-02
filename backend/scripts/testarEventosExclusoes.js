@@ -180,7 +180,7 @@ async function executar() {
       })
     });
     verificar(
-      contextoDesatualizado.status === 409,
+      contextoDesatualizado.status === 201 && contextoDesatualizado.corpo.evento === null,
       'Formulário com contexto de evento desatualizado não foi recusado.'
     );
     const contatoContextoDesatualizado = await banco.query(
@@ -188,7 +188,7 @@ async function executar() {
       ['21999001155']
     );
     verificar(
-      contatoContextoDesatualizado.rows[0].total === 0,
+      contatoContextoDesatualizado.rows[0].total === 1,
       'Contexto desatualizado persistiu contato parcialmente.'
     );
 
@@ -375,7 +375,7 @@ async function executar() {
     );
 
     const opcoesComEvento = await requisitar(baseUrl, '/api/publico/contatos/opcoes');
-    verificar(opcoesComEvento.status === 200 && opcoesComEvento.corpo.eventoAtivo.id === eventoId, 'Formulário não informou o evento ativo.');
+    verificar(opcoesComEvento.status === 200 && opcoesComEvento.corpo.eventoAtivo === null, 'Formulário geral foi vinculado automaticamente a evento.');
     const opcoesQrEvento = await requisitar(
       baseUrl,
       '/api/publico/contatos/opcoes?eventoId=' + eventoId

@@ -49,6 +49,7 @@ async function listarOpcoes(requisicao, resposta, proximo) {
     return resposta.status(200).json({
       bairros: opcoes.bairros,
       categoriasProblema: opcoes.categoriasProblema,
+      textosConsentimento: opcoes.textosConsentimento,
       eventoAtivo: opcoes.eventoAtivo,
       contextoCadastro: opcoes.contextoCadastro
     });
@@ -128,7 +129,8 @@ async function detalhar(requisicao, resposta, proximo) {
       contato: resultado.contato,
       consentimentos: resultado.consentimentos,
       aceitesPrivacidade: resultado.aceitesPrivacidade,
-      historico: resultado.historico
+      historico: resultado.historico,
+      comunicacoes: resultado.comunicacoes
     });
   } catch (erro) {
     return proximo(erro);

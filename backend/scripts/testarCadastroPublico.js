@@ -63,6 +63,28 @@ async function buscarResumoContato(telefone) {
   return resultado.rows[0] || null;
 }
 
+async function buscarAutorizacao(telefone, tipo) {
+  const resultado = await banco.query(
+    `
+      SELECT
+        consentimento.tipo,
+        consentimento.texto_apresentado,
+        consentimento.versao_texto,
+        consentimento.canal,
+        consentimento.estado,
+        consentimento.criado_em
+      FROM consentimentos AS consentimento
+      INNER JOIN contatos AS contato ON contato.id = consentimento.contato_id
+      WHERE contato.telefone_normalizado = $1
+        AND consentimento.tipo = $2
+        AND consentimento.ativo = TRUE
+    `,
+    [telefone, tipo]
+  );
+
+  return resultado.rows[0] || null;
+}
+
 async function limparDadosTemporarios() {
   const cliente = await banco.connect();
 
@@ -138,6 +160,20 @@ async function executar() {
     assert.strictEqual(opcoes.corpo.bairros.length, 166);
     assert.ok(opcoes.corpo.bairros.includes('Argentino'));
     assert.ok(opcoes.corpo.bairros.includes('São Cristóvão'));
+    assert.strictEqual(
+      opcoes.corpo.textosConsentimento.avisoPrivacidade.versao,
+      'aviso_privacidade_v3'
+    );
+    assert.strictEqual(
+      opcoes.corpo.textosConsentimento.mensagens.versao,
+      'mensagens_whatsapp_v3'
+    );
+    assert.ok(opcoes.corpo.textosConsentimento.mensagens.texto.includes('WhatsApp'));
+    assert.ok(opcoes.corpo.textosConsentimento.mensagens.texto.includes('revogar'));
+    assert.strictEqual(
+      opcoes.corpo.textosConsentimento.ligacoes.versao,
+      'ligacoes_v3'
+    );
 
     assert.strictEqual((await requisitar(baseUrl, '/api/publico/contatos', {
       method: 'POST', body: JSON.stringify(criarDados('000', { bairro: 'Bairro inventado' }))
@@ -162,7 +198,10 @@ async function executar() {
     })).status, 400);
 
     const semAutorizacoes = await requisitar(baseUrl, '/api/publico/contatos', {
-      method: 'POST', body: JSON.stringify(criarDados('010', { bairro: 'vila kennedy' }))
+      method: 'POST', body: JSON.stringify(criarDados('010', {
+        bairro: 'vila kennedy',
+        idade: 16
+      }))
     });
     assert.strictEqual(semAutorizacoes.status, 201);
     assert.strictEqual(
@@ -173,6 +212,7 @@ async function executar() {
     assert.strictEqual(resumo.aceites, 1);
     assert.strictEqual(resumo.autorizacoes, 0);
     assert.strictEqual(resumo.bairro, 'Vila Kennedy');
+    assert.strictEqual(resumo.idade, 16);
     assert.strictEqual(resumo.descricao_problema, null);
 
     assert.strictEqual((await requisitar(baseUrl, '/api/publico/contatos', {
@@ -180,12 +220,29 @@ async function executar() {
     })).status, 201);
     resumo = await buscarResumoContato(PREFIXO_TELEFONE + '011');
     assert.strictEqual(resumo.autorizacoes, 1);
+    const autorizacaoMensagens = await buscarAutorizacao(
+      PREFIXO_TELEFONE + '011',
+      'mensagens'
+    );
+    assert.strictEqual(autorizacaoMensagens.versao_texto, 'mensagens_whatsapp_v3');
+    assert.strictEqual(autorizacaoMensagens.canal, 'formulario_publico');
+    assert.strictEqual(autorizacaoMensagens.estado, 'autorizado');
+    assert.ok(autorizacaoMensagens.texto_apresentado.includes('WhatsApp'));
+    assert.ok(autorizacaoMensagens.criado_em);
 
     assert.strictEqual((await requisitar(baseUrl, '/api/publico/contatos', {
       method: 'POST', body: JSON.stringify(criarDados('012', { autorizacaoLigacoes: true }))
     })).status, 201);
     resumo = await buscarResumoContato(PREFIXO_TELEFONE + '012');
     assert.strictEqual(resumo.autorizacoes, 1);
+    const autorizacaoLigacoes = await buscarAutorizacao(
+      PREFIXO_TELEFONE + '012',
+      'ligacoes'
+    );
+    assert.strictEqual(autorizacaoLigacoes.versao_texto, 'ligacoes_v3');
+    assert.strictEqual(autorizacaoLigacoes.canal, 'formulario_publico');
+    assert.strictEqual(autorizacaoLigacoes.estado, 'autorizado');
+    assert.ok(autorizacaoLigacoes.criado_em);
 
     const ambos = criarDados('013', {
       autorizacaoMensagens: true,
@@ -281,7 +338,7 @@ async function executar() {
     );
     assert.deepStrictEqual(legadosDepois.rows, legadosAntes.rows);
 
-    console.log('Cadastro público: 27 verificações aprovadas.');
+    console.log('Cadastro público: 42 verificações aprovadas.');
     console.log('Consentimentos anteriores preservados: ' + legadosDepois.rowCount + ' registros.');
     console.log('Rollback: contato inválido não persistido.');
   } finally {

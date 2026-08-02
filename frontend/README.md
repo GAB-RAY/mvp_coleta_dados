@@ -15,21 +15,27 @@ Variáveis:
 ```env
 VITE_API_URL=http://localhost:3000
 VITE_WHATSAPP_NUMERO=5521999999999
+VITE_PRIVACIDADE_EMAIL=seu-email-de-privacidade@example.com
 ```
 
 O WhatsApp deve conter país, DDD e número, somente com dígitos. Reinicie o Vite após mudar o `.env`. O botão abre `wa.me` em nova aba e não envia o formulário automaticamente.
+Substitua o endereço de exemplo pelo e-mail oficial criado para o projeto.
 
 ## Páginas
 
 | Rota | Acesso | Função |
 |---|---|---|
-| `/participar` | público | Formulário responsivo; o contexto adicional aparece somente com evento ativo. |
+| `/participar` | público | Formulário geral responsivo; `?evento=<id>` ativa o contexto exclusivo. |
+| `/privacidade` | público | Política de Privacidade, finalidades, compartilhamento, retenção e direitos. |
+| `/termos` | público | Termos de utilização do formulário público. |
+| `/excluir-dados` | público | Orientações e canal para solicitar exclusão ou revogação. |
 | `/login` | público | Login administrativo. |
 | `/admin` | JWT | Visão geral. |
 | `/admin/contatos` | operador/admin | Busca, filtros, evento e paginação. |
 | `/admin/contatos/:id` | operador/admin | Dados, eventos, histórico, revogações e pedido de exclusão. |
 | `/admin/contatos/novo` | operador/admin | Cadastro e edição manual. |
 | `/admin/importacoes` | operador/admin | Pré-visualização e confirmação CSV/XLSX. |
+| `/admin/comunicacoes` | operador/admin | Segmentação, preparo, abertura manual, confirmação, status e histórico; cadastros somente para admin. |
 | `/admin/relatorios` | operador/admin | Indicadores e gráficos; CSV e Excel aparecem somente para admin. |
 | `/admin/backups` | admin | Geração, download e histórico auditado de backups do PostgreSQL. |
 | `/admin/eventos` | operador/admin | Operador consulta eventos e participantes; administrador também cria, edita, ativa e encerra. |
@@ -43,30 +49,77 @@ Campos atuais:
 - nome;
 - telefone;
 - bairro selecionado no catálogo carregado do backend;
-- idade entre 16 e 120;
+- idade inteira entre 16 e 120; pessoas com menos de 16 anos são bloqueadas
+  no navegador, na API e pelo banco;
 - categoria do problema;
 - autorização opcional para mensagens;
 - autorização opcional para ligações;
 - aceite obrigatório do Aviso de Privacidade.
 
-As autorizações opcionais de mensagens e ligações iniciam marcadas e podem ser
-desmarcadas antes do envio. O aceite obrigatório do Aviso de Privacidade inicia
-desmarcado e exige ação direta da pessoa.
+As autorizações opcionais de mensagens pelo WhatsApp e ligações iniciam
+desmarcadas e exigem escolha voluntária da pessoa. O aceite obrigatório do Aviso
+de Privacidade também inicia desmarcado. Não marcar as autorizações opcionais não
+impede o cadastro.
 
-O formulário não exibe descrição do problema. O mesmo link é usado sempre. Sem evento ativo, o cadastro completo continua funcionando normalmente e não mostra aviso adicional.
+O texto do WhatsApp identifica Acorda VK e Diogo Ventura, informa as categorias
+de conteúdo e orienta a revogação pelo canal oficial de privacidade. A
+autorização de ligação possui texto e caixa separados. O formulário contém
+links para Privacidade, Termos e Exclusão de dados.
+
+A Política de Privacidade identifica o controlador, dados, finalidades, bases
+legais, idade mínima, comunicações políticas, fornecedores, transferências
+internacionais, retenção, segurança e direitos. O canal oficial precisa ser
+configurado em `VITE_PRIVACIDADE_EMAIL` antes do início da coleta oficial.
+
+Os textos exibidos são carregados da configuração ativa do backend. Assim, texto
+e versão mostrados à pessoa são os mesmos gravados no histórico do PostgreSQL.
+
+O formulário não exibe descrição do problema. `/participar` é sempre o cadastro geral. Cada evento possui link próprio em `/participar?evento=<id>`.
 
 O visual público usa a identidade `Acorda VK`, cabeçalho laranja, apresentação destacada e laterais com elementos laranja discretos. Nome, bairro e categoria ocupam a largura total; telefone e idade ficam lado a lado quando houver espaço e são empilhados no celular. A aba do formulário mostra `Acorda VK`, enquanto login e painel usam `Central de Comunicação`.
+Após o formulário, um resumo compacto mantém acesso direto às páginas de
+Privacidade, Termos e Exclusão sem repetir textos longos.
 
-Quando existe evento ativo, a primeira etapa solicita somente nome completo e telefone. Se o telefone não existir, o formulário completo é aberto com os dois campos preservados. Se ambos corresponderem a um contato existente, a tela permite confirmar a inscrição sem mostrar dados pessoais nem exigir novamente bairro, idade, categoria ou consentimentos. Nome divergente não cria contato nem vínculo. Se a inscrição já existir, a tela apenas informa o resultado sem duplicar o registro.
+No link exclusivo de um evento ativo e com inscrições abertas, a primeira etapa solicita somente nome completo e telefone. Se o telefone não existir, o formulário completo é aberto com os dois campos preservados. Se ambos corresponderem a um contato existente, a tela permite confirmar a inscrição sem mostrar dados pessoais nem exigir novamente bairro, idade, categoria ou consentimentos. Nome divergente não cria contato nem vínculo. Se a inscrição já existir, a tela apenas informa o resultado sem duplicar o registro.
 
 Depois da identificação, `Meus dados mudaram` abre o formulário completo. O telefone fica bloqueado, os dados declarados são enviados com o nome usado na confirmação e o backend registra as alterações no histórico antes de concluir o vínculo.
 
 O identificador do evento exibido acompanha o envio. Se o administrador trocar ou encerrar o evento enquanto a pessoa preenche, o backend retorna `409`; o frontend atualiza o contexto, mantém os campos preenchidos e pede um novo envio consciente.
 
-Ao ativar um evento, o administrador pode visualizar, copiar e baixar um QR Code
+Ao criar um evento, o administrador pode visualizar, copiar e baixar um QR Code
 SVG exclusivo. Ele aponta para `/participar?evento=<id>` e deixa de aceitar
 inscrições quando o evento é encerrado ou sai do período. O endereço normal
-`/participar` permanece disponível para o cadastro geral e para o evento ativo.
+`/participar` permanece disponível exclusivamente para o cadastro geral.
+
+## Comunicação manual
+
+O administrador cadastra WhatsApps da equipe, textos prontos e campanhas. Cada linha
+ou ficha de contato possui o atalho `Enviar mensagem`. Operadores e
+administradores podem segmentar por situação, cadastro incompleto, consentimento,
+bairro, problema, evento e campanha ainda não recebida.
+
+Os números aparecem em uma lista com ações explícitas de editar e excluir. Um
+número com histórico não pode ser excluído; nesse caso, deve ser desativado. O
+seletor `Número remetente` mostra somente canais ativos com número e responsável.
+
+Depois da seleção, escolhem canal, texto pronto, campanha e evento. Não existe
+mensagem livre nessa etapa: o conteúdo precisa ser criado previamente pelo
+administrador. O painel exibe apenas uma prévia compacta, monta o texto
+personalizado e abre uma conversa por vez em `wa.me`. Abrir a conversa não registra
+envio. O botão `Confirmar envio` é uma ação posterior e separada.
+
+Os estados aguardando resposta, respondeu, sem resposta, recusou atendimento,
+telefone inválido e concluído são informados manualmente. Filtros do histórico
+incluem campanha, template, operador, WhatsApp usado, bairro, problema, evento e
+período do último contato.
+
+Na tela de contatos, os filtros categóricos são dropdowns. O andamento permite
+localizar quem nunca recebeu mensagem, recebeu, respondeu, não respondeu,
+aguarda resposta, recusou, possui telefone inválido ou concluiu o atendimento.
+
+Quando o contato já recebeu a mesma campanha, o painel exige confirmação e
+motivo antes de preparar um reenvio. O envio, a confirmação e a atualização do
+andamento são realizados manualmente pela equipe.
 
 ## Painel e permissões
 
@@ -87,7 +140,9 @@ Na gestão de usuários, o administrador pode atualizar o próprio nome e criar 
 
 Contatos importados somente com telefone mantêm nome, bairro, idade e categoria como `NULL` no banco. Na listagem, nos detalhes e na pré-visualização da importação, esses valores ausentes aparecem visualmente como “Não informado”, permitindo complementação futura sem confundir o texto com um dado real.
 
-A importação aceita um único arquivo CSV ou XLSX com até 5 MB e 20.000 linhas. Durante a confirmação, o botão permanece bloqueado e informa que a importação está em andamento.
+A importação aceita um único arquivo CSV ou XLSX com até 5 MB e 20.000 linhas. A origem é escolhida em um dropdown com as fontes de importação existentes, com opção para cadastrar uma nova. Durante a confirmação, o botão permanece bloqueado e informa que a importação está em andamento.
+
+A própria página apresenta o histórico resumido dos lotes, com origem, arquivo, status, quantidade, responsável e data, sem mostrar dados dos contatos. Operadores apenas consultam; administradores podem excluir o registro do lote após confirmação explícita. A exclusão preserva todos os contatos já importados.
 
 Ao gerar um backup, o frontend baixa o arquivo retornado pelo backend e exibe o hash SHA-256. O histórico informa responsável, data, estado, tamanho e hash, sem expor credenciais do banco.
 
@@ -105,15 +160,16 @@ Na Vercel, `vercel.json` aplica CSP, bloqueio de iframe, `nosniff`, política de
 npm run build
 ```
 
-Resultado de 27/07/2026: Vite 8.1.5, 62 módulos transformados e build concluído.
+Resultado de 02/08/2026: Vite 8.1.5, 69 módulos transformados e build concluído.
 
 ## Vercel
 
 1. Publique a pasta `frontend`.
 2. Configure `VITE_API_URL` com a URL HTTPS do backend.
 3. Configure `VITE_WHATSAPP_NUMERO`.
-4. Faça novo deploy após alterar variáveis.
-5. Configure `FRONTEND_URL` no backend com o domínio final da Vercel.
-6. Confirme os cabeçalhos de segurança no domínio publicado.
+4. Configure `VITE_PRIVACIDADE_EMAIL` com o e-mail oficial criado para os titulares.
+5. Faça novo deploy após alterar variáveis.
+6. Configure `FRONTEND_URL` no backend com o domínio final da Vercel.
+7. Confirme os cabeçalhos de segurança no domínio publicado.
 
 A Vercel informa o domínio final na página do projeto. Use esse mesmo domínio com `/participar` para o formulário e `/login` para o acesso administrativo. O formulário não exibe link para o login.

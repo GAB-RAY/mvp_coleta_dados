@@ -14,6 +14,8 @@ Sistema real de coleta e gestão de contatos comunitários. O projeto possui for
 - catálogo de 166 bairros validado no PostgreSQL;
 - categorias de problema centralizadas no backend;
 - consentimentos separados para mensagens e ligações;
+- opt-ins de WhatsApp e ligações desmarcados por padrão e registrados com texto, versão, origem e data;
+- páginas públicas de privacidade, termos e solicitação de exclusão;
 - botão público de WhatsApp configurado por variável de ambiente;
 - login administrativo com JWT e proteção contra tentativas repetidas;
 - perfis `administrador` e `operador`;
@@ -22,7 +24,8 @@ Sistema real de coleta e gestão de contatos comunitários. O projeto possui for
 - revogações imutáveis com responsável, data, hora e motivo opcional;
 - pedidos de exclusão pendentes, aprovados ou rejeitados;
 - exclusão física do contato somente após aprovação do administrador;
-- eventos no mesmo formulário público, com identificação inicial por nome completo e telefone;
+- formulário geral permanente e formulários exclusivos por evento, todos reutilizando o mesmo componente público;
+- vários eventos podem permanecer ativos simultaneamente, cada um com descrição, data, horário, local/link e período de inscrições;
 - QR Code exclusivo por evento, válido somente enquanto o evento estiver ativo e dentro do período;
 - contato novo segue para o formulário completo; contato existente confirma a inscrição sem preencher tudo novamente;
 - inscrição idempotente: o mesmo contato não é vinculado duas vezes ao mesmo evento;
@@ -31,14 +34,18 @@ Sistema real de coleta e gestão de contatos comunitários. O projeto possui for
 - acesso direto aos participantes e busca por nome ou telefone;
 - eventos em modo somente leitura para operadores; criação e alterações continuam exclusivas do administrador;
 - validação do evento exibido antes de concluir o envio público;
-- índice único no PostgreSQL garantindo no máximo um evento ativo;
+- lista própria de participantes por evento, com busca, status de inscrição e andamento da comunicação;
 - relatórios clicáveis por bairro, categoria e evento, incluindo necessidades por bairro;
 - exportação de contatos em CSV e Excel exclusiva para administradores;
 - backup completo do PostgreSQL pelo painel, exclusivo para administradores e com auditoria SHA-256;
 - proteção do formulário público com limite por IP/telefone, cache e controle de concorrência;
 - pool PostgreSQL limitado, tempos máximos, recuperação de conexões e desligamento gracioso;
 - endpoints separados de vida e prontidão para monitoramento em produção;
-- estrutura reservada para futura integração com ManyChat.
+- comunicações manuais com WhatsApps da equipe, textos prontos obrigatórios, campanhas, segmentação, campos substituíveis e histórico;
+- abrir ou copiar uma mensagem nunca marca envio; existe uma confirmação humana separada após o envio real;
+- a mesma campanha não pode ser confirmada novamente para o mesmo contato sem aviso, confirmação e motivo registrado;
+- status de atendimento, resposta, recusa, telefone inválido e conclusão são atualizados manualmente;
+- toda comunicação é preparada, aberta e confirmada manualmente pela equipe.
 
 ## Permissões
 
@@ -52,6 +59,9 @@ Sistema real de coleta e gestão de contatos comunitários. O projeto possui for
 | Exportar Excel | Não | Sim |
 | Gerar e baixar backup do banco | Não | Sim |
 | Gerenciar eventos | Não | Sim |
+| Consultar participantes e atualizar inscrição | Sim | Sim |
+| Preparar e registrar comunicação manual | Sim | Sim |
+| Gerenciar números, textos prontos e campanhas | Não | Sim |
 | Gerenciar usuários e senhas | Não | Sim |
 
 Não existem rotas para apagar diretamente contatos, revogações ou históricos. Ao aprovar um pedido, o administrador confirma uma exclusão física. O registro do pedido e os registros de consentimento/revogação permanecem sem os dados pessoais do contato.
@@ -71,7 +81,20 @@ Para atualizar um banco existente, faça e teste um backup completo, crie um ban
 
 > Nunca execute `backend/database/criar_banco.sql` sobre um banco que já possua estrutura ou dados. O próprio script recusa essa execução.
 
-O schema atual possui 22 tabelas. As seis tabelas preparatórias do ManyChat foram mantidas: `campanhas`, `campanha_contatos`, `envios_campanha`, `respostas_campanha`, `eventos_manychat` e `sincronizacoes_manychat`. A tabela `backups_banco` registra cada tentativa de backup, seu responsável, estado, tamanho e hash SHA-256.
+O schema atual possui 21 tabelas. `numeros_whatsapp`, `modelos_mensagem`,
+`campanhas`, `comunicacoes` e `historico_comunicacoes` organizam somente
+o trabalho manual. A tabela `backups_banco` registra cada tentativa de
+backup, seu responsável, estado, tamanho e hash SHA-256.
+
+Para um banco existente que já possui o módulo anterior de mensagens, faça
+backup e execute uma vez:
+
+```powershell
+cd backend
+npm run banco:sincronizar-comunicacao
+```
+
+O comando usa transação, advisory lock e operações idempotentes; não apaga dados.
 
 ## Como iniciar
 
@@ -97,15 +120,21 @@ Endereços padrão:
 - login: `http://localhost:5173/login`;
 - API: `http://localhost:3000/api/teste`.
 
-## Configuração do WhatsApp
+## Configuração pública
 
 No arquivo `frontend/.env`, informe o número com código do país e DDD, somente com números:
 
 ```env
 VITE_WHATSAPP_NUMERO=5521999999999
+VITE_PRIVACIDADE_EMAIL=seu-email-de-privacidade@example.com
 ```
 
-Reinicie o Vite depois de alterar a variável. O botão apenas abre uma conversa; ele não envia dados automaticamente.
+Reinicie o Vite depois de alterar as variáveis. O botão apenas abre uma conversa;
+ele não envia dados automaticamente. O e-mail é mostrado em `/privacidade`,
+`/termos` e `/excluir-dados` como canal dos titulares. Substitua o endereço de
+exemplo pelo e-mail oficial do projeto antes de iniciar a coleta oficial. O
+formulário aceita somente pessoas com idade inteira entre 16 e 120 anos; as
+autorizações de WhatsApp e ligações permanecem opcionais e desmarcadas.
 
 ## Publicação sugerida
 
@@ -120,6 +149,9 @@ Depois do deploy, a Vercel mostra o domínio público na página do projeto e em
 - formulário: `https://nome-do-projeto.vercel.app/participar`;
 - login administrativo: `https://nome-do-projeto.vercel.app/login`;
 - painel após autenticação: `https://nome-do-projeto.vercel.app/admin`.
+- privacidade: `https://nome-do-projeto.vercel.app/privacidade`;
+- termos: `https://nome-do-projeto.vercel.app/termos`;
+- exclusão de dados: `https://nome-do-projeto.vercel.app/excluir-dados`.
 
 A URL da DigitalOcean é da API e deve ser configurada em `VITE_API_URL`; ela não é o endereço que a equipe usa para abrir o painel.
 
@@ -140,14 +172,14 @@ No App Platform, configure:
 
 ## Validação atual
 
-Em 27/07/2026:
+Em 02/08/2026:
 
-- schema criado em banco vazio de teste: 22 tabelas;
+- schema criado em banco vazio de teste: 21 tabelas;
 - banco principal recriado exclusivamente pelo schema completo, sem migrations;
 - backup prévio restaurado e validado em banco separado;
 - `npm run testar:importacao-carga`: 15.000 contatos importados e validados, com limpeza automática;
 - limite máximo validado: arquivo único com 20.000 contatos;
-- `npm test`: 329 verificações aprovadas;
-- `npm run build`: 62 módulos transformados;
-- banco principal validado com 166 bairros, 1 contato, 1 evento ativo e o administrador Gabriel preservado como ID 1;
-- sequências das 22 tabelas sincronizadas.
+- `npm test`: 376 verificações aprovadas;
+- `npm run build`: 69 módulos transformados;
+- banco principal validado com 166 bairros e integridade estrutural preservada;
+- sincronizador da comunicação executado novamente sem reaplicar estruturas.

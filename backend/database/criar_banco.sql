@@ -1,6 +1,6 @@
 -- Criação completa do banco de dados do projeto Acorda VK.
--- Representa o estado estrutural atual e adiciona somente a base aprovada
--- para uma futura integração com o ManyChat.
+-- Representa o estado estrutural atual do sistema, sem automação ou
+-- disparo de mensagens.
 --
 -- USO EXCLUSIVO EM BANCO POSTGRESQL VAZIO.
 -- Este arquivo falha de propósito se encontrar alguma tabela do projeto.
@@ -33,17 +33,16 @@ BEGIN
       'historico_contatos',
       'importacao_linhas',
       'importacoes',
-      'origens',
+      'numeros_whatsapp',
+      'modelos_mensagem',
       'campanhas',
-      'campanha_contatos',
-      'envios_campanha',
-      'respostas_campanha',
-      'eventos_manychat',
+      'comunicacoes',
+      'historico_comunicacoes',
+      'origens',
       'eventos',
       'historico_eventos',
       'contato_eventos',
       'solicitacoes_exclusao',
-      'sincronizacoes_manychat',
       'tentativas_login',
       'textos_formulario',
       'usuarios'
@@ -126,8 +125,13 @@ CREATE TABLE public.eventos (
   id BIGINT GENERATED ALWAYS AS IDENTITY,
   nome VARCHAR(150) NOT NULL,
   motivo TEXT NOT NULL,
-  data_inicial DATE NOT NULL,
-  data_final DATE NOT NULL,
+  descricao TEXT,
+  data_inicial TIMESTAMPTZ NOT NULL,
+  data_final TIMESTAMPTZ NOT NULL,
+  local_evento VARCHAR(500),
+  link_evento VARCHAR(1000),
+  inscricoes_inicio TIMESTAMPTZ NOT NULL,
+  inscricoes_fim TIMESTAMPTZ NOT NULL,
   status VARCHAR(30) NOT NULL DEFAULT 'rascunho',
   criado_por_usuario_id BIGINT NOT NULL,
   atualizado_por_usuario_id BIGINT NOT NULL,
@@ -137,6 +141,7 @@ CREATE TABLE public.eventos (
   CONSTRAINT eventos_nome_nao_vazio CHECK (LENGTH(TRIM(nome)) >= 2),
   CONSTRAINT eventos_motivo_nao_vazio CHECK (LENGTH(TRIM(motivo)) >= 2),
   CONSTRAINT eventos_periodo_valido CHECK (data_final >= data_inicial),
+  CONSTRAINT eventos_periodo_inscricoes_valido CHECK (inscricoes_fim >= inscricoes_inicio),
   CONSTRAINT eventos_status_valido CHECK (
     status IN ('rascunho', 'ativo', 'encerrado')
   )
@@ -180,8 +185,6 @@ CREATE TABLE public.contatos (
   idade SMALLINT,
   descricao_problema TEXT,
   bloqueado_para_ligacoes BOOLEAN NOT NULL DEFAULT FALSE,
-  bloqueado_para_campanhas BOOLEAN NOT NULL DEFAULT FALSE,
-  manychat_contact_id VARCHAR(255),
   CONSTRAINT contatos_pkey PRIMARY KEY (id),
   CONSTRAINT contatos_bairro_nao_vazio CHECK (
     LENGTH(TRIM(bairro)) >= 2
@@ -196,9 +199,6 @@ CREATE TABLE public.contatos (
   ),
   CONSTRAINT contatos_idade_valida CHECK (
     idade IS NULL OR idade BETWEEN 16 AND 120
-  ),
-  CONSTRAINT contatos_manychat_contact_id_nao_vazio CHECK (
-    manychat_contact_id IS NULL OR LENGTH(TRIM(manychat_contact_id)) >= 1
   ),
   CONSTRAINT contatos_nome_nao_vazio CHECK (
     LENGTH(TRIM(nome)) >= 2
@@ -221,8 +221,12 @@ CREATE TABLE public.contato_eventos (
   id BIGINT GENERATED ALWAYS AS IDENTITY,
   contato_id BIGINT NOT NULL,
   evento_id BIGINT NOT NULL,
+  status_inscricao VARCHAR(30) NOT NULL DEFAULT 'inscrito',
   cadastrado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT contato_eventos_pkey PRIMARY KEY (id),
+  CONSTRAINT contato_eventos_status_valido CHECK (
+    status_inscricao IN ('inscrito', 'confirmado', 'presente', 'cancelado')
+  ),
   CONSTRAINT contato_eventos_contato_evento_unicos UNIQUE (contato_id, evento_id)
 );
 
@@ -360,9 +364,7 @@ CREATE TABLE public.importacoes (
   criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   confirmado_em TIMESTAMPTZ,
   CONSTRAINT importacoes_pkey PRIMARY KEY (id),
-  CONSTRAINT importacoes_formato_valido CHECK (
-    formato IN ('csv', 'xlsx')
-  ),
+  CONSTRAINT importacoes_formato_valido CHECK (formato IN ('csv', 'xlsx')),
   CONSTRAINT importacoes_status_valido CHECK (
     status IN ('pre_visualizada', 'processando', 'concluida', 'falhou')
   )
@@ -381,16 +383,92 @@ CREATE TABLE public.importacao_linhas (
   CONSTRAINT importacao_linhas_pkey PRIMARY KEY (id),
   CONSTRAINT importacao_linhas_numero_unico UNIQUE (importacao_id, numero_linha),
   CONSTRAINT importacao_linhas_resultado_valido CHECK (
-    resultado IN (
-      'pendente',
-      'criado',
-      'complementado',
-      'ignorado',
-      'duplicado',
-      'invalido',
-      'erro'
-    )
+    resultado IN ('pendente','criado','complementado','ignorado','duplicado','invalido','erro')
   )
+);
+
+CREATE TABLE public.numeros_whatsapp (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  nome VARCHAR(100) NOT NULL,
+  numero VARCHAR(30) NOT NULL,
+  numero_normalizado VARCHAR(20) NOT NULL,
+  responsavel VARCHAR(150) NOT NULL,
+  observacao TEXT,
+  ativo BOOLEAN NOT NULL DEFAULT TRUE,
+  criado_por_usuario_id BIGINT NOT NULL,
+  atualizado_por_usuario_id BIGINT NOT NULL,
+  criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  atualizado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT numeros_whatsapp_nome_valido CHECK (LENGTH(TRIM(nome)) >= 2),
+  CONSTRAINT numeros_whatsapp_numero_valido CHECK (numero_normalizado ~ '^[0-9]{10,15}$')
+);
+
+CREATE TABLE public.modelos_mensagem (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  nome VARCHAR(150) NOT NULL,
+  categoria VARCHAR(100) NOT NULL,
+  texto TEXT NOT NULL,
+  evento_id BIGINT,
+  ativo BOOLEAN NOT NULL DEFAULT TRUE,
+  criado_por_usuario_id BIGINT NOT NULL,
+  atualizado_por_usuario_id BIGINT NOT NULL,
+  criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  atualizado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT modelos_mensagem_nome_valido CHECK (LENGTH(TRIM(nome)) >= 2),
+  CONSTRAINT modelos_mensagem_categoria_valida CHECK (LENGTH(TRIM(categoria)) >= 2),
+  CONSTRAINT modelos_mensagem_texto_valido CHECK (LENGTH(TRIM(texto)) >= 2)
+);
+
+CREATE TABLE public.campanhas (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  nome VARCHAR(150) NOT NULL,
+  descricao TEXT,
+  ativo BOOLEAN NOT NULL DEFAULT TRUE,
+  criado_por_usuario_id BIGINT NOT NULL,
+  atualizado_por_usuario_id BIGINT NOT NULL,
+  criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  atualizado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT campanhas_nome_valido CHECK (LENGTH(TRIM(nome)) >= 2)
+);
+
+CREATE TABLE public.comunicacoes (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  contato_id BIGINT NOT NULL,
+  evento_id BIGINT,
+  modelo_id BIGINT,
+  campanha_id BIGINT,
+  numero_whatsapp_id BIGINT NOT NULL,
+  operador_usuario_id BIGINT NOT NULL,
+  confirmado_por_usuario_id BIGINT,
+  texto_preparado TEXT NOT NULL,
+  status VARCHAR(30) NOT NULL DEFAULT 'preparada',
+  enviada_em TIMESTAMPTZ,
+  respondida_em TIMESTAMPTZ,
+  observacoes TEXT,
+  motivo_reenvio TEXT,
+  proxima_acao TEXT,
+  criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  atualizado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT comunicacoes_texto_valido CHECK (LENGTH(TRIM(texto_preparado)) >= 2),
+  CONSTRAINT comunicacoes_status_valido CHECK (status IN (
+    'nao_contatado', 'preparada', 'enviada', 'aguardando_resposta',
+    'respondido', 'em_atendimento', 'concluido', 'sem_resposta',
+    'nao_deseja_contato', 'recusou_atendimento', 'numero_invalido'
+  )),
+  CONSTRAINT comunicacoes_envio_coerente CHECK (
+    status NOT IN ('enviada', 'aguardando_resposta', 'respondido', 'em_atendimento', 'concluido', 'sem_resposta')
+    OR enviada_em IS NOT NULL
+  )
+);
+
+CREATE TABLE public.historico_comunicacoes (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  comunicacao_id BIGINT NOT NULL,
+  status_anterior VARCHAR(30),
+  status_novo VARCHAR(30) NOT NULL,
+  usuario_id BIGINT NOT NULL,
+  observacoes TEXT,
+  criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE public.tentativas_login (
@@ -463,252 +541,6 @@ CREATE TABLE public.textos_formulario (
   CONSTRAINT textos_formulario_tipo_versao_unicos UNIQUE (tipo, versao)
 );
 
-CREATE TABLE public.campanhas (
-  id BIGINT GENERATED ALWAYS AS IDENTITY,
-  nome VARCHAR(150) NOT NULL,
-  descricao TEXT,
-  manychat_flow_id VARCHAR(255),
-  status VARCHAR(30) NOT NULL DEFAULT 'rascunho',
-  criado_por_usuario_id BIGINT NOT NULL,
-  agendada_em TIMESTAMPTZ,
-  iniciada_em TIMESTAMPTZ,
-  encerrada_em TIMESTAMPTZ,
-  criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  atualizado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT campanhas_pkey PRIMARY KEY (id),
-  CONSTRAINT campanhas_nome_nao_vazio CHECK (LENGTH(TRIM(nome)) >= 2),
-  CONSTRAINT campanhas_manychat_flow_id_nao_vazio CHECK (
-    manychat_flow_id IS NULL OR LENGTH(TRIM(manychat_flow_id)) >= 1
-  ),
-  CONSTRAINT campanhas_status_valido CHECK (
-    status IN ('rascunho', 'agendada', 'ativa', 'pausada', 'concluida', 'cancelada')
-  )
-);
-
-CREATE TABLE public.campanha_contatos (
-  id BIGINT GENERATED ALWAYS AS IDENTITY,
-  campanha_id BIGINT NOT NULL,
-  contato_id BIGINT NOT NULL,
-  status VARCHAR(30) NOT NULL DEFAULT 'elegivel',
-  incluido_por_usuario_id BIGINT,
-  criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  atualizado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT campanha_contatos_pkey PRIMARY KEY (id),
-  CONSTRAINT campanha_contatos_campanha_contato_unicos UNIQUE (
-    campanha_id,
-    contato_id
-  ),
-  CONSTRAINT campanha_contatos_status_valido CHECK (
-    status IN (
-      'elegivel',
-      'em_fila',
-      'enviado',
-      'entregue',
-      'lido',
-      'respondido',
-      'recusado',
-      'bloqueado',
-      'concluido',
-      'erro'
-    )
-  )
-);
-
-CREATE TABLE public.envios_campanha (
-  id BIGINT GENERATED ALWAYS AS IDENTITY,
-  campanha_contato_id BIGINT NOT NULL,
-  numero_tentativa INTEGER NOT NULL DEFAULT 1,
-  status VARCHAR(30) NOT NULL DEFAULT 'pendente',
-  manychat_message_id VARCHAR(255),
-  mensagem_erro TEXT,
-  solicitado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  enviado_em TIMESTAMPTZ,
-  entregue_em TIMESTAMPTZ,
-  lido_em TIMESTAMPTZ,
-  respondido_em TIMESTAMPTZ,
-  CONSTRAINT envios_campanha_pkey PRIMARY KEY (id),
-  CONSTRAINT envios_campanha_tentativa_unica UNIQUE (
-    campanha_contato_id,
-    numero_tentativa
-  ),
-  CONSTRAINT envios_campanha_numero_tentativa_valido CHECK (
-    numero_tentativa >= 1
-  ),
-  CONSTRAINT envios_campanha_manychat_message_id_nao_vazio CHECK (
-    manychat_message_id IS NULL OR LENGTH(TRIM(manychat_message_id)) >= 1
-  ),
-  CONSTRAINT envios_campanha_status_valido CHECK (
-    status IN (
-      'pendente',
-      'processando',
-      'enviado',
-      'entregue',
-      'lido',
-      'respondido',
-      'recusado',
-      'bloqueado',
-      'erro'
-    )
-  )
-);
-
-CREATE TABLE public.respostas_campanha (
-  id BIGINT GENERATED ALWAYS AS IDENTITY,
-  campanha_contato_id BIGINT NOT NULL,
-  chave_pergunta VARCHAR(150) NOT NULL,
-  resposta TEXT NOT NULL,
-  manychat_resposta_id VARCHAR(255),
-  respondido_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT respostas_campanha_pkey PRIMARY KEY (id),
-  CONSTRAINT respostas_campanha_chave_nao_vazia CHECK (
-    LENGTH(TRIM(chave_pergunta)) >= 1
-  ),
-  CONSTRAINT respostas_campanha_resposta_nao_vazia CHECK (
-    LENGTH(TRIM(resposta)) >= 1
-  ),
-  CONSTRAINT respostas_campanha_manychat_resposta_id_nao_vazio CHECK (
-    manychat_resposta_id IS NULL OR LENGTH(TRIM(manychat_resposta_id)) >= 1
-  )
-);
-
-CREATE TABLE public.eventos_manychat (
-  id BIGINT GENERATED ALWAYS AS IDENTITY,
-  identificador_externo VARCHAR(255) NOT NULL,
-  tipo VARCHAR(100) NOT NULL,
-  payload JSONB NOT NULL,
-  status_processamento VARCHAR(30) NOT NULL DEFAULT 'pendente',
-  quantidade_tentativas INTEGER NOT NULL DEFAULT 0,
-  mensagem_erro TEXT,
-  recebido_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  processado_em TIMESTAMPTZ,
-  CONSTRAINT eventos_manychat_pkey PRIMARY KEY (id),
-  CONSTRAINT eventos_manychat_identificador_externo_unico UNIQUE (
-    identificador_externo
-  ),
-  CONSTRAINT eventos_manychat_identificador_nao_vazio CHECK (
-    LENGTH(TRIM(identificador_externo)) >= 1
-  ),
-  CONSTRAINT eventos_manychat_tipo_nao_vazio CHECK (LENGTH(TRIM(tipo)) >= 1),
-  CONSTRAINT eventos_manychat_status_valido CHECK (
-    status_processamento IN ('pendente', 'processando', 'processado', 'ignorado', 'erro')
-  ),
-  CONSTRAINT eventos_manychat_tentativas_validas CHECK (
-    quantidade_tentativas >= 0
-  )
-);
-
-CREATE TABLE public.sincronizacoes_manychat (
-  id BIGINT GENERATED ALWAYS AS IDENTITY,
-  contato_id BIGINT,
-  campanha_id BIGINT,
-  tipo VARCHAR(100) NOT NULL,
-  direcao VARCHAR(30) NOT NULL,
-  status VARCHAR(30) NOT NULL DEFAULT 'pendente',
-  quantidade_tentativas INTEGER NOT NULL DEFAULT 0,
-  mensagem_erro TEXT,
-  iniciada_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  finalizada_em TIMESTAMPTZ,
-  ultima_sincronizacao_em TIMESTAMPTZ,
-  CONSTRAINT sincronizacoes_manychat_pkey PRIMARY KEY (id),
-  CONSTRAINT sincronizacoes_manychat_referencia_obrigatoria CHECK (
-    contato_id IS NOT NULL OR campanha_id IS NOT NULL
-  ),
-  CONSTRAINT sincronizacoes_manychat_tipo_nao_vazio CHECK (
-    LENGTH(TRIM(tipo)) >= 1
-  ),
-  CONSTRAINT sincronizacoes_manychat_direcao_valida CHECK (
-    direcao IN ('sistema_para_manychat', 'manychat_para_sistema')
-  ),
-  CONSTRAINT sincronizacoes_manychat_status_valido CHECK (
-    status IN ('pendente', 'processando', 'concluida', 'erro')
-  ),
-  CONSTRAINT sincronizacoes_manychat_tentativas_validas CHECK (
-    quantidade_tentativas >= 0
-  )
-);
-
-CREATE FUNCTION public.contato_pode_receber_campanha(contato_id_consultado BIGINT)
-RETURNS BOOLEAN
-LANGUAGE sql
-STABLE
-AS $$
-  SELECT EXISTS (
-    SELECT 1
-    FROM public.contatos AS contato
-    WHERE contato.id = contato_id_consultado
-      AND contato.bloqueado_para_mensagens = FALSE
-      AND contato.bloqueado_para_campanhas = FALSE
-      AND NOT EXISTS (
-        SELECT 1
-        FROM public.solicitacoes_exclusao AS solicitacao
-        WHERE solicitacao.contato_id = contato.id
-          AND solicitacao.status = 'pendente'
-      )
-      AND EXISTS (
-        SELECT 1
-        FROM public.consentimentos AS consentimento
-        WHERE consentimento.contato_id = contato.id
-          AND consentimento.tipo = 'mensagens'
-          AND consentimento.ativo = TRUE
-          AND consentimento.resposta = TRUE
-          AND (
-            consentimento.estado = 'autorizado'
-            OR consentimento.estado IS NULL
-          )
-      )
-  );
-$$;
-
-CREATE FUNCTION public.validar_participacao_campanha()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-AS $$
-BEGIN
-  IF public.contato_pode_receber_campanha(NEW.contato_id) = FALSE THEN
-    RAISE EXCEPTION
-      'Contato não está elegível para campanhas: autorização ausente, revogada ou cadastro bloqueado.'
-      USING ERRCODE = 'check_violation';
-  END IF;
-
-  RETURN NEW;
-END;
-$$;
-
-CREATE FUNCTION public.validar_envio_campanha()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-AS $$
-DECLARE
-  contato_id_encontrado BIGINT;
-  status_participacao VARCHAR(30);
-BEGIN
-  SELECT participacao.contato_id, participacao.status
-  INTO contato_id_encontrado, status_participacao
-  FROM public.campanha_contatos AS participacao
-  WHERE participacao.id = NEW.campanha_contato_id;
-
-  IF contato_id_encontrado IS NULL THEN
-    RAISE EXCEPTION 'Participação na campanha não encontrada.'
-      USING ERRCODE = 'foreign_key_violation';
-  END IF;
-
-  IF status_participacao IN ('recusado', 'bloqueado', 'concluido') THEN
-    RAISE EXCEPTION
-      'Novo envio recusado para uma participação finalizada ou bloqueada.'
-      USING ERRCODE = 'check_violation';
-  END IF;
-
-  IF public.contato_pode_receber_campanha(contato_id_encontrado) = FALSE THEN
-    RAISE EXCEPTION
-      'Novo envio recusado: contato sem autorização ativa ou com bloqueio.'
-      USING ERRCODE = 'check_violation';
-  END IF;
-
-  RETURN NEW;
-END;
-$$;
-
 CREATE UNIQUE INDEX origens_slug_unico
   ON public.origens (LOWER(slug));
 
@@ -724,10 +556,6 @@ CREATE UNIQUE INDEX usuarios_email_unico
 
 CREATE INDEX usuarios_perfil_indice
   ON public.usuarios (perfil);
-
-CREATE UNIQUE INDEX eventos_apenas_um_ativo
-  ON public.eventos (status)
-  WHERE status = 'ativo';
 
 CREATE INDEX eventos_periodo_indice
   ON public.eventos (data_inicial, data_final);
@@ -764,14 +592,6 @@ CREATE INDEX contatos_origem_id_indice
 
 CREATE INDEX contatos_status_contato_indice
   ON public.contatos (LOWER(status_contato));
-
-CREATE INDEX contatos_bloqueado_para_campanhas_indice
-  ON public.contatos (bloqueado_para_campanhas)
-  WHERE bloqueado_para_campanhas = TRUE;
-
-CREATE UNIQUE INDEX contatos_manychat_contact_id_unico
-  ON public.contatos (manychat_contact_id)
-  WHERE manychat_contact_id IS NOT NULL;
 
 CREATE INDEX contato_eventos_evento_id_indice
   ON public.contato_eventos (evento_id, cadastrado_em DESC);
@@ -834,14 +654,20 @@ CREATE INDEX historico_contatos_criado_em_indice
 CREATE INDEX historico_contatos_origem_id_indice
   ON public.historico_contatos (origem_id);
 
-CREATE INDEX importacoes_criado_em_indice
-  ON public.importacoes (criado_em DESC);
-
-CREATE INDEX importacao_linhas_importacao_id_indice
-  ON public.importacao_linhas (importacao_id);
-
-CREATE INDEX importacao_linhas_contato_id_indice
-  ON public.importacao_linhas (contato_id);
+CREATE UNIQUE INDEX numeros_whatsapp_numero_unico ON public.numeros_whatsapp (numero_normalizado);
+CREATE INDEX importacoes_criado_em_indice ON public.importacoes (criado_em DESC);
+CREATE INDEX importacao_linhas_importacao_id_indice ON public.importacao_linhas (importacao_id);
+CREATE INDEX importacao_linhas_contato_id_indice ON public.importacao_linhas (contato_id);
+CREATE INDEX modelos_mensagem_evento_indice ON public.modelos_mensagem (evento_id, ativo);
+CREATE INDEX campanhas_ativo_nome_indice ON public.campanhas (ativo DESC, nome);
+CREATE INDEX comunicacoes_contato_indice ON public.comunicacoes (contato_id, criado_em DESC);
+CREATE INDEX comunicacoes_evento_indice ON public.comunicacoes (evento_id, criado_em DESC);
+CREATE INDEX comunicacoes_status_indice ON public.comunicacoes (status, criado_em DESC);
+CREATE INDEX comunicacoes_campanha_indice ON public.comunicacoes (campanha_id, contato_id, enviada_em DESC);
+CREATE INDEX comunicacoes_modelo_indice ON public.comunicacoes (modelo_id, criado_em DESC);
+CREATE INDEX comunicacoes_numero_indice ON public.comunicacoes (numero_whatsapp_id, criado_em DESC);
+CREATE INDEX comunicacoes_operador_indice ON public.comunicacoes (operador_usuario_id, criado_em DESC);
+CREATE INDEX historico_comunicacoes_comunicacao_indice ON public.historico_comunicacoes (comunicacao_id, criado_em DESC);
 
 CREATE INDEX tentativas_login_email_data_indice
   ON public.tentativas_login (LOWER(email_informado), criado_em DESC);
@@ -862,53 +688,6 @@ CREATE INDEX backups_banco_usuario_id_indice
 CREATE UNIQUE INDEX textos_formulario_tipo_ativo_unico
   ON public.textos_formulario (tipo)
   WHERE ativo = TRUE;
-
-CREATE INDEX campanhas_status_indice
-  ON public.campanhas (status);
-
-CREATE INDEX campanhas_criado_em_indice
-  ON public.campanhas (criado_em DESC);
-
-CREATE INDEX campanhas_manychat_flow_id_indice
-  ON public.campanhas (manychat_flow_id)
-  WHERE manychat_flow_id IS NOT NULL;
-
-CREATE INDEX campanha_contatos_contato_id_indice
-  ON public.campanha_contatos (contato_id);
-
-CREATE INDEX campanha_contatos_status_indice
-  ON public.campanha_contatos (status);
-
-CREATE INDEX envios_campanha_status_indice
-  ON public.envios_campanha (status);
-
-CREATE INDEX envios_campanha_solicitado_em_indice
-  ON public.envios_campanha (solicitado_em DESC);
-
-CREATE UNIQUE INDEX envios_campanha_manychat_message_id_unico
-  ON public.envios_campanha (manychat_message_id)
-  WHERE manychat_message_id IS NOT NULL;
-
-CREATE INDEX respostas_campanha_participacao_indice
-  ON public.respostas_campanha (campanha_contato_id);
-
-CREATE UNIQUE INDEX respostas_campanha_manychat_resposta_id_unico
-  ON public.respostas_campanha (manychat_resposta_id)
-  WHERE manychat_resposta_id IS NOT NULL;
-
-CREATE INDEX eventos_manychat_status_recebimento_indice
-  ON public.eventos_manychat (status_processamento, recebido_em);
-
-CREATE INDEX sincronizacoes_manychat_contato_id_indice
-  ON public.sincronizacoes_manychat (contato_id)
-  WHERE contato_id IS NOT NULL;
-
-CREATE INDEX sincronizacoes_manychat_campanha_id_indice
-  ON public.sincronizacoes_manychat (campanha_id)
-  WHERE campanha_id IS NOT NULL;
-
-CREATE INDEX sincronizacoes_manychat_status_indice
-  ON public.sincronizacoes_manychat (status, iniciada_em);
 
 CREATE TRIGGER origens_atualizar_data
 BEFORE UPDATE ON public.origens
@@ -940,30 +719,14 @@ BEFORE UPDATE ON public.textos_formulario
 FOR EACH ROW
 EXECUTE FUNCTION public.atualizar_data_modificacao();
 
-CREATE TRIGGER campanhas_atualizar_data
-BEFORE UPDATE ON public.campanhas
-FOR EACH ROW
-EXECUTE FUNCTION public.atualizar_data_modificacao();
-
-CREATE TRIGGER campanha_contatos_atualizar_data
-BEFORE UPDATE ON public.campanha_contatos
-FOR EACH ROW
-EXECUTE FUNCTION public.atualizar_data_modificacao();
-
-CREATE TRIGGER campanha_contatos_validar_inclusao
-BEFORE INSERT ON public.campanha_contatos
-FOR EACH ROW
-EXECUTE FUNCTION public.validar_participacao_campanha();
-
-CREATE TRIGGER campanha_contatos_validar_troca_contato
-BEFORE UPDATE OF contato_id ON public.campanha_contatos
-FOR EACH ROW
-EXECUTE FUNCTION public.validar_participacao_campanha();
-
-CREATE TRIGGER envios_campanha_validar_novo_envio
-BEFORE INSERT ON public.envios_campanha
-FOR EACH ROW
-EXECUTE FUNCTION public.validar_envio_campanha();
+CREATE TRIGGER numeros_whatsapp_atualizar_data BEFORE UPDATE ON public.numeros_whatsapp
+FOR EACH ROW EXECUTE FUNCTION public.atualizar_data_modificacao();
+CREATE TRIGGER modelos_mensagem_atualizar_data BEFORE UPDATE ON public.modelos_mensagem
+FOR EACH ROW EXECUTE FUNCTION public.atualizar_data_modificacao();
+CREATE TRIGGER campanhas_atualizar_data BEFORE UPDATE ON public.campanhas
+FOR EACH ROW EXECUTE FUNCTION public.atualizar_data_modificacao();
+CREATE TRIGGER comunicacoes_atualizar_data BEFORE UPDATE ON public.comunicacoes
+FOR EACH ROW EXECUTE FUNCTION public.atualizar_data_modificacao();
 
 ALTER TABLE public.contatos
   ADD CONSTRAINT contatos_bairro_fkey
@@ -1029,6 +792,12 @@ ALTER TABLE public.historico_contatos
     REFERENCES public.usuarios(id)
     ON DELETE SET NULL;
 
+ALTER TABLE public.numeros_whatsapp
+  ADD CONSTRAINT numeros_whatsapp_criador_fkey
+    FOREIGN KEY (criado_por_usuario_id) REFERENCES public.usuarios(id),
+  ADD CONSTRAINT numeros_whatsapp_atualizador_fkey
+    FOREIGN KEY (atualizado_por_usuario_id) REFERENCES public.usuarios(id);
+
 ALTER TABLE public.importacoes
   ADD CONSTRAINT importacoes_origem_id_fkey
     FOREIGN KEY (origem_id) REFERENCES public.origens(id),
@@ -1037,11 +806,45 @@ ALTER TABLE public.importacoes
 
 ALTER TABLE public.importacao_linhas
   ADD CONSTRAINT importacao_linhas_importacao_id_fkey
-    FOREIGN KEY (importacao_id)
-    REFERENCES public.importacoes(id)
-    ON DELETE CASCADE,
+    FOREIGN KEY (importacao_id) REFERENCES public.importacoes(id) ON DELETE CASCADE,
   ADD CONSTRAINT importacao_linhas_contato_id_fkey
     FOREIGN KEY (contato_id) REFERENCES public.contatos(id) ON DELETE SET NULL;
+
+ALTER TABLE public.modelos_mensagem
+  ADD CONSTRAINT modelos_mensagem_evento_fkey
+    FOREIGN KEY (evento_id) REFERENCES public.eventos(id) ON DELETE SET NULL,
+  ADD CONSTRAINT modelos_mensagem_criador_fkey
+    FOREIGN KEY (criado_por_usuario_id) REFERENCES public.usuarios(id),
+  ADD CONSTRAINT modelos_mensagem_atualizador_fkey
+    FOREIGN KEY (atualizado_por_usuario_id) REFERENCES public.usuarios(id);
+
+ALTER TABLE public.comunicacoes
+  ADD CONSTRAINT comunicacoes_contato_fkey
+    FOREIGN KEY (contato_id) REFERENCES public.contatos(id) ON DELETE CASCADE,
+  ADD CONSTRAINT comunicacoes_evento_fkey
+    FOREIGN KEY (evento_id) REFERENCES public.eventos(id) ON DELETE SET NULL,
+  ADD CONSTRAINT comunicacoes_modelo_fkey
+    FOREIGN KEY (modelo_id) REFERENCES public.modelos_mensagem(id) ON DELETE SET NULL,
+  ADD CONSTRAINT comunicacoes_campanha_fkey
+    FOREIGN KEY (campanha_id) REFERENCES public.campanhas(id) ON DELETE SET NULL,
+  ADD CONSTRAINT comunicacoes_numero_fkey
+    FOREIGN KEY (numero_whatsapp_id) REFERENCES public.numeros_whatsapp(id),
+  ADD CONSTRAINT comunicacoes_operador_fkey
+    FOREIGN KEY (operador_usuario_id) REFERENCES public.usuarios(id),
+  ADD CONSTRAINT comunicacoes_confirmador_fkey
+    FOREIGN KEY (confirmado_por_usuario_id) REFERENCES public.usuarios(id) ON DELETE SET NULL;
+
+ALTER TABLE public.campanhas
+  ADD CONSTRAINT campanhas_criador_fkey
+    FOREIGN KEY (criado_por_usuario_id) REFERENCES public.usuarios(id),
+  ADD CONSTRAINT campanhas_atualizador_fkey
+    FOREIGN KEY (atualizado_por_usuario_id) REFERENCES public.usuarios(id);
+
+ALTER TABLE public.historico_comunicacoes
+  ADD CONSTRAINT historico_comunicacoes_comunicacao_fkey
+    FOREIGN KEY (comunicacao_id) REFERENCES public.comunicacoes(id) ON DELETE CASCADE,
+  ADD CONSTRAINT historico_comunicacoes_usuario_fkey
+    FOREIGN KEY (usuario_id) REFERENCES public.usuarios(id);
 
 ALTER TABLE public.tentativas_login
   ADD CONSTRAINT tentativas_login_usuario_id_fkey
@@ -1054,40 +857,6 @@ ALTER TABLE public.backups_banco
     FOREIGN KEY (usuario_id)
     REFERENCES public.usuarios(id)
     ON DELETE SET NULL;
-
-ALTER TABLE public.campanhas
-  ADD CONSTRAINT campanhas_criado_por_usuario_id_fkey
-    FOREIGN KEY (criado_por_usuario_id) REFERENCES public.usuarios(id);
-
-ALTER TABLE public.campanha_contatos
-  ADD CONSTRAINT campanha_contatos_campanha_id_fkey
-    FOREIGN KEY (campanha_id)
-    REFERENCES public.campanhas(id)
-    ON DELETE CASCADE,
-  ADD CONSTRAINT campanha_contatos_contato_id_fkey
-    FOREIGN KEY (contato_id) REFERENCES public.contatos(id) ON DELETE CASCADE,
-  ADD CONSTRAINT campanha_contatos_incluido_por_usuario_id_fkey
-    FOREIGN KEY (incluido_por_usuario_id)
-    REFERENCES public.usuarios(id)
-    ON DELETE SET NULL;
-
-ALTER TABLE public.envios_campanha
-  ADD CONSTRAINT envios_campanha_campanha_contato_id_fkey
-    FOREIGN KEY (campanha_contato_id)
-    REFERENCES public.campanha_contatos(id)
-    ON DELETE CASCADE;
-
-ALTER TABLE public.respostas_campanha
-  ADD CONSTRAINT respostas_campanha_campanha_contato_id_fkey
-    FOREIGN KEY (campanha_contato_id)
-    REFERENCES public.campanha_contatos(id)
-    ON DELETE CASCADE;
-
-ALTER TABLE public.sincronizacoes_manychat
-  ADD CONSTRAINT sincronizacoes_manychat_contato_id_fkey
-    FOREIGN KEY (contato_id) REFERENCES public.contatos(id) ON DELETE CASCADE,
-  ADD CONSTRAINT sincronizacoes_manychat_campanha_id_fkey
-    FOREIGN KEY (campanha_id) REFERENCES public.campanhas(id);
 
 COMMENT ON TABLE public.contatos IS
   'Pessoas cadastradas por meio do formulário público.';
@@ -1313,18 +1082,18 @@ INSERT INTO public.textos_formulario (tipo, versao, texto)
 VALUES
   (
     'aviso_privacidade',
-    'aviso_privacidade_v2',
-    'Li o Aviso de Privacidade e autorizo o tratamento dos dados informados para participação no projeto Acorda VK.'
+    'aviso_privacidade_v3',
+    'Tenho 16 anos ou mais, li o Aviso de Privacidade e consinto com o tratamento dos dados necessários para minha participação voluntária no projeto Acorda VK.'
   ),
   (
     'mensagens',
-    'mensagens_v1',
-    'Autorizo o recebimento de futuras mensagens sobre ações sociais, projetos comunitários, pesquisas, conteúdos políticos, eventos e iniciativas relacionadas à melhoria dos bairros.'
+    'mensagens_whatsapp_v3',
+    'Autorizo o recebimento de mensagens pelo WhatsApp enviadas pelo projeto Acorda VK e por Diogo Ventura, incluindo informações sobre ações sociais, projetos comunitários, pesquisas, eventos e conteúdos políticos. Posso revogar esta autorização a qualquer momento pelo canal indicado na Política de Privacidade.'
   ),
   (
     'ligacoes',
-    'ligacoes_v1',
-    'Autorizo o recebimento de futuras ligações sobre ações sociais, projetos comunitários, pesquisas, conteúdos políticos, eventos e iniciativas relacionadas à melhoria dos bairros.'
+    'ligacoes_v3',
+    'Autorizo o recebimento de ligações telefônicas relacionadas às ações e iniciativas do projeto Acorda VK. Posso revogar esta autorização a qualquer momento pelo canal indicado na Política de Privacidade.'
   );
 
 COMMIT;

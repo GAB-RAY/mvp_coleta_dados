@@ -31,4 +31,13 @@ async function alterarStatusEvento(id, acao) {
   });
 }
 
-export { alterarStatusEvento, criarEvento, editarEvento, listarEventos };
+async function listarParticipantesEvento(id, filtros) {
+  const parametros=new URLSearchParams(filtros||{});
+  return requisitar('/api/admin/eventos/'+id+'/participantes?'+parametros.toString(),{method:'GET',autenticado:true});
+}
+
+async function atualizarStatusInscricao(eventoId,contatoId,status){
+  return requisitar('/api/admin/eventos/'+eventoId+'/participantes/'+contatoId,{method:'PATCH',autenticado:true,body:JSON.stringify({status})});
+}
+
+export { alterarStatusEvento, atualizarStatusInscricao, criarEvento, editarEvento, listarEventos, listarParticipantesEvento };

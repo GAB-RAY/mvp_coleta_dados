@@ -8,6 +8,49 @@ const categoriasProblema = require('../../config/categoriasProblema');
 const configuracaoImportacao = require('../../config/importacao');
 const bairroService = require('../bairros/bairroService');
 
+async function listar() {
+  const importacoes = await importacaoModel.listar();
+
+  return importacoes.map(function (importacao) {
+    return {
+      id: importacao.id,
+      nomeArquivo: importacao.nome_arquivo,
+      formato: importacao.formato,
+      status: importacao.status,
+      totalRecebido: importacao.total_recebido,
+      criadoEm: importacao.criado_em,
+      confirmadoEm: importacao.confirmado_em,
+      origem: {
+        id: importacao.origem_id,
+        nome: importacao.origem_nome
+      },
+      responsavel: importacao.usuario_nome
+    };
+  });
+}
+
+async function excluir(importacaoIdRecebido) {
+  const importacaoId = Number(importacaoIdRecebido);
+
+  if (!Number.isInteger(importacaoId) || importacaoId < 1) {
+    throw criarAppError('Identificador da importação inválido.', 400);
+  }
+
+  try {
+    await importacaoModel.excluir(importacaoId);
+  } catch (erro) {
+    if (erro.codigoAplicacao === 'IMPORTACAO_NAO_ENCONTRADA') {
+      throw criarAppError('Importação não encontrada.', 404);
+    }
+
+    if (erro.codigoAplicacao === 'IMPORTACAO_EM_PROCESSAMENTO') {
+      throw criarAppError('Não é possível excluir uma importação em processamento.', 409);
+    }
+
+    throw erro;
+  }
+}
+
 function normalizarCabecalho(valor) {
   return String(valor || '')
     .normalize('NFD')
@@ -320,5 +363,7 @@ async function confirmar(importacaoIdRecebido, usuario) {
 
 module.exports = {
   preVisualizar,
-  confirmar
+  confirmar,
+  excluir,
+  listar
 };

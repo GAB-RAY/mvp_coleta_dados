@@ -45,8 +45,7 @@ async function solicitar(contatoId, usuarioId, observacoes) {
       `
         UPDATE contatos
         SET bloqueado_para_mensagens = TRUE,
-            bloqueado_para_ligacoes = TRUE,
-            bloqueado_para_campanhas = TRUE
+            bloqueado_para_ligacoes = TRUE
         WHERE id = $1
       `,
       [contatoId]
@@ -153,8 +152,7 @@ async function rejeitar(id, usuarioId, observacoes) {
                 AND consentimento.tipo = 'ligacoes'
                 AND consentimento.ativo = TRUE
                 AND consentimento.estado = 'autorizado'
-            ),
-            bloqueado_para_campanhas = FALSE
+            )
         WHERE contato.id = $1
       `,
       [solicitacao.contato_id]

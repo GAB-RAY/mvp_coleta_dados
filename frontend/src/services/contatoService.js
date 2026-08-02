@@ -75,6 +75,10 @@ async function listarContatos(filtros, pagina, limite, sinal) {
     parametros.set('status', filtros.status);
   }
 
+  if (filtros.statusAtendimento) {
+    parametros.set('statusAtendimento', filtros.statusAtendimento);
+  }
+
   if (filtros.idadeMinima) {
     parametros.set('idadeMinima', filtros.idadeMinima);
   }
@@ -160,17 +164,27 @@ async function preVisualizarImportacao(arquivo, origem) {
   const formulario = new FormData();
   formulario.append('arquivo', arquivo);
   formulario.append('origem', origem);
-
   return requisitar('/api/admin/importacoes/pre-visualizar', {
-    method: 'POST',
-    autenticado: true,
-    body: formulario
+    method: 'POST', autenticado: true, body: formulario
   });
 }
 
 async function confirmarImportacao(id) {
   return requisitar('/api/admin/importacoes/' + id + '/confirmar', {
-    method: 'POST',
+    method: 'POST', autenticado: true
+  });
+}
+
+async function listarImportacoes() {
+  return requisitar('/api/admin/importacoes', {
+    method: 'GET',
+    autenticado: true
+  });
+}
+
+async function excluirImportacao(id) {
+  return requisitar('/api/admin/importacoes/' + id, {
+    method: 'DELETE',
     autenticado: true
   });
 }
@@ -181,8 +195,10 @@ export {
   cadastrarContatoManual,
   cadastrarContato,
   confirmarImportacao,
+  excluirImportacao,
   inscreverContatoExistenteEvento,
   listarContatos,
+  listarImportacoes,
   listarOrigens,
   preVisualizarImportacao,
   revogarConsentimentos,

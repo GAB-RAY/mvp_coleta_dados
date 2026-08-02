@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import CampoFormulario from '../components/CampoFormulario';
 import CampoSelecao from '../components/CampoSelecao';
 import CampoSelecaoPesquisavel from '../components/CampoSelecaoPesquisavel';
@@ -27,8 +27,14 @@ const FORMULARIO_INICIAL = {
   bairro: '',
   problema: '',
   aceitePrivacidade: false,
-  autorizacaoMensagens: true,
-  autorizacaoLigacoes: true
+  autorizacaoMensagens: false,
+  autorizacaoLigacoes: false
+};
+
+const TEXTOS_CONSENTIMENTO_INICIAIS = {
+  avisoPrivacidade: { texto: TEXTO_AVISO_PRIVACIDADE },
+  mensagens: { texto: TEXTO_MENSAGENS },
+  ligacoes: { texto: TEXTO_LIGACOES }
 };
 
 function validarFormulario(dadosFormulario, bairroConfirmado, bairros, categoriasProblema) {
@@ -53,7 +59,7 @@ function validarFormulario(dadosFormulario, bairroConfirmado, bairros, categoria
   const idade = Number(dadosFormulario.idade);
 
   if (!Number.isInteger(idade) || idade < 16 || idade > 120) {
-    return 'Informe uma idade válida entre 16 e 120 anos.';
+    return 'O cadastro é permitido somente para pessoas com 16 anos ou mais.';
   }
 
   if (!bairroConfirmado || !bairros.includes(dadosFormulario.bairro)) {
@@ -65,7 +71,7 @@ function validarFormulario(dadosFormulario, bairroConfirmado, bairros, categoria
   }
 
   if (!dadosFormulario.aceitePrivacidade) {
-    return 'É necessário autorizar o tratamento dos dados.';
+    return 'É necessário confirmar o consentimento para participar do projeto.';
   }
 
   return '';
@@ -105,6 +111,9 @@ function FormularioPublico() {
   const [etapaFormulario, setEtapaFormulario] = useState(ETAPA_FORMULARIO_COMPLETO);
   const [nomeConfirmacao, setNomeConfirmacao] = useState('');
   const [formularioDisponivel, setFormularioDisponivel] = useState(true);
+  const [textosConsentimento, setTextosConsentimento] = useState(
+    TEXTOS_CONSENTIMENTO_INICIAIS
+  );
 
   function aplicarContextoFormulario(resposta) {
     const eventoAtivo = resposta.eventoAtivo || null;
@@ -128,12 +137,17 @@ function FormularioPublico() {
 
         const bairrosRecebidos = resposta.bairros;
         const categoriasRecebidas = resposta.categoriasProblema;
+        const textosRecebidos = resposta.textosConsentimento;
 
         if (
           !Array.isArray(bairrosRecebidos) ||
           bairrosRecebidos.length === 0 ||
           !Array.isArray(categoriasRecebidas) ||
-          categoriasRecebidas.length === 0
+          categoriasRecebidas.length === 0 ||
+          !textosRecebidos ||
+          !textosRecebidos.avisoPrivacidade ||
+          !textosRecebidos.mensagens ||
+          !textosRecebidos.ligacoes
         ) {
           throw new Error('O catálogo do formulário está indisponível.');
         }
@@ -141,6 +155,7 @@ function FormularioPublico() {
         if (paginaAtiva) {
           setBairros(bairrosRecebidos);
           setCategoriasProblema(categoriasRecebidas);
+          setTextosConsentimento(textosRecebidos);
           setFormularioDisponivel(true);
           aplicarContextoFormulario(resposta);
         }
@@ -538,6 +553,7 @@ function FormularioPublico() {
                 maximo={120}
                 passo={1}
                 inputMode="numeric"
+                ajuda="Cadastro permitido somente para pessoas com 16 anos ou mais."
               />
 
               <CampoSelecaoPesquisavel
@@ -565,7 +581,7 @@ function FormularioPublico() {
             </div>
 
             <fieldset className="grupo-consentimentos" disabled={enviando}>
-              <legend>Autorizações</legend>
+              <legend>Privacidade e autorizações</legend>
 
               <label className="opcao-consentimento" htmlFor="aceitePrivacidade">
                 <input
@@ -577,7 +593,7 @@ function FormularioPublico() {
                   required
                 />
                 <span>
-                  {TEXTO_AVISO_PRIVACIDADE}
+                  {textosConsentimento.avisoPrivacidade.texto}
                   <strong aria-hidden="true"> *</strong>
                 </span>
               </label>
@@ -590,7 +606,7 @@ function FormularioPublico() {
                   checked={dadosFormulario.autorizacaoMensagens}
                   onChange={alterarCampo}
                 />
-                <span>{TEXTO_MENSAGENS}</span>
+                <span>{textosConsentimento.mensagens.texto}</span>
               </label>
 
               <label className="opcao-consentimento" htmlFor="autorizacaoLigacoes">
@@ -601,13 +617,14 @@ function FormularioPublico() {
                   checked={dadosFormulario.autorizacaoLigacoes}
                   onChange={alterarCampo}
                 />
-                <span>{TEXTO_LIGACOES}</span>
+                <span>{textosConsentimento.ligacoes.texto}</span>
               </label>
             </fieldset>
 
             <p className="aviso-direitos">
               Você poderá solicitar a correção, a exclusão dos seus dados ou a
-              revogação das autorizações concedidas.
+              revogação das autorizações concedidas. Consulte a nossa{' '}
+              <Link to="/privacidade">Política de Privacidade</Link>.
             </p>
 
             <p className="legenda-obrigatorios">* Campos obrigatórios</p>
@@ -655,23 +672,19 @@ function FormularioPublico() {
         )}
       </section>
 
-      <section className="uso-dos-dados" aria-labelledby="titulo-uso-dados">
-        <h2 id="titulo-uso-dados">Aviso de Privacidade (LGPD)</h2>
-        <div className="conteudo-privacidade">
+      <section className="resumo-privacidade-publico" aria-labelledby="titulo-privacidade-resumida">
+        <div>
+          <h2 id="titulo-privacidade-resumida">Privacidade e transparência</h2>
           <p>
-            As respostas serão analisadas em conjunto para identificar necessidades
-            por bairro e apoiar iniciativas voltadas à comunidade.
-          </p>
-          <p>
-            <strong>Responsável pelo tratamento dos dados:</strong> Diogo Ventura.
-          </p>
-          <p>
-            Ao enviar este formulário, autorizo o tratamento dos meus dados pessoais
-            para participação no projeto <strong>Acorda VK</strong>, promovido
-            por <strong>Diogo Ventura</strong>, conforme as finalidades descritas
-            neste formulário.
+            Seus dados ajudam a organizar as demandas dos bairros e são tratados
+            conforme as escolhas feitas no formulário.
           </p>
         </div>
+        <nav className="links-legais-formulario" aria-label="Informações legais">
+          <Link to="/privacidade">Privacidade</Link>
+          <Link to="/termos">Termos</Link>
+          <Link to="/excluir-dados">Excluir dados</Link>
+        </nav>
       </section>
 
       <footer className="rodape-publico">

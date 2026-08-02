@@ -58,7 +58,11 @@ Considere este cenário somente quando não houver implementação aproveitável
 
 #### Estado de referência deste documento
 
-Na atualização de 27/07/2026, o repositório original já possuía backend, frontend e schema completo implementados. A suíte `npm test` do backend concluiu 307 verificações e o build do frontend concluiu com 62 módulos transformados. O schema novo possui 22 tabelas e 166 bairros. Esses números servem como referência de regressão, não como substitutos para uma nova execução dos testes no ambiente recebido.
+Na atualização de 31/07/2026, o repositório já possuía backend, frontend e
+schema completo implementados. O schema atual possui 21 tabelas e 166 bairros.
+A suíte do backend concluiu 376 verificações e o build do frontend transformou
+69 módulos. Esses resultados servem como referência de regressão, não como
+substitutos para uma nova execução dos testes no ambiente recebido.
 
 No cenário de continuidade, parta do princípio de que a base descrita abaixo pode estar pronta e primeiro confirme isso. No cenário de reconstrução, use todas as seções seguintes como contrato do resultado final.
 
@@ -74,7 +78,7 @@ Construir uma aplicação para:
 - produzir indicadores e exportações;
 - controlar pedidos de exclusão;
 - gerar backup técnico do PostgreSQL;
-- deixar estrutura de banco preparada, mas sem integração ativa, para o ManyChat.
+- organizar campanhas e atendimentos manuais realizados pela equipe.
 
 Use sempre a palavra **contatos** para as pessoas cadastradas.
 
@@ -317,24 +321,24 @@ Um administrador pode:
 Evento possui:
 
 - nome;
-- motivo;
-- data inicial;
-- data final;
+- descrição;
+- data e horário inicial e final;
+- local ou link;
+- período de inscrições;
 - estado `rascunho`, `ativo` ou `encerrado`;
 - usuário criador e atualizador;
 - datas de criação e atualização.
 
 Regras:
 
-- somente um evento ativo por vez;
-- garantir a regra com índice parcial único no PostgreSQL, não apenas com lógica da aplicação;
+- permitir vários eventos ativos simultaneamente;
 - registrar histórico de criação, edição, ativação e encerramento;
-- o endereço público nunca muda;
-- se houver evento ativo dentro do período, vincular automaticamente o cadastro;
+- manter `/participar` como cadastro geral e gerar `/participar?evento=<id>` para cada evento;
+- vincular ao evento somente quando o identificador exclusivo estiver presente e o período de inscrições estiver aberto;
 - enviar ocultamente o identificador do evento exibido; usar `null` quando nenhum evento foi mostrado;
-- se o evento exibido não corresponder ao evento ativo no momento do envio, cancelar a transação com `409`, atualizar o contexto no frontend e preservar os campos digitados;
+- se o evento informado não continuar ativo ou com inscrições abertas, cancelar a transação com `409` e não persistir parcialmente;
 - coordenar submissão pública e edição/alteração de status do evento com advisory lock transacional compartilhado/exclusivo;
-- com evento ativo, começar solicitando nome completo e telefone;
+- no formulário exclusivo de evento, começar solicitando nome completo e telefone;
 - se o telefone não existir, abrir o formulário completo, criar o contato e vinculá-lo ao evento;
 - se o telefone existir, exigir correspondência do nome completo antes de permitir a confirmação;
 - não retornar dados pessoais durante a identificação pública;
@@ -344,15 +348,27 @@ Regras:
 - garantir no banco a unicidade de `(contato_id, evento_id)`;
 - se o vínculo já existir, responder que a inscrição já está registrada sem duplicar o registro;
 - nesse caso, o frontend informa o contexto do evento;
-- se não houver evento ativo, aceitar o cadastro normalmente e não mostrar aviso adicional;
+- o cadastro geral permanece independente da existência de eventos ativos;
 - permitir filtro de contatos e relatórios por evento ou sem evento;
 - oferecer acesso direto aos participantes e busca combinável por nome completo ou telefone.
 - permitir que operador abra eventos em modo somente leitura e consulte participantes;
 - manter criação, edição, ativação e encerramento exclusivos do administrador.
-- ao ativar um evento, gerar no frontend um QR Code exclusivo para
+- ao criar um evento, gerar no frontend um QR Code exclusivo para
   `/participar?evento=<id>`;
 - validar o identificador no backend e recusar o QR com `410` quando o evento
   estiver encerrado ou fora do período, sem criar nova tabela para a imagem;
+
+### 8.1 Comunicação manual
+
+- manter a importação CSV/XLSX;
+- manter mensagens e campanhas no fluxo manual por `wa.me`;
+- permitir que somente o administrador cadastre, edite e exclua números da equipe; números com histórico devem ser desativados;
+- cadastrar textos prontos editáveis somente por administrador e exigir um texto pronto ativo em todo atendimento;
+- permitir que operador e administrador preparem mensagens para contatos não bloqueados e abram `wa.me` manualmente;
+- abrir o WhatsApp nunca registra envio;
+- registrar manualmente andamento, envio, resposta e responsável;
+- preservar histórico por contato e evento e alertar repetição da mesma campanha;
+- usar somente `{{nome}}`, `{{evento}}`, `{{data}}`, `{{horario}}`, `{{local}}` e `{{link}}` como campos substituíveis.
 
 ### 9. Autenticação e usuários
 
@@ -457,7 +473,7 @@ Revogação:
 - pedido inicia como `pendente`;
 - somente administrador aprova ou rejeita;
 - apenas um pedido pendente por contato;
-- enquanto pendente, bloquear mensagens, ligações e campanhas;
+- enquanto pendente, bloquear mensagens e ligações;
 - manter solicitante, analista, observações, data de solicitação, análise e execução;
 - aprovação exclui fisicamente o contato;
 - preservar consentimentos e a solicitação como trilha administrativa, sem dados pessoais ativos;
@@ -605,13 +621,10 @@ Tabelas obrigatórias:
 13. `importacao_linhas`;
 14. `tentativas_login`;
 15. `backups_banco`;
-16. `textos_formulario`;
-17. `campanhas`;
-18. `campanha_contatos`;
-19. `envios_campanha`;
-20. `respostas_campanha`;
-21. `eventos_manychat`;
-22. `sincronizacoes_manychat`.
+16. `textos_formulario`.
+17. `numeros_whatsapp`;
+18. `modelos_mensagem`;
+19. `comunicacoes`.
 
 Implementar chaves estrangeiras, checks, índices e triggers para:
 
@@ -620,13 +633,14 @@ Implementar chaves estrangeiras, checks, índices e triggers para:
 - bairro canônico;
 - idade válida;
 - estados válidos;
-- apenas um evento ativo;
+- inscrição única para cada par contato/evento, permitindo eventos simultâneos;
 - apenas um pedido pendente por contato;
 - somente um consentimento ativo do mesmo tipo por contato;
-- auditoria e datas de atualização;
-- impedir participação e novos envios em campanhas quando houver bloqueio, revogação, ausência de autorização ou pedido de exclusão pendente.
+- auditoria e datas de atualização.
 
-Manter `manychat_contact_id` em contatos e as seis tabelas de preparação ManyChat. Não implementar API, webhook, fila ou envio do ManyChat sem uma especificação futura aprovada.
+As tabelas de comunicação existem somente para organizar o trabalho manual. As
+autorizações de WhatsApp e ligações existem para controle de privacidade e
+contato realizado pela equipe.
 
 Banco novo:
 
@@ -807,7 +821,7 @@ Backend:
 - teste de carga repetível com 15.000 contatos temporários, limite de 20.000, rejeição de 20.001 e limpeza automática;
 - consentimentos, revogações e repetição sem mudança;
 - pedido, aprovação, rejeição e exclusão física;
-- bloqueio de campanhas;
+- bloqueio de mensagens e ligações diante de revogação ou pedido de exclusão;
 - relatórios, CSV e Excel;
 - proibição de exportação para operador;
 - backup, hash, erro, concorrência, auditoria e arquivo temporário;
@@ -853,7 +867,8 @@ Criar README técnico fiel ao código, contendo:
 - publicação;
 - pendências reais.
 
-Não afirmar que ManyChat está integrado. Não afirmar que uma funcionalidade está pronta sem teste ou evidência no código.
+Preservar o fluxo manual de mensagens. Não afirmar que uma funcionalidade
+está pronta sem teste ou evidência no código.
 
 Ao terminar:
 
@@ -876,7 +891,7 @@ Ao terminar:
 - readiness em `/api/saude/pronto` e liveness em `/api/saude/vivo`;
 - alertas de deploy, reinício, CPU, memória, latência e banco;
 - duas instâncias do backend e standby PostgreSQL quando indisponibilidade não for aceitável;
-- teste de carga em homologação antes de campanhas ou eventos de grande alcance.
+- teste de carga em homologação antes de eventos de grande alcance.
 
 ## FIM DO PROMPT
 

@@ -4,7 +4,6 @@ const aceitePrivacidadeModel = require('./aceitePrivacidadeModel');
 const historicoContatoModel = require('./historicoContatoModel');
 const textoFormularioModel = require('./textoFormularioModel');
 const eventoModel = require('../eventos/eventoModel');
-const configuracaoEvento = require('../../config/evento');
 
 async function buscarOrigemFormularioPublico(cliente) {
   const resultado = await cliente.query(
@@ -346,7 +345,12 @@ async function registrarPrivacidadeEAutorizacoes(
         SET bloqueado_para_mensagens = FALSE,
             atualizado_em = CURRENT_TIMESTAMP
         WHERE id = $1
-          AND bloqueado_para_campanhas = FALSE
+          AND NOT EXISTS (
+            SELECT 1
+            FROM solicitacoes_exclusao AS solicitacao
+            WHERE solicitacao.contato_id = contatos.id
+              AND solicitacao.status = 'pendente'
+          )
       `,
       [contatoId]
     );
@@ -367,7 +371,12 @@ async function registrarPrivacidadeEAutorizacoes(
         SET bloqueado_para_ligacoes = FALSE,
             atualizado_em = CURRENT_TIMESTAMP
         WHERE id = $1
-          AND bloqueado_para_campanhas = FALSE
+          AND NOT EXISTS (
+            SELECT 1
+            FROM solicitacoes_exclusao AS solicitacao
+            WHERE solicitacao.contato_id = contatos.id
+              AND solicitacao.status = 'pendente'
+          )
       `,
       [contatoId]
     );
@@ -379,18 +388,15 @@ async function salvarCadastroPublico(dadosDoContato) {
 
   try {
     await cliente.query('BEGIN');
-    await cliente.query(
-      'SELECT pg_advisory_xact_lock_shared($1, $2)',
-      [configuracaoEvento.CHAVE_BLOQUEIO_1, configuracaoEvento.CHAVE_BLOQUEIO_2]
-    );
     const origem = await buscarOrigemFormularioPublico(cliente);
     const textos = await textoFormularioModel.buscarAtivos(cliente);
-    const eventoAtivo = await eventoModel.buscarAtivo(cliente);
-    const eventoAtivoId = eventoAtivo ? Number(eventoAtivo.id) : null;
+    const eventoAtivo = Number.isInteger(dadosDoContato.eventoIdExibido)
+      ? await eventoModel.buscarDisponivelPorId(dadosDoContato.eventoIdExibido, cliente)
+      : null;
 
     if (
-      dadosDoContato.eventoIdExibido !== undefined &&
-      dadosDoContato.eventoIdExibido !== eventoAtivoId
+      Number.isInteger(dadosDoContato.eventoIdExibido) &&
+      !eventoAtivo
     ) {
       const erroContexto = new Error('O contexto de evento do formulário foi alterado.');
       erroContexto.codigoAplicacao = 'CONTEXTO_EVENTO_ALTERADO';
@@ -490,10 +496,11 @@ async function salvarCadastroPublico(dadosDoContato) {
 }
 
 async function verificarContatoParaEvento(dadosIdentificacao) {
-  const eventoAtivo = await eventoModel.buscarAtivo();
-  const eventoAtivoId = eventoAtivo ? Number(eventoAtivo.id) : null;
+  const eventoAtivo = await eventoModel.buscarDisponivelPorId(
+    dadosIdentificacao.eventoIdExibido
+  );
 
-  if (dadosIdentificacao.eventoIdExibido !== eventoAtivoId) {
+  if (!eventoAtivo) {
     const erroContexto = new Error('O contexto de evento do formulário foi alterado.');
     erroContexto.codigoAplicacao = 'CONTEXTO_EVENTO_ALTERADO';
     throw erroContexto;
@@ -548,14 +555,12 @@ async function inscreverContatoExistenteNoEvento(dadosIdentificacao) {
 
   try {
     await cliente.query('BEGIN');
-    await cliente.query(
-      'SELECT pg_advisory_xact_lock_shared($1, $2)',
-      [configuracaoEvento.CHAVE_BLOQUEIO_1, configuracaoEvento.CHAVE_BLOQUEIO_2]
+    const eventoAtivo = await eventoModel.buscarDisponivelPorId(
+      dadosIdentificacao.eventoIdExibido,
+      cliente
     );
-    const eventoAtivo = await eventoModel.buscarAtivo(cliente);
-    const eventoAtivoId = eventoAtivo ? Number(eventoAtivo.id) : null;
 
-    if (dadosIdentificacao.eventoIdExibido !== eventoAtivoId) {
+    if (!eventoAtivo) {
       const erroContexto = new Error('O contexto de evento do formulário foi alterado.');
       erroContexto.codigoAplicacao = 'CONTEXTO_EVENTO_ALTERADO';
       throw erroContexto;
@@ -730,7 +735,12 @@ async function registrarRespostaManual(
         SET bloqueado_para_mensagens = FALSE,
             atualizado_em = CURRENT_TIMESTAMP
         WHERE id = $1
-          AND bloqueado_para_campanhas = FALSE
+          AND NOT EXISTS (
+            SELECT 1
+            FROM solicitacoes_exclusao AS solicitacao
+            WHERE solicitacao.contato_id = contatos.id
+              AND solicitacao.status = 'pendente'
+          )
       `,
       [contatoId]
     );
@@ -743,7 +753,12 @@ async function registrarRespostaManual(
         SET bloqueado_para_ligacoes = FALSE,
             atualizado_em = CURRENT_TIMESTAMP
         WHERE id = $1
-          AND bloqueado_para_campanhas = FALSE
+          AND NOT EXISTS (
+            SELECT 1
+            FROM solicitacoes_exclusao AS solicitacao
+            WHERE solicitacao.contato_id = contatos.id
+              AND solicitacao.status = 'pendente'
+          )
       `,
       [contatoId]
     );
@@ -851,8 +866,7 @@ async function revogarConsentimentos(contatoId, tipos, motivo, usuarioId) {
           id,
           origem_id,
           bloqueado_para_mensagens,
-          bloqueado_para_ligacoes,
-          bloqueado_para_campanhas
+          bloqueado_para_ligacoes
         FROM contatos
         WHERE id = $1
         FOR UPDATE
@@ -933,8 +947,7 @@ async function revogarConsentimentos(contatoId, tipos, motivo, usuarioId) {
           WHERE id = $1
           RETURNING
             bloqueado_para_mensagens,
-            bloqueado_para_ligacoes,
-            bloqueado_para_campanhas
+            bloqueado_para_ligacoes
         `,
         [contatoId, bloquearMensagens, bloquearLigacoes]
       );
@@ -1028,8 +1041,43 @@ function construirFiltros(filtros) {
   }
 
   if (filtros.status) {
-    valores.push('%' + filtros.status + '%');
-    condicoes.push("COALESCE(contato.status_contato, '') ILIKE $" + valores.length);
+    if (filtros.status === 'nao_informado') {
+      condicoes.push("NULLIF(BTRIM(contato.status_contato), '') IS NULL");
+    } else {
+      valores.push(filtros.status);
+      condicoes.push('contato.status_contato = $' + valores.length);
+    }
+  }
+
+  if (filtros.statusAtendimento === 'nunca_enviado') {
+    condicoes.push(`
+      NOT EXISTS (
+        SELECT 1 FROM comunicacoes AS comunicacao_enviada
+        WHERE comunicacao_enviada.contato_id = contato.id
+          AND comunicacao_enviada.enviada_em IS NOT NULL
+      )
+    `);
+  } else if (filtros.statusAtendimento === 'nao_respondeu') {
+    condicoes.push(`
+      (
+        SELECT comunicacao_status.status
+        FROM comunicacoes AS comunicacao_status
+        WHERE comunicacao_status.contato_id = contato.id
+        ORDER BY comunicacao_status.criado_em DESC, comunicacao_status.id DESC
+        LIMIT 1
+      ) IN ('enviada', 'aguardando_resposta', 'sem_resposta')
+    `);
+  } else if (filtros.statusAtendimento) {
+    valores.push(filtros.statusAtendimento);
+    condicoes.push(`
+      (
+        SELECT comunicacao_status.status
+        FROM comunicacoes AS comunicacao_status
+        WHERE comunicacao_status.contato_id = contato.id
+        ORDER BY comunicacao_status.criado_em DESC, comunicacao_status.id DESC
+        LIMIT 1
+      ) = $${valores.length}
+    `);
   }
 
   if (filtros.consentimentoWhatsapp !== undefined) {
@@ -1165,9 +1213,10 @@ async function listar(filtros, pagina, limite) {
       contato.consentimento_ligacoes,
       contato.origem_atual,
       contato.status_contato,
+      ultima_comunicacao.status AS status_atendimento,
+      ultima_comunicacao.criado_em AS ultimo_atendimento_em,
       contato.bloqueado_para_mensagens,
       contato.bloqueado_para_ligacoes,
-      contato.bloqueado_para_campanhas,
       solicitacao_pendente.solicitada_em AS exclusao_solicitada_em,
       solicitacao_pendente.solicitada_por_usuario_id AS exclusao_solicitada_por_usuario_id,
       contato.criado_em,
@@ -1214,6 +1263,13 @@ async function listar(filtros, pagina, limite) {
       WHERE solicitacao.contato_id = contato.id AND solicitacao.status = 'pendente'
       LIMIT 1
     ) AS solicitacao_pendente ON TRUE
+    LEFT JOIN LATERAL (
+      SELECT comunicacao.status, comunicacao.criado_em
+      FROM comunicacoes AS comunicacao
+      WHERE comunicacao.contato_id = contato.id
+      ORDER BY comunicacao.criado_em DESC, comunicacao.id DESC
+      LIMIT 1
+    ) AS ultima_comunicacao ON TRUE
     ${filtrosSql.clausulaWhere}
     ORDER BY ${ordem}
     LIMIT $${posicaoLimite}
@@ -1338,6 +1394,18 @@ async function buscarDetalhes(id) {
         ORDER BY historico.criado_em DESC, historico.id DESC
       `,
       [id]
+    ),
+    banco.query(
+      `SELECT comunicacao.*, evento.nome AS evento_nome, modelo.nome AS modelo_nome,
+        numero.nome AS numero_nome, numero.numero AS numero_whatsapp,
+        usuario.nome AS operador_nome
+       FROM comunicacoes AS comunicacao
+       LEFT JOIN eventos AS evento ON evento.id=comunicacao.evento_id
+       LEFT JOIN modelos_mensagem AS modelo ON modelo.id=comunicacao.modelo_id
+       INNER JOIN numeros_whatsapp AS numero ON numero.id=comunicacao.numero_whatsapp_id
+       INNER JOIN usuarios AS usuario ON usuario.id=comunicacao.operador_usuario_id
+       WHERE comunicacao.contato_id=$1 ORDER BY comunicacao.criado_em DESC`,
+      [id]
     )
   ]);
 
@@ -1349,7 +1417,8 @@ async function buscarDetalhes(id) {
     contato: resultados[0].rows[0],
     consentimentos: resultados[1].rows,
     aceitesPrivacidade: resultados[2].rows,
-    historico: resultados[3].rows
+    historico: resultados[3].rows,
+    comunicacoes: resultados[4].rows
   };
 }
 

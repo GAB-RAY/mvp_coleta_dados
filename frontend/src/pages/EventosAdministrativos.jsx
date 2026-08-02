@@ -7,18 +7,31 @@ import Carregando from '../components/Carregando';
 import MensagemRetorno from '../components/MensagemRetorno';
 import {
   alterarStatusEvento,
+  atualizarStatusInscricao,
   criarEvento,
   editarEvento,
-  listarEventos
+  listarEventos,
+  listarParticipantesEvento
 } from '../services/eventoService';
 import { obterUsuario, removerToken } from '../utils/armazenamentoToken';
 
 const FORMULARIO_INICIAL = {
   nome: '',
-  motivo: '',
+  descricao: '',
   dataInicial: '',
-  dataFinal: ''
+  dataFinal: '',
+  local: '',
+  link: '',
+  inscricoesInicio: '',
+  inscricoesFim: ''
 };
+
+function paraCampoDataHora(valor) {
+  if (!valor) return '';
+  const data = new Date(valor);
+  const deslocamento = data.getTimezoneOffset() * 60000;
+  return new Date(data.getTime() - deslocamento).toISOString().slice(0, 16);
+}
 
 function EventosAdministrativos() {
   const navegacao = useNavigate();
@@ -30,6 +43,9 @@ function EventosAdministrativos() {
   const [carregando, setCarregando] = useState(true);
   const [mensagem, setMensagem] = useState('');
   const [eventoQr, setEventoQr] = useState(null);
+  const [eventoParticipantes,setEventoParticipantes]=useState(null);
+  const [participantes,setParticipantes]=useState([]);
+  const [filtrosParticipantes,setFiltrosParticipantes]=useState({nome:'',telefone:'',statusInscricao:'',statusMensagem:''});
 
   async function carregar() {
     setCarregando(true);
@@ -62,9 +78,13 @@ function EventosAdministrativos() {
     setEventoEdicao(evento.id);
     setFormulario({
       nome: evento.nome,
-      motivo: evento.motivo,
-      dataInicial: String(evento.dataInicial).slice(0, 10),
-      dataFinal: String(evento.dataFinal).slice(0, 10)
+      descricao: evento.descricao,
+      dataInicial: paraCampoDataHora(evento.dataInicial),
+      dataFinal: paraCampoDataHora(evento.dataFinal),
+      local: evento.local || '',
+      link: evento.link || '',
+      inscricoesInicio: paraCampoDataHora(evento.inscricoesInicio),
+      inscricoesFim: paraCampoDataHora(evento.inscricoesFim)
     });
   }
 
@@ -76,6 +96,7 @@ function EventosAdministrativos() {
         ? await editarEvento(eventoEdicao, formulario)
         : await criarEvento(formulario);
       setMensagem(resposta.mensagem);
+      if (!eventoEdicao) setEventoQr(resposta.evento);
       setEventoEdicao(null);
       setFormulario(FORMULARIO_INICIAL);
       await carregar();
@@ -115,6 +136,9 @@ function EventosAdministrativos() {
   function obterLinkEvento(evento) {
     return window.location.origin + '/participar?evento=' + evento.id;
   }
+
+  async function carregarParticipantes(item){try{const resposta=await listarParticipantesEvento(item.id,filtrosParticipantes);setEventoParticipantes(item);setParticipantes(resposta.participantes||[]);}catch(erro){setMensagem(erro.message);}}
+  async function alterarInscricao(contatoId,status){try{await atualizarStatusInscricao(eventoParticipantes.id,contatoId,status);await carregarParticipantes(eventoParticipantes);}catch(erro){setMensagem(erro.message);}}
 
   async function copiarLinkEvento() {
     try {
@@ -206,6 +230,10 @@ function EventosAdministrativos() {
           </section>
         )}
 
+        {eventoParticipantes&&(
+          <section className="cartao painel-resultados"><div className="cabecalho-secao"><div><span className="etiqueta-pagina">Participantes</span><h2>{eventoParticipantes.nome}</h2></div><button className="botao botao-secundario" type="button" onClick={function(){setEventoParticipantes(null);}}>Fechar</button></div><div className="grade-filtros"><label>Nome<input className="campo-input" value={filtrosParticipantes.nome} onChange={function(e){setFiltrosParticipantes(Object.assign({},filtrosParticipantes,{nome:e.target.value}));}}/></label><label>Telefone<input className="campo-input" value={filtrosParticipantes.telefone} onChange={function(e){setFiltrosParticipantes(Object.assign({},filtrosParticipantes,{telefone:e.target.value}));}}/></label><label>Status da inscrição<select className="campo-input" value={filtrosParticipantes.statusInscricao} onChange={function(e){setFiltrosParticipantes(Object.assign({},filtrosParticipantes,{statusInscricao:e.target.value}));}}><option value="">Todos</option><option value="inscrito">Inscrito</option><option value="confirmado">Confirmado</option><option value="presente">Presente</option><option value="cancelado">Cancelado</option></select></label><button className="botao botao-primario" type="button" onClick={function(){carregarParticipantes(eventoParticipantes);}}>Buscar</button></div><div className="tabela-responsiva"><table className="tabela-contatos"><thead><tr><th>Nome</th><th>Telefone</th><th>Inscrição</th><th>Comunicação</th><th>Data</th></tr></thead><tbody>{participantes.map(function(item){return <tr key={item.id}><td>{item.nome}</td><td>{item.telefone}</td><td><select value={item.status_inscricao} onChange={function(e){alterarInscricao(item.id,e.target.value);}}><option value="inscrito">Inscrito</option><option value="confirmado">Confirmado</option><option value="presente">Presente</option><option value="cancelado">Cancelado</option></select></td><td>{item.status_mensagem.replaceAll('_',' ')}</td><td>{new Date(item.cadastrado_em).toLocaleString('pt-BR')}</td></tr>;})}</tbody></table></div></section>
+        )}
+
         {usuarioAdministrador && (
           <section className="cartao painel-filtros">
             <div className="cabecalho-secao">
@@ -217,9 +245,13 @@ function EventosAdministrativos() {
             <form className="formulario-filtros" onSubmit={salvar}>
               <fieldset className="grade-filtros">
                 <CampoFormulario id="nome" rotulo="Nome" valor={formulario.nome} aoAlterar={alterar} obrigatorio />
-                <CampoFormulario id="motivo" rotulo="Motivo" valor={formulario.motivo} aoAlterar={alterar} obrigatorio />
-                <CampoFormulario id="dataInicial" rotulo="Data inicial" tipo="date" valor={formulario.dataInicial} aoAlterar={alterar} obrigatorio />
-                <CampoFormulario id="dataFinal" rotulo="Data final" tipo="date" valor={formulario.dataFinal} aoAlterar={alterar} obrigatorio />
+                <CampoFormulario id="descricao" rotulo="Descrição" valor={formulario.descricao} aoAlterar={alterar} obrigatorio />
+                <CampoFormulario id="dataInicial" rotulo="Início do evento" tipo="datetime-local" valor={formulario.dataInicial} aoAlterar={alterar} obrigatorio />
+                <CampoFormulario id="dataFinal" rotulo="Fim do evento" tipo="datetime-local" valor={formulario.dataFinal} aoAlterar={alterar} obrigatorio />
+                <CampoFormulario id="local" rotulo="Local" valor={formulario.local} aoAlterar={alterar} />
+                <CampoFormulario id="link" rotulo="Link" tipo="url" valor={formulario.link} aoAlterar={alterar} />
+                <CampoFormulario id="inscricoesInicio" rotulo="Início das inscrições" tipo="datetime-local" valor={formulario.inscricoesInicio} aoAlterar={alterar} obrigatorio />
+                <CampoFormulario id="inscricoesFim" rotulo="Fim das inscrições" tipo="datetime-local" valor={formulario.inscricoesFim} aoAlterar={alterar} obrigatorio />
               </fieldset>
               <div className="acoes-filtros">
                 <button className="botao botao-primario" type="submit">
@@ -239,7 +271,7 @@ function EventosAdministrativos() {
           <div className="cabecalho-resultados">
             <div>
               <h2>Eventos cadastrados</h2>
-              <p>Somente um evento pode permanecer ativo.</p>
+              <p>Vários eventos podem permanecer ativos simultaneamente.</p>
             </div>
           </div>
 
@@ -254,8 +286,8 @@ function EventosAdministrativos() {
                   {eventos.map(function (item) {
                     return (
                       <tr key={item.id}>
-                        <td><strong>{item.nome}</strong><br /><small>{item.motivo}</small></td>
-                        <td>{String(item.dataInicial).slice(0, 10)} a {String(item.dataFinal).slice(0, 10)}</td>
+                        <td><strong>{item.nome}</strong><br /><small>{item.descricao}</small></td>
+                        <td>{new Date(item.dataInicial).toLocaleString('pt-BR')} a {new Date(item.dataFinal).toLocaleString('pt-BR')}</td>
                         <td><span className="badge-consentimento consentimento-nao-informado">{item.status}</span></td>
                         <td>{item.totalCadastros || 0}</td>
                         <td className="acoes-tabela">
@@ -263,7 +295,7 @@ function EventosAdministrativos() {
                             className="botao botao-secundario"
                             type="button"
                             onClick={function () {
-                              navegacao('/admin/contatos?eventoId=' + item.id);
+                              carregarParticipantes(item);
                             }}
                           >
                             Ver participantes
@@ -271,12 +303,12 @@ function EventosAdministrativos() {
                           {usuarioAdministrador && (
                             <>
                               <button className="botao botao-secundario" type="button" onClick={function () { prepararEdicao(item); }}>Editar</button>
+                              <button className="botao botao-primario" type="button" onClick={function () { setEventoQr(item); }}>QR Code</button>
                               {item.status === 'rascunho' && (
                                 <button className="botao botao-primario" type="button" onClick={function () { mudarStatus(item.id, 'ativar'); }}>Ativar</button>
                               )}
                               {item.status === 'ativo' && (
                                 <>
-                                  <button className="botao botao-primario" type="button" onClick={function () { setEventoQr(item); }}>QR Code</button>
                                   <button className="botao botao-secundario" type="button" onClick={function () { mudarStatus(item.id, 'encerrar'); }}>Encerrar</button>
                                 </>
                               )}

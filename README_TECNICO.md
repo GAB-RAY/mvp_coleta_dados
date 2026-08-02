@@ -187,9 +187,9 @@ RELATORIO_LIMITE_REGISTROS=50000
 | `GET` | `/api/teste` | Testa API e conexão PostgreSQL. |
 | `GET` | `/api/saude/vivo` | Confirma que o processo está vivo. |
 | `GET` | `/api/saude/pronto` | Confirma que a API e o PostgreSQL estão prontos. |
-| `GET` | `/api/publico/contatos/opcoes` | Retorna bairros, categorias e evento ativo. |
+| `GET` | `/api/publico/contatos/opcoes` | Retorna bairros e categorias; valida `eventoId` quando informado. |
 | `POST` | `/api/publico/contatos/verificar-evento` | Compara nome completo e telefone sem retornar dados pessoais. |
-| `POST` | `/api/publico/contatos/inscrever-evento` | Vincula ao evento ativo um contato existente já identificado. |
+| `POST` | `/api/publico/contatos/inscrever-evento` | Vincula ao evento informado um contato existente já identificado. |
 | `POST` | `/api/publico/contatos` | Registra ou complementa um contato pelo telefone. |
 | `POST` | `/api/autenticacao/login` | Valida credenciais e retorna JWT e usuário. |
 
@@ -212,18 +212,19 @@ O cadastro público recebe:
 Regras principais:
 
 - nome, telefone, bairro, idade, categoria e aceite de privacidade são obrigatórios;
-- idade deve ser inteira entre 16 e 120;
+- idade deve ser inteira entre 16 e 120; valores abaixo de 16 são bloqueados no
+  frontend, no service e pela constraint do PostgreSQL;
 - o bairro deve existir e estar ativo no catálogo do banco;
 - a categoria deve existir no catálogo centralizado do backend;
 - mensagens e ligações são escolhas independentes; no formulário público,
-  ambas iniciam marcadas e podem ser desmarcadas;
+  ambas iniciam desmarcadas e exigem escolha voluntária;
 - o telefone é reduzido a dígitos e deve ter de 10 a 15 números;
 - o formulário não contém descrição do problema nem pergunta eleitoral;
-- se houver evento ativo e dentro do período, o vínculo é automático;
+- somente o formulário com `eventoId` válido cria vínculo com evento;
 - `eventoIdExibido` recebe o identificador mostrado ou `null` quando não havia evento;
-- se o evento ativo mudar antes do envio, a transação é cancelada com HTTP `409` e nenhum contato é persistido parcialmente;
+- se o evento informado encerrar ou sair do período antes do envio, a transação é cancelada e nada é persistido parcialmente;
 - submissões usam advisory lock compartilhado; edição e mudança de status usam o lock exclusivo correspondente;
-- sem evento ativo, o cadastro segue normalmente e sem aviso adicional;
+- o cadastro geral segue normalmente, independentemente dos eventos ativos;
 - telefone existente não provoca sobrescrita silenciosa no fluxo público;
 - somente campos anteriormente vazios podem ser complementados;
 - durante evento, nome completo e telefone são solicitados antes dos demais campos;
@@ -249,8 +250,10 @@ Todas exigem JWT.
 | `POST` | `/api/admin/contatos/:id/revogar-consentimentos` | operador/admin |
 | `POST` | `/api/admin/contatos/:id/solicitacao-exclusao` | operador/admin |
 | `GET` | `/api/admin/origens` | operador/admin |
+| `GET` | `/api/admin/importacoes` | operador/admin |
 | `POST` | `/api/admin/importacoes/pre-visualizar` | operador/admin |
 | `POST` | `/api/admin/importacoes/:id/confirmar` | operador/admin |
+| `DELETE` | `/api/admin/importacoes/:id` | admin |
 | `GET` | `/api/admin/relatorios/resumo` | operador/admin |
 | `GET` | `/api/admin/relatorios/exportar.csv` | admin |
 | `GET` | `/api/admin/relatorios/exportar.xlsx` | admin |
@@ -288,6 +291,7 @@ Nome e telefone podem ser combinados com `eventoId`. O botão `Ver participantes
 |---|---:|---:|
 | Consultar, cadastrar e atualizar contatos | Sim | Sim |
 | Importar CSV/XLSX | Sim | Sim |
+| Excluir registro de importação | Não | Sim |
 | Revogar mensagens ou ligações | Sim | Sim |
 | Solicitar exclusão | Sim | Sim |
 | Visualizar eventos | Sim | Sim |
@@ -320,6 +324,9 @@ Um administrador não pode alterar a conta nem a senha de outro administrador.
 - linhas inválidas, repetidas ou já processadas são identificadas;
 - contato existente pode receber somente informações que estavam vazias;
 - dados já preenchidos não são silenciosamente substituídos;
+- as origens de importação existentes podem ser reutilizadas e novas origens podem ser cadastradas durante a pré-visualização;
+- a tela lista os metadados dos lotes sem expor os dados importados;
+- somente o administrador exclui um lote, e essa exclusão preserva os contatos e a origem associada;
 - complementos efetivos geram histórico;
 - a importação não cria consentimentos automaticamente.
 
@@ -338,15 +345,25 @@ A descrição continua aceita somente por compatibilidade das importações e do
 
 ### 3.9 Consentimentos e privacidade
 
-- aceite de privacidade é obrigatório para o formulário público;
+- o consentimento para participação voluntária é obrigatório, versionado e
+  separado das autorizações de comunicação;
 - mensagens e ligações são autorizações separadas;
+- mensagens representam o opt-in específico para comunicações pelo WhatsApp;
 - os textos apresentados são armazenados com versão, canal e origem;
+- a data/hora fica em `criado_em`; revogação, motivo, estado e registro anterior
+  permanecem na mesma trilha normalizada;
 - a mesma resposta, texto, versão e origem não deve gerar evento duplicado;
 - revogação cria novo registro e referencia o anterior;
 - revogações não são apagadas;
 - revogação e solicitação de exclusão bloqueiam os usos correspondentes;
-- pedido pendente bloqueia mensagens, ligações e campanhas;
+- pedido pendente bloqueia mensagens e ligações;
 - o consentimento legado `mensagens_whatsapp` não é convertido automaticamente.
+- os textos ativos são `aviso_privacidade_v3`, `mensagens_whatsapp_v3` e
+  `ligacoes_v3`; versões anteriores permanecem preservadas;
+- a Política de Privacidade documenta controlador, bases legais, idade mínima,
+  fornecedores, transferências internacionais, retenção, segurança e direitos;
+- comunicação política autorizada não permite inferência ou segmentação por
+  opinião política.
 
 ### 3.10 Exclusão
 
@@ -364,22 +381,42 @@ Não existe endpoint de exclusão direta de contato, revogação ou histórico.
 ### 3.11 Eventos
 
 - estados: `rascunho`, `ativo` e `encerrado`;
-- somente um evento pode estar ativo;
-- o índice parcial único `eventos_apenas_um_ativo` garante essa regra diretamente no PostgreSQL;
-- contém nome, motivo, data inicial e data final;
+- vários eventos podem estar ativos simultaneamente;
+- contém nome, descrição, data e horário, local/link e período de inscrições;
 - a criação, edição, ativação e encerramento geram histórico;
-- o formulário público mantém o mesmo endereço;
+- `/participar` permanece como cadastro geral e cada evento usa `/participar?evento=<id>`;
 - o backend decide automaticamente se o telefone é novo ou se nome completo e telefone correspondem a um cadastro existente;
 - o contato permanece único e mantém a origem original quando participa posteriormente de um evento;
 - a restrição única de `contato_eventos` impede repetição do mesmo par contato/evento;
 - inscrições repetidas retornam uma confirmação clara sem criar outro vínculo;
 - operadores acessam a tela em modo somente leitura e podem abrir a lista de participantes;
 - somente administradores veem e executam criação, edição, ativação e encerramento;
-- a ativação disponibiliza um QR Code SVG com `/participar?evento=<id>`;
+- a criação disponibiliza um QR Code SVG com `/participar?evento=<id>`;
 - o backend valida o identificador do QR e retorna `410` quando o evento foi encerrado ou saiu do período;
 - listagem e relatórios podem filtrar pelo evento ou por ausência de evento.
 
-### 3.12 Relatórios, exportação e backup
+### 3.12 Comunicação manual
+
+`numeros_whatsapp` identifica os canais da equipe. `modelos_mensagem` guarda
+textos prontos editáveis. `campanhas` identifica cada ação de comunicação.
+`comunicacoes` registra contato, evento, template, campanha, canal, operador,
+texto, confirmação, status e motivo de reenvio. `historico_comunicacoes`
+preserva cada transição com usuário, data e hora.
+
+O painel é acessado por `/admin/comunicacoes` e aparece como `Mensagens` no menu. A listagem e os detalhes de contatos abrem essa rota com `contatoId`, pré-selecionando o contato. Todo atendimento exige um texto pronto ativo; não há mensagem livre no preparo. O estado não informado da autorização não impede atendimento manual; revogações e bloqueios explícitos continuam sendo aplicados no backend. Somente administradores cadastram, editam ou excluem canais, e também gerenciam textos prontos e campanhas. Canais com histórico são desativados em vez de excluídos para preservar a auditoria.
+
+A listagem administrativa de contatos separa status cadastral de andamento do
+atendimento e usa o último registro de `comunicacoes`. O filtro consolidado
+`nao_respondeu` abrange os estados `enviada`, `aguardando_resposta` e
+`sem_resposta`.
+
+O sistema apenas abre `wa.me`; preparar ou abrir a conversa não registra envio.
+Depois do envio real, o operador usa a confirmação específica. Respostas e
+andamento também são manuais. A mesma campanha para o mesmo contato exige
+confirmação e motivo de reenvio. Nenhuma mensagem é enviada pelo servidor. A equipe abre a conversa em
+`wa.me` e confirma o envio manualmente.
+
+### 3.13 Relatórios, exportação e backup
 
 Relatórios apresentam totais e agrupamentos por bairro, categoria, origem, idade, data e evento. Também relacionam cada bairro às necessidades registradas. Gráficos e itens territoriais abrem a listagem com os filtros correspondentes. A quantidade máxima carregada é limitada por `RELATORIO_LIMITE_REGISTROS`.
 
@@ -402,9 +439,9 @@ Backup:
 - remove o arquivo temporário do servidor depois do download;
 - nome no formato `acorda-vk-backup-completo-postgresql-AAAA-MM-DD_HH-mm-ss.backup`.
 
-### 3.13 Banco de dados
+### 3.14 Banco de dados
 
-O schema possui 22 tabelas:
+O schema possui 21 tabelas:
 
 | Grupo | Tabelas |
 |---|---|
@@ -412,22 +449,20 @@ O schema possui 22 tabelas:
 | Privacidade e auditoria | `consentimentos`, `aceites_privacidade`, `historico_contatos`, `solicitacoes_exclusao`, `tentativas_login`, `backups_banco` |
 | Eventos | `eventos`, `historico_eventos`, `contato_eventos` |
 | Importação e conteúdo | `importacoes`, `importacao_linhas`, `textos_formulario` |
-| Preparação ManyChat | `campanhas`, `campanha_contatos`, `envios_campanha`, `respostas_campanha`, `eventos_manychat`, `sincronizacoes_manychat` |
+| Comunicação manual | `numeros_whatsapp`, `modelos_mensagem`, `campanhas`, `comunicacoes`, `historico_comunicacoes` |
 
 Proteções relevantes:
 
 - identidade numérica e chaves estrangeiras;
 - telefone normalizado único;
 - e-mail de usuário único sem diferenciar maiúsculas/minúsculas;
-- apenas um evento ativo;
+- vários eventos ativos e inscrição única por contato/evento;
 - apenas uma solicitação pendente por contato;
 - apenas um consentimento ativo de cada tipo por contato;
 - índices de busca, filtros e datas;
-- triggers de atualização de data;
-- triggers que impedem inserir em campanha ou enviar para contato bloqueado;
-- função `contato_pode_receber_campanha` como proteção adicional no banco.
+- triggers de atualização de data.
 
-As tabelas relacionadas ao ManyChat são somente preparação estrutural. A API, os webhooks, as filas e o envio real pelo ManyChat ainda não foram implementados.
+As campanhas existentes são agrupadores internos de segmentação e auditoria.
 
 Para criar um banco novo e vazio:
 
@@ -458,6 +493,9 @@ Os componentes, o layout responsivo e os gráficos são implementados no própri
 |---|---|---|
 | `/` | Redireciona para `/participar` | público |
 | `/participar` | Formulário Acorda VK | público |
+| `/privacidade` | Política de Privacidade | público |
+| `/termos` | Termos de Uso | público |
+| `/excluir-dados` | Orientação para exclusão e revogação | público |
 | `/login` | Login administrativo | público |
 | `/admin` | Visão geral com indicadores | operador/admin |
 | `/admin/contatos` | Listagem, filtros e paginação | operador/admin |
@@ -503,15 +541,17 @@ O token e os dados básicos do usuário são mantidos no armazenamento local do 
 - título da aba `Acorda VK` no formulário e `Central de Comunicação` nas rotas administrativas;
 - seletor pesquisável de bairro;
 - categoria em seleção fechada;
-- autorizações opcionais de mensagens e ligações marcadas inicialmente e livremente desmarcáveis;
-- aceite de privacidade desmarcado inicialmente e obrigatório;
-- contexto de evento exibido somente quando há evento ativo;
-- com evento ativo, primeira etapa reduzida a nome completo e telefone;
+- autorizações opcionais de WhatsApp e ligações desmarcadas inicialmente;
+- consentimento de participação desmarcado inicialmente, obrigatório e com
+  declaração de idade mínima;
+- contexto de evento exibido somente no link exclusivo válido;
+- no formulário exclusivo, primeira etapa reduzida a nome completo e telefone;
 - contato existente recebe confirmação curta; contato novo segue ao formulário completo;
 - os dados armazenados não são exibidos pela identificação pública;
 - opção `Meus dados mudaram` disponível depois da correspondência;
 - botão de WhatsApp exibido somente se o número estiver configurado;
-- aviso de privacidade após o formulário.
+- resumo compacto de privacidade após o formulário;
+- links públicos para Privacidade, Termos de Uso e Exclusão de dados.
 
 ### 4.5 Configuração e execução
 
@@ -525,6 +565,7 @@ npm run dev
 ```env
 VITE_API_URL=http://localhost:3000
 VITE_WHATSAPP_NUMERO=5521999999999
+VITE_PRIVACIDADE_EMAIL=seu-email-de-privacidade@example.com
 ```
 
 O número do WhatsApp deve conter somente país, DDD e número. O botão abre `wa.me` em uma nova aba e não envia dados automaticamente.
@@ -566,7 +607,7 @@ O conjunto `npm test` executa verificações de:
 - eventos e exclusões;
 - backups.
 
-Último resultado documentado no projeto, em 27/07/2026: 307 verificações do backend aprovadas e build do frontend concluído com 62 módulos transformados.
+Último resultado documentado no projeto, em 02/08/2026: 376 verificações do backend aprovadas e build do frontend concluído com 69 módulos transformados.
 
 O teste adicional `testar:importacao-carga` valida separadamente 15.000 contatos temporários em um único arquivo, a rejeição de 20.001 linhas, pré-visualização, confirmação, contagem persistida, limpeza automática e ressincronização das sequências utilizadas. O limite aceito de 20.000 linhas também foi executado com sucesso. O script recusa execução em produção.
 
@@ -582,7 +623,7 @@ Na publicação:
 2. executar o schema somente no banco vazio;
 3. configurar segredos no painel da DigitalOcean;
 4. publicar a pasta `backend`;
-5. configurar `VITE_API_URL` e `VITE_WHATSAPP_NUMERO` na Vercel;
+5. configurar `VITE_API_URL`, `VITE_WHATSAPP_NUMERO` e `VITE_PRIVACIDADE_EMAIL` na Vercel;
 6. configurar `FRONTEND_URL` com o domínio final;
 7. validar SSL, CORS, login, formulário, painel, exportação e backup;
 8. habilitar deploy automático somente na branch de produção desejada.
@@ -595,8 +636,6 @@ O backend de 512 MiB não permite escala horizontal e o PostgreSQL de nó único
 
 ## 7. Pendências reais
 
-- integração efetiva com API e webhooks do ManyChat;
-- filas e execução real de campanhas;
 - armazenamento externo e política de retenção de backups em produção;
 - definição jurídica final dos textos de privacidade e consentimento;
 - processo formal para alterações incrementais do banco após a publicação.

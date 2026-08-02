@@ -4,6 +4,62 @@ const historicoContatoModel = require('../contatos/historicoContatoModel');
 
 const TAMANHO_LOTE_PRE_VISUALIZACAO = configuracaoImportacao.TAMANHO_LOTE;
 
+async function listar() {
+  const resultado = await banco.query(`
+    SELECT
+      importacao.id,
+      importacao.nome_arquivo,
+      importacao.formato,
+      importacao.status,
+      importacao.total_recebido,
+      importacao.criado_em,
+      importacao.confirmado_em,
+      origem.id AS origem_id,
+      origem.nome AS origem_nome,
+      usuario.nome AS usuario_nome
+    FROM importacoes AS importacao
+    INNER JOIN origens AS origem ON origem.id = importacao.origem_id
+    INNER JOIN usuarios AS usuario ON usuario.id = importacao.usuario_id
+    ORDER BY importacao.criado_em DESC, importacao.id DESC
+  `);
+
+  return resultado.rows;
+}
+
+async function excluir(importacaoId) {
+  const cliente = await banco.connect();
+
+  try {
+    await cliente.query('BEGIN');
+    const resultado = await cliente.query(
+      'SELECT id, status FROM importacoes WHERE id = $1 FOR UPDATE',
+      [importacaoId]
+    );
+
+    if (!resultado.rows[0]) {
+      const erro = new Error('Importação não encontrada.');
+      erro.codigoAplicacao = 'IMPORTACAO_NAO_ENCONTRADA';
+      throw erro;
+    }
+
+    if (resultado.rows[0].status === 'processando') {
+      const erro = new Error('Importação em processamento.');
+      erro.codigoAplicacao = 'IMPORTACAO_EM_PROCESSAMENTO';
+      throw erro;
+    }
+
+    await cliente.query('DELETE FROM importacoes WHERE id = $1', [importacaoId]);
+    await cliente.query('COMMIT');
+
+    return true;
+  } catch (erro) {
+    await cliente.query('ROLLBACK');
+    throw erro;
+  } finally {
+    cliente.release();
+  }
+}
+
 async function obterOuCriarOrigem(cliente, nome, slugBase) {
   const existente = await cliente.query(
     `
@@ -556,5 +612,7 @@ async function confirmar(importacaoId, usuarioId) {
 
 module.exports = {
   criarPreVisualizacao,
-  confirmar
+  confirmar,
+  excluir,
+  listar
 };

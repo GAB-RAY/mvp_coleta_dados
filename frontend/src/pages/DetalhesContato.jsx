@@ -137,7 +137,7 @@ function DetalhesContato() {
 
   async function registrarSolicitacaoExclusao() {
     const confirmado = window.confirm(
-      'Confirma o registro do pedido de exclusão? O contato ficará bloqueado para campanhas.'
+      'Confirma o registro do pedido de exclusão? Mensagens e ligações ficarão bloqueadas.'
     );
 
     if (!confirmado) {
@@ -177,12 +177,20 @@ function DetalhesContato() {
             <section className="cartao painel-detalhes">
               <div className="cabecalho-painel-detalhes">
                 <h2>Dados do contato</h2>
-                <Link
-                  className="botao botao-secundario"
-                  to={'/admin/contatos/novo?contatoId=' + dados.contato.id}
-                >
-                  Editar contato
-                </Link>
+                <div className="acoes-filtros">
+                  <Link
+                    className="botao botao-secundario"
+                    to={'/admin/comunicacoes?contatoId=' + dados.contato.id}
+                  >
+                    Enviar mensagem
+                  </Link>
+                  <Link
+                    className="botao botao-secundario"
+                    to={'/admin/contatos/novo?contatoId=' + dados.contato.id}
+                  >
+                    Editar contato
+                  </Link>
+                </div>
               </div>
               <dl className="lista-detalhes">
                 <div><dt>Nome</dt><dd>{formatarValor(dados.contato.nome)}</dd></div>
@@ -208,10 +216,6 @@ function DetalhesContato() {
                 <div>
                   <dt>Ligações</dt>
                   <dd>{dados.contato.bloqueadoParaLigacoes ? 'Bloqueadas' : 'Sem bloqueio administrativo'}</dd>
-                </div>
-                <div>
-                  <dt>Campanhas</dt>
-                  <dd>{dados.contato.bloqueadoParaCampanhas ? 'Bloqueadas' : 'Sem bloqueio administrativo'}</dd>
                 </div>
                 <div>
                   <dt>Pedido de exclusão</dt>
@@ -339,6 +343,23 @@ function DetalhesContato() {
                     <small>
                       {formatarData(historico.criadoEm)} · {formatarValor(historico.origem)}
                       {historico.usuario ? ' · ' + historico.usuario : ''}
+                    </small>
+                  </article>
+                );
+              })}
+            </section>
+
+            <section className="cartao painel-detalhes">
+              <h2>Histórico de comunicações</h2>
+              {(dados.comunicacoes || []).length === 0 && <p>Nenhuma comunicação registrada.</p>}
+              {(dados.comunicacoes || []).map(function (comunicacao) {
+                return (
+                  <article className="registro-historico" key={comunicacao.id}>
+                    <strong>{String(comunicacao.status).replaceAll('_', ' ')}</strong>
+                    <p>{comunicacao.texto_preparado}</p>
+                    <small>
+                      {formatarData(comunicacao.criado_em)} · {comunicacao.operador_nome}
+                      {comunicacao.evento_nome ? ' · ' + comunicacao.evento_nome : ''}
                     </small>
                   </article>
                 );

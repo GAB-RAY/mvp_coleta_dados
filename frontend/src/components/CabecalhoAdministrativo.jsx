@@ -5,6 +5,7 @@ const ITENS_NAVEGACAO = [
   { caminho: '/admin', rotulo: 'Visão geral', icone: 'visao-geral', exato: true },
   { caminho: '/admin/contatos', rotulo: 'Contatos', icone: 'contatos', exato: true },
   { caminho: '/admin/contatos/novo', rotulo: 'Novo cadastro', icone: 'novo' },
+  { caminho: '/admin/comunicacoes', rotulo: 'Mensagens', icone: 'comunicacoes' },
   { caminho: '/admin/importacoes', rotulo: 'Importações', icone: 'importacoes' },
   { caminho: '/admin/relatorios', rotulo: 'Relatórios', icone: 'relatorios' },
   { caminho: '/admin/eventos', rotulo: 'Eventos', icone: 'eventos' },
@@ -42,6 +43,15 @@ function IconeNavegacao(propriedades) {
         <circle cx="10" cy="8" r="3" />
         <path d="M4 19c.4-3.2 2.3-5 6-5 1.2 0 2.3.2 3.1.6" />
         <path d="M18 13v8M14 17h8" />
+      </svg>
+    );
+  }
+
+  if (propriedades.nome === 'comunicacoes') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 3v12M7.5 10.5 12 15l4.5-4.5" />
+        <path d="M4 15v5h16v-5" />
       </svg>
     );
   }

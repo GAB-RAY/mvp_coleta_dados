@@ -99,13 +99,34 @@ async function executar() {
     });
     verificar(pedidoRepetido.corpo.alterado === false, 'Pedido repetido não foi idempotente.');
     const estado = await banco.query(
-      `SELECT bloqueado_para_mensagens, bloqueado_para_ligacoes, bloqueado_para_campanhas
+      `SELECT bloqueado_para_mensagens, bloqueado_para_ligacoes
        FROM contatos WHERE id = $1`,
       [contatoId]
     );
     verificar(estado.rows[0].bloqueado_para_mensagens === true, 'Mensagens não foram bloqueadas.');
     verificar(estado.rows[0].bloqueado_para_ligacoes === true, 'Ligações não foram bloqueadas.');
-    verificar(estado.rows[0].bloqueado_para_campanhas === true, 'Campanhas não foram bloqueadas.');
+    const reenvioPendente = await requisitar(baseUrl, '/api/publico/contatos', {
+      method: 'POST',
+      body: JSON.stringify({
+        nome: 'Contato Privacidade', telefone: TELEFONE, idade: 38,
+        bairro: 'Vila Kennedy', problema: 'Saúde', aceitePrivacidade: true,
+        autorizacaoMensagens: true, autorizacaoLigacoes: true
+      })
+    });
+    verificar(
+      reenvioPendente.status === 201 && reenvioPendente.corpo.contatoCriado === false,
+      'Reenvio consciente do contato existente falhou.'
+    );
+    const estadoDepoisReenvio = await banco.query(
+      `SELECT bloqueado_para_mensagens, bloqueado_para_ligacoes
+       FROM contatos WHERE id = $1`,
+      [contatoId]
+    );
+    verificar(
+      estadoDepoisReenvio.rows[0].bloqueado_para_mensagens === true &&
+        estadoDepoisReenvio.rows[0].bloqueado_para_ligacoes === true,
+      'Pedido pendente deixou de bloquear comunicações após novo envio.'
+    );
     verificar(Number((await banco.query("SELECT COUNT(*) AS total FROM solicitacoes_exclusao WHERE contato_id = $1 AND status = 'pendente'", [contatoId])).rows[0].total) === 1, 'Fila pendente não foi registrada corretamente.');
 
     console.log('Privacidade administrativa: ' + total + ' verificações aprovadas.');

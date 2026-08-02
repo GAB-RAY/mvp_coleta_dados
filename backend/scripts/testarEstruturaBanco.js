@@ -36,105 +36,25 @@ async function esperarErro(cliente, consulta, valores, codigoEsperado) {
   throw new Error('A operação deveria ter sido recusada pelo banco.');
 }
 
-async function criarContato(cliente, origemId, usuarioId, telefone, opcoes) {
-  const configuracao = opcoes || {};
-  const resultado = await cliente.query(
-    `
-      INSERT INTO contatos (
-        nome,
-        telefone,
-        telefone_normalizado,
-        bairro,
-        problema,
-        consentimento_armazenamento,
-        consentimento_mensagens,
-        consentimento_armazenamento_em,
-        origem_atual,
-        status_contato,
-        origem_id,
-        idade,
-        bloqueado_para_mensagens,
-        bloqueado_para_ligacoes,
-        bloqueado_para_campanhas
-      )
-        VALUES (
-        $1, $2, $2, 'Vila Kennedy', 'Saúde', TRUE, FALSE,
-        CURRENT_TIMESTAMP, 'Cadastro manual', 'teste', $3, 30,
-        $4, FALSE, $5
-      )
-      RETURNING id
-    `,
-    [
-      configuracao.nome || 'Contato de teste',
-      telefone,
-      origemId,
-      configuracao.bloqueadoParaMensagens === true,
-      configuracao.bloqueadoParaCampanhas === true
-    ]
-  );
-
-  const contatoId = resultado.rows[0].id;
-
-  if (configuracao.exclusaoSolicitada === true) {
-    await cliente.query(
-      `INSERT INTO solicitacoes_exclusao (
-        contato_id, contato_id_original, solicitada_por_usuario_id
-      ) VALUES ($1, $1, $2)`,
-      [contatoId, usuarioId]
-    );
-  }
-
-  return contatoId;
-}
-
-async function registrarConsentimentoMensagens(cliente, contatoId, origemId, usuarioId, estado) {
-  const autorizado = estado === 'autorizado';
-
-  await cliente.query(
-    `
-      INSERT INTO consentimentos (
-        contato_id,
-        contato_id_original,
-        tipo,
-        resposta,
-        texto_apresentado,
-        versao_texto,
-        canal,
-        origem_registro,
-        registrado_por_usuario_id,
-        estado,
-        origem_id
-      )
-      VALUES (
-        $1, $1, 'mensagens', $2,
-        'Texto técnico de consentimento utilizado somente pelo teste estrutural.',
-        'teste_v1', 'cadastro_manual', 'resposta_expressa', $3, $4, $5
-      )
-    `,
-    [contatoId, autorizado, usuarioId, estado, origemId]
-  );
-}
-
 async function validarCatalogo(cliente) {
   const tabelasEsperadas = [
     'aceites_privacidade',
     'backups_banco',
     'bairros',
-    'campanha_contatos',
     'campanhas',
+    'comunicacoes',
     'consentimentos',
     'contato_eventos',
     'contatos',
-    'envios_campanha',
     'eventos',
-    'eventos_manychat',
+    'historico_comunicacoes',
     'historico_contatos',
     'historico_eventos',
     'importacao_linhas',
     'importacoes',
+    'modelos_mensagem',
+    'numeros_whatsapp',
     'origens',
-    'respostas_campanha',
-    'sincronizacoes_manychat',
     'solicitacoes_exclusao',
     'tentativas_login',
     'textos_formulario',
@@ -171,8 +91,12 @@ async function validarCatalogo(cliente) {
   });
 
   verificar(
-    nomesColunasContatos.includes('manychat_contact_id'),
-    'O identificador futuro do ManyChat não foi criado em contatos.'
+    !nomesColunasContatos.includes('manychat_contact_id'),
+    'A coluna descontinuada manychat_contact_id ainda existe em contatos.'
+  );
+  verificar(
+    !nomesColunasContatos.includes('bloqueado_para_campanhas'),
+    'A coluna descontinuada bloqueado_para_campanhas ainda existe em contatos.'
   );
 
   const vinculoUnicoEvento = await cliente.query(
@@ -202,9 +126,7 @@ async function validarCatalogo(cliente) {
     `
   );
   verificar(
-    eventoAtivoUnico.rowCount === 1 &&
-      eventoAtivoUnico.rows[0].indexdef.includes('UNIQUE INDEX') &&
-      eventoAtivoUnico.rows[0].indexdef.includes("'ativo'"),
+    eventoAtivoUnico.rowCount === 0,
     'A garantia de apenas um evento ativo não existe no banco.'
   );
 
@@ -225,16 +147,16 @@ async function validarCatalogo(cliente) {
     'A função de atualização de data não existe.'
   );
   verificar(
-    nomesFuncoes.includes('contato_pode_receber_campanha'),
-    'A função de elegibilidade de campanhas não existe.'
+    !nomesFuncoes.includes('contato_pode_receber_campanha'),
+    'A função descontinuada de campanhas ainda existe.'
   );
   verificar(
-    nomesFuncoes.includes('validar_participacao_campanha'),
-    'A função de validação de participação não existe.'
+    !nomesFuncoes.includes('validar_participacao_campanha'),
+    'A função descontinuada de participação em campanhas ainda existe.'
   );
   verificar(
-    nomesFuncoes.includes('validar_envio_campanha'),
-    'A função de validação de envio não existe.'
+    !nomesFuncoes.includes('validar_envio_campanha'),
+    'A função descontinuada de envio ainda existe.'
   );
 
   const gatilhos = await cliente.query(
@@ -253,18 +175,22 @@ async function validarCatalogo(cliente) {
     return linha.tgname;
   });
 
-  verificar(nomesGatilhos.length === 11, 'A quantidade de triggers é diferente da esperada.');
+  verificar(nomesGatilhos.length === 10, 'A quantidade de triggers é diferente da esperada.');
   verificar(
     nomesGatilhos.includes('bairros_atualizar_data'),
     'O trigger de atualização do catálogo de bairros não existe.'
   );
   verificar(
-    nomesGatilhos.includes('campanha_contatos_validar_inclusao'),
-    'O trigger de elegibilidade de campanha não existe.'
+    nomesGatilhos.includes('campanhas_atualizar_data'),
+    'O trigger de atualização das campanhas não existe.'
   );
   verificar(
-    nomesGatilhos.includes('envios_campanha_validar_novo_envio'),
-    'O trigger de bloqueio de envio não existe.'
+    !nomesGatilhos.includes('campanha_contatos_validar_inclusao'),
+    'O trigger descontinuado de campanhas ainda existe.'
+  );
+  verificar(
+    !nomesGatilhos.includes('envios_campanha_validar_novo_envio'),
+    'O trigger descontinuado de envio ainda existe.'
   );
 
   const configuracoes = await cliente.query(
@@ -310,199 +236,43 @@ async function validarCatalogo(cliente) {
   );
 }
 
-async function validarManyChat(cliente) {
+async function validarIntegridadeContato(cliente) {
   const origem = await cliente.query(
     "SELECT id FROM origens WHERE slug = 'cadastro-manual'"
   );
-  const usuario = await cliente.query(
-    `
-      INSERT INTO usuarios (nome, email, senha_hash, perfil)
-      VALUES (
-        'Administrador Estrutural',
-        'estrutura.banco@invalid.local',
-        'hash_bcrypt_substituido_no_teste',
-        'administrador'
-      )
-      RETURNING id
-    `
-  );
   const origemId = origem.rows[0].id;
-  const usuarioId = usuario.rows[0].id;
-  const campanha = await cliente.query(
-    `
-      INSERT INTO campanhas (nome, descricao, criado_por_usuario_id)
-      VALUES ('Campanha de validação', 'Registro revertido ao final do teste.', $1)
-      RETURNING id
-    `,
-    [usuarioId]
-  );
-  const campanhaId = campanha.rows[0].id;
+  const consultaInsercao = `
+    INSERT INTO contatos (
+      nome,
+      telefone,
+      telefone_normalizado,
+      bairro,
+      problema,
+      consentimento_armazenamento,
+      consentimento_mensagens,
+      consentimento_armazenamento_em,
+      origem_atual,
+      status_contato,
+      origem_id,
+      idade
+    )
+    VALUES (
+      'Contato estrutural', $1, $1, $2, 'Saúde', TRUE, FALSE,
+      CURRENT_TIMESTAMP, 'Cadastro manual', 'teste', $3, $4
+    )
+  `;
 
-  const contatoAutorizado = await criarContato(
-    cliente,
-    origemId,
-    usuarioId,
-    '21900000001',
-    { nome: 'Contato autorizado' }
-  );
   await esperarErro(
     cliente,
-    'UPDATE contatos SET bairro = $1 WHERE id = $2',
-    ['Bairro inexistente', contatoAutorizado],
+    consultaInsercao,
+    ['21900000001', 'Bairro inexistente', origemId, 30],
     '23503'
   );
-  await registrarConsentimentoMensagens(
-    cliente,
-    contatoAutorizado,
-    origemId,
-    usuarioId,
-    'autorizado'
-  );
-
-  const contatoSemConsentimento = await criarContato(
-    cliente,
-    origemId,
-    usuarioId,
-    '21900000002',
-    { nome: 'Contato sem consentimento' }
-  );
-  const contatoRevogado = await criarContato(
-    cliente,
-    origemId,
-    usuarioId,
-    '21900000003',
-    { nome: 'Contato revogado', bloqueadoParaMensagens: true }
-  );
-  await registrarConsentimentoMensagens(
-    cliente,
-    contatoRevogado,
-    origemId,
-    usuarioId,
-    'revogado'
-  );
-
-  const contatoComExclusao = await criarContato(
-    cliente,
-    origemId,
-    usuarioId,
-    '21900000004',
-    {
-      nome: 'Contato com exclusão',
-      bloqueadoParaMensagens: true,
-      bloqueadoParaCampanhas: true,
-      exclusaoSolicitada: true
-    }
-  );
-  await registrarConsentimentoMensagens(
-    cliente,
-    contatoComExclusao,
-    origemId,
-    usuarioId,
-    'autorizado'
-  );
-
-  const participacao = await cliente.query(
-    `
-      INSERT INTO campanha_contatos (
-        campanha_id,
-        contato_id,
-        incluido_por_usuario_id
-      )
-      VALUES ($1, $2, $3)
-      RETURNING id
-    `,
-    [campanhaId, contatoAutorizado, usuarioId]
-  );
-  const participacaoId = participacao.rows[0].id;
-
-  verificar(Boolean(participacaoId), 'O contato autorizado não entrou na campanha.');
-
   await esperarErro(
     cliente,
-    `
-      INSERT INTO campanha_contatos (campanha_id, contato_id, incluido_por_usuario_id)
-      VALUES ($1, $2, $3)
-    `,
-    [campanhaId, contatoAutorizado, usuarioId],
-    '23505'
-  );
-  await esperarErro(
-    cliente,
-    `
-      INSERT INTO campanha_contatos (campanha_id, contato_id, incluido_por_usuario_id)
-      VALUES ($1, $2, $3)
-    `,
-    [campanhaId, contatoSemConsentimento, usuarioId],
+    consultaInsercao,
+    ['21900000002', 'Vila Kennedy', origemId, 15],
     '23514'
-  );
-  await esperarErro(
-    cliente,
-    `
-      INSERT INTO campanha_contatos (campanha_id, contato_id, incluido_por_usuario_id)
-      VALUES ($1, $2, $3)
-    `,
-    [campanhaId, contatoRevogado, usuarioId],
-    '23514'
-  );
-  await esperarErro(
-    cliente,
-    `
-      INSERT INTO campanha_contatos (campanha_id, contato_id, incluido_por_usuario_id)
-      VALUES ($1, $2, $3)
-    `,
-    [campanhaId, contatoComExclusao, usuarioId],
-    '23514'
-  );
-
-  const envio = await cliente.query(
-    `
-      INSERT INTO envios_campanha (campanha_contato_id, numero_tentativa)
-      VALUES ($1, 1)
-      RETURNING id
-    `,
-    [participacaoId]
-  );
-  verificar(Boolean(envio.rows[0].id), 'O primeiro envio elegível não foi registrado.');
-
-  await cliente.query(
-    'UPDATE contatos SET bloqueado_para_mensagens = TRUE WHERE id = $1',
-    [contatoAutorizado]
-  );
-  await esperarErro(
-    cliente,
-    `
-      INSERT INTO envios_campanha (campanha_contato_id, numero_tentativa)
-      VALUES ($1, 2)
-    `,
-    [participacaoId],
-    '23514'
-  );
-
-  await cliente.query(
-    `
-      INSERT INTO eventos_manychat (identificador_externo, tipo, payload)
-      VALUES ('evento-externo-teste', 'resposta.recebida', '{}'::jsonb)
-    `
-  );
-  await esperarErro(
-    cliente,
-    `
-      INSERT INTO eventos_manychat (identificador_externo, tipo, payload)
-      VALUES ('evento-externo-teste', 'resposta.recebida', '{}'::jsonb)
-    `,
-    [],
-    '23505'
-  );
-
-  await cliente.query(
-    'UPDATE contatos SET manychat_contact_id = $1 WHERE id = $2',
-    ['manychat-contato-teste', contatoAutorizado]
-  );
-  await esperarErro(
-    cliente,
-    'UPDATE contatos SET manychat_contact_id = $1 WHERE id = $2',
-    ['manychat-contato-teste', contatoSemConsentimento],
-    '23505'
   );
 }
 
@@ -518,11 +288,11 @@ async function executar() {
     await validarCatalogo(cliente);
 
     await cliente.query('BEGIN');
-    await validarManyChat(cliente);
+    await validarIntegridadeContato(cliente);
     await cliente.query('ROLLBACK');
 
     console.log('Banco validado: ' + identidade.rows[0].banco + '.');
-    console.log('Estrutura atual, catálogo de bairros e base ManyChat: ' + totalVerificacoes + ' verificações aprovadas.');
+    console.log('Estrutura atual, catálogo de bairros e integridade: ' + totalVerificacoes + ' verificações aprovadas.');
   } catch (erro) {
     try {
       await cliente.query('ROLLBACK');

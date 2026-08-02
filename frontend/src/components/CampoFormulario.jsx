@@ -47,6 +47,10 @@ function CampoFormulario(propriedades) {
           step={propriedades.passo}
         />
       )}
+
+      {propriedades.ajuda && (
+        <small className="ajuda-campo">{propriedades.ajuda}</small>
+      )}
     </div>
   );
 }

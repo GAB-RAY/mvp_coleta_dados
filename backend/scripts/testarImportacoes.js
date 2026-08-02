@@ -11,6 +11,7 @@ const configuracaoImportacao = require('../src/config/importacao');
 const PREFIXO = '21999985';
 const ORIGENS = ['Importação CSV Teste', 'Importação XLSX Teste'];
 const EMAIL_TESTE = 'importacoes.teste@invalid.local';
+const EMAIL_ADMIN_TESTE = 'importacoes.admin.teste@invalid.local';
 
 async function requisitar(baseUrl, caminho, opcoes) {
   const resposta = await fetch(baseUrl + caminho, opcoes || {});
@@ -54,8 +55,14 @@ async function limpar() {
     await banco.query('DELETE FROM origens WHERE id = ANY($1::bigint[])', [idsOrigens]);
   }
 
-  await banco.query('DELETE FROM tentativas_login WHERE email_informado = $1', [EMAIL_TESTE]);
-  await banco.query('DELETE FROM usuarios WHERE email = $1', [EMAIL_TESTE]);
+  await banco.query(
+    'DELETE FROM tentativas_login WHERE email_informado = ANY($1::text[])',
+    [[EMAIL_TESTE, EMAIL_ADMIN_TESTE]]
+  );
+  await banco.query(
+    'DELETE FROM usuarios WHERE email = ANY($1::text[])',
+    [[EMAIL_TESTE, EMAIL_ADMIN_TESTE]]
+  );
 }
 
 async function executar() {
@@ -72,9 +79,19 @@ async function executar() {
       `,
       [EMAIL_TESTE, senhaHash]
     );
+    const administrador = await banco.query(
+      `
+        INSERT INTO usuarios (nome, email, senha_hash, perfil)
+        VALUES ('Administrador Importações', $1, $2, 'administrador')
+        RETURNING id, email, perfil
+      `,
+      [EMAIL_ADMIN_TESTE, senhaHash]
+    );
     const segredo = process.env.JWT_SECRET || process.env.JWT_SEGREDO;
     const token = jwt.sign(usuario.rows[0], segredo, { expiresIn: '10m' });
+    const tokenAdministrador = jwt.sign(administrador.rows[0], segredo, { expiresIn: '10m' });
     const cabecalhos = { Authorization: 'Bearer ' + token };
+    const cabecalhosAdministrador = { Authorization: 'Bearer ' + tokenAdministrador };
     const origemExistente = await banco.query("SELECT id FROM origens WHERE slug = 'cadastro-manual'");
     await banco.query(
       `
@@ -256,8 +273,44 @@ async function executar() {
     );
     assert.strictEqual(repetida.corpo.relatorio.ignorados, 1);
 
-    console.log('Importações: 24 verificações aprovadas.');
-    console.log('CSV, XLSX, inválidos, duplicados, complementação e reimportação aprovados.');
+    const listagem = await requisitar(baseUrl, '/api/admin/importacoes', {
+      headers: cabecalhos
+    });
+    assert.strictEqual(listagem.status, 200);
+    assert.ok(listagem.corpo.importacoes.some(function (item) {
+      return item.id === visualizacao.corpo.importacao.importacaoId &&
+        item.origem.nome === ORIGENS[0] &&
+        item.nomeArquivo === 'contatos.csv';
+    }));
+
+    const exclusaoOperador = await requisitar(
+      baseUrl,
+      '/api/admin/importacoes/' + visualizacao.corpo.importacao.importacaoId,
+      { method: 'DELETE', headers: cabecalhos }
+    );
+    assert.strictEqual(exclusaoOperador.status, 403);
+
+    const exclusaoAdministrador = await requisitar(
+      baseUrl,
+      '/api/admin/importacoes/' + visualizacao.corpo.importacao.importacaoId,
+      { method: 'DELETE', headers: cabecalhosAdministrador }
+    );
+    assert.strictEqual(exclusaoAdministrador.status, 200);
+
+    const importacaoExcluida = await banco.query(
+      'SELECT id FROM importacoes WHERE id = $1',
+      [visualizacao.corpo.importacao.importacaoId]
+    );
+    assert.strictEqual(importacaoExcluida.rowCount, 0);
+
+    const contatoPreservado = await banco.query(
+      'SELECT id FROM contatos WHERE telefone_normalizado = $1',
+      [PREFIXO + '001']
+    );
+    assert.strictEqual(contatoPreservado.rowCount, 1);
+
+    console.log('Importações: 30 verificações aprovadas.');
+    console.log('CSV, XLSX, listagem, permissões, exclusão segura e preservação de contatos aprovados.');
   } finally {
     if (servidor) {
       await new Promise(function (resolver) { servidor.close(resolver); });

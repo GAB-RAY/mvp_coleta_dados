@@ -5,6 +5,7 @@ import './styles/global.css';
 import './styles/formulario.css';
 import './styles/login.css';
 import './styles/administrativo.css';
+import './styles/legal.css';
 
 const elementoRaiz = document.getElementById('root');
 const raizReact = createRoot(elementoRaiz);

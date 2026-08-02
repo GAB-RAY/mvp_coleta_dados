@@ -9,7 +9,7 @@ import { baixarCsv, baixarExcel, buscarResumo } from '../services/relatorioServi
 import { removerToken } from '../utils/armazenamentoToken';
 import { obterUsuario } from '../utils/armazenamentoToken';
 import { listarEventos } from '../services/eventoService';
-import { buscarOpcoesFormulario } from '../services/contatoService';
+import { buscarOpcoesFormulario, listarOrigens } from '../services/contatoService';
 
 const FILTROS_INICIAIS = {
   bairro: '',
@@ -205,18 +205,21 @@ function Relatorios() {
   const [eventos, setEventos] = useState([]);
   const [bairros, setBairros] = useState([]);
   const [categoriasProblema, setCategoriasProblema] = useState([]);
+  const [origens, setOrigens] = useState([]);
   const usuario = obterUsuario();
   const podeExportar = usuario && usuario.perfil === 'administrador';
 
   useEffect(function () {
-    Promise.all([listarEventos(), buscarOpcoesFormulario()]).then(function (respostas) {
+    Promise.all([listarEventos(), buscarOpcoesFormulario(), listarOrigens()]).then(function (respostas) {
       setEventos(respostas[0].eventos || []);
       setBairros(respostas[1].bairros || []);
       setCategoriasProblema(respostas[1].categoriasProblema || []);
+      setOrigens(respostas[2].origens || []);
     }).catch(function () {
       setEventos([]);
       setBairros([]);
       setCategoriasProblema([]);
+      setOrigens([]);
     });
   }, []);
 
@@ -361,7 +364,18 @@ function Relatorios() {
             <fieldset className="grade-filtros">
               <CampoSelecao id="bairro" rotulo="Bairro" valor={filtros.bairro} aoAlterar={alterar} opcoes={bairros} placeholder="Todos" />
               <CampoSelecao id="problema" rotulo="Categoria" valor={filtros.problema} aoAlterar={alterar} opcoes={categoriasProblema} placeholder="Todas" />
-              <CampoFormulario id="origem" rotulo="Origem" valor={filtros.origem} aoAlterar={alterar} />
+              <CampoSelecao
+                id="origem"
+                rotulo="Origem"
+                valor={filtros.origem}
+                aoAlterar={alterar}
+                opcoes={[
+                  { valor: 'nao_informado', rotulo: 'Não informado' }
+                ].concat(origens.map(function (origem) {
+                  return { valor: origem.nome, rotulo: origem.nome };
+                }))}
+                placeholder="Todas"
+              />
               <CampoFormulario id="idadeMinima" rotulo="Idade mínima" tipo="number" valor={filtros.idadeMinima} aoAlterar={alterar} minimo={16} maximo={120} />
               <CampoFormulario id="idadeMaxima" rotulo="Idade máxima" tipo="number" valor={filtros.idadeMaxima} aoAlterar={alterar} minimo={16} maximo={120} />
               <CampoFormulario id="dataInicial" rotulo="Data inicial" tipo="date" valor={filtros.dataInicial} aoAlterar={alterar} />

@@ -1,3 +1,5 @@
+const banco = require('../../config/banco');
+
 async function buscarAtivos(cliente) {
   const consulta = `
     SELECT id, tipo, versao, texto
@@ -17,6 +19,11 @@ async function buscarAtivos(cliente) {
   return textosPorTipo;
 }
 
+async function listarAtivos() {
+  return buscarAtivos(banco);
+}
+
 module.exports = {
-  buscarAtivos
+  buscarAtivos,
+  listarAtivos
 };

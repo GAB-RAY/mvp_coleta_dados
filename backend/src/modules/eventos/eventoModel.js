@@ -1,20 +1,8 @@
 const banco = require('../../config/banco');
-const configuracaoEvento = require('../../config/evento');
-const formatarDataRio = require('../../utils/formatarDataRio');
 
-function selecionarCampos() {
+function camposEvento() {
   return `
-    SELECT
-      evento.id,
-      evento.nome,
-      evento.motivo,
-      evento.data_inicial,
-      evento.data_final,
-      evento.status,
-      evento.criado_em,
-      evento.atualizado_em,
-      criador.nome AS criado_por,
-      atualizador.nome AS atualizado_por,
+    SELECT evento.*, criador.nome AS criado_por, atualizador.nome AS atualizado_por,
       COUNT(contato_evento.id)::integer AS total_cadastros
     FROM eventos AS evento
     INNER JOIN usuarios AS criador ON criador.id = evento.criado_por_usuario_id
@@ -24,83 +12,51 @@ function selecionarCampos() {
 }
 
 async function listar() {
-  const resultado = await banco.query(
-    selecionarCampos() + `
-      GROUP BY evento.id, criador.nome, atualizador.nome
-      ORDER BY evento.data_inicial DESC, evento.id DESC
-    `
-  );
-
+  const resultado = await banco.query(camposEvento() + `
+    GROUP BY evento.id, criador.nome, atualizador.nome
+    ORDER BY evento.data_inicial DESC, evento.id DESC
+  `);
   return resultado.rows;
 }
 
-async function buscarAtivo(clienteRecebido) {
+async function buscarDisponivelPorId(id, clienteRecebido) {
   const executor = clienteRecebido || banco;
-  const resultado = await executor.query(
-    `
-      SELECT id, nome, motivo, data_inicial, data_final, status
-      FROM eventos
-      WHERE status = 'ativo'
-        AND (CURRENT_TIMESTAMP AT TIME ZONE 'America/Sao_Paulo')::date
-          BETWEEN data_inicial AND data_final
-      LIMIT 1
-    `
-  );
-
-  return resultado.rows[0] || null;
-}
-
-async function buscarAtivoPorId(id, clienteRecebido) {
-  const executor = clienteRecebido || banco;
-  const resultado = await executor.query(
-    `
-      SELECT id, nome, motivo, data_inicial, data_final, status
-      FROM eventos
-      WHERE id = $1
-        AND status = 'ativo'
-        AND (CURRENT_TIMESTAMP AT TIME ZONE 'America/Sao_Paulo')::date
-          BETWEEN data_inicial AND data_final
-      LIMIT 1
-    `,
-    [id]
-  );
-
+  const resultado = await executor.query(`
+    SELECT * FROM eventos
+    WHERE id = $1 AND status = 'ativo'
+      AND CURRENT_TIMESTAMP BETWEEN inscricoes_inicio AND inscricoes_fim
+    LIMIT 1
+  `, [id]);
   return resultado.rows[0] || null;
 }
 
 async function registrarHistorico(cliente, eventoId, tipoAcao, anteriores, novos, usuarioId) {
-  await cliente.query(
-    `
-      INSERT INTO historico_eventos (
-        evento_id, tipo_acao, dados_anteriores, dados_novos, usuario_id
-      )
-      VALUES ($1, $2, $3, $4, $5)
-    `,
-    [eventoId, tipoAcao, anteriores, novos, usuarioId]
-  );
+  await cliente.query(`
+    INSERT INTO historico_eventos
+      (evento_id, tipo_acao, dados_anteriores, dados_novos, usuario_id)
+    VALUES ($1, $2, $3, $4, $5)
+  `, [eventoId, tipoAcao, anteriores, novos, usuarioId]);
 }
 
 async function criar(dados, usuarioId) {
   const cliente = await banco.connect();
-
   try {
     await cliente.query('BEGIN');
-    const resultado = await cliente.query(
-      `
-        INSERT INTO eventos (
-          nome, motivo, data_inicial, data_final, status,
-          criado_por_usuario_id, atualizado_por_usuario_id
-        )
-        VALUES ($1, $2, $3, $4, 'rascunho', $5, $5)
-        RETURNING *
-      `,
-      [dados.nome, dados.motivo, dados.dataInicial, dados.dataFinal, usuarioId]
-    );
-    const evento = resultado.rows[0];
-
-    await registrarHistorico(cliente, evento.id, 'criacao', null, evento, usuarioId);
+    const resultado = await cliente.query(`
+      INSERT INTO eventos (
+        nome, motivo, descricao, data_inicial, data_final, local_evento,
+        link_evento, inscricoes_inicio, inscricoes_fim, status,
+        criado_por_usuario_id, atualizado_por_usuario_id
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'rascunho',$10,$10)
+      RETURNING *
+    `, [
+      dados.nome, dados.descricao, dados.descricao, dados.dataInicial,
+      dados.dataFinal, dados.local, dados.link, dados.inscricoesInicio,
+      dados.inscricoesFim, usuarioId
+    ]);
+    await registrarHistorico(cliente, resultado.rows[0].id, 'criacao', null, resultado.rows[0], usuarioId);
     await cliente.query('COMMIT');
-    return evento;
+    return resultado.rows[0];
   } catch (erro) {
     await cliente.query('ROLLBACK');
     throw erro;
@@ -111,41 +67,21 @@ async function criar(dados, usuarioId) {
 
 async function editar(id, dados, usuarioId) {
   const cliente = await banco.connect();
-
   try {
     await cliente.query('BEGIN');
-    await cliente.query(
-      'SELECT pg_advisory_xact_lock($1, $2)',
-      [configuracaoEvento.CHAVE_BLOQUEIO_1, configuracaoEvento.CHAVE_BLOQUEIO_2]
-    );
     const atual = await cliente.query('SELECT * FROM eventos WHERE id = $1 FOR UPDATE', [id]);
-
     if (!atual.rows[0]) {
       await cliente.query('ROLLBACK');
       return null;
     }
-
-    const resultado = await cliente.query(
-      `
-        UPDATE eventos
-        SET nome = $2,
-            motivo = $3,
-            data_inicial = $4,
-            data_final = $5,
-            atualizado_por_usuario_id = $6
-        WHERE id = $1
-        RETURNING *
-      `,
-      [id, dados.nome, dados.motivo, dados.dataInicial, dados.dataFinal, usuarioId]
-    );
-    await registrarHistorico(
-      cliente,
-      id,
-      'edicao',
-      atual.rows[0],
-      resultado.rows[0],
-      usuarioId
-    );
+    const resultado = await cliente.query(`
+      UPDATE eventos SET nome=$2, motivo=$3, descricao=$3, data_inicial=$4,
+        data_final=$5, local_evento=$6, link_evento=$7,
+        inscricoes_inicio=$8, inscricoes_fim=$9, atualizado_por_usuario_id=$10
+      WHERE id=$1 RETURNING *
+    `, [id, dados.nome, dados.descricao, dados.dataInicial, dados.dataFinal,
+      dados.local, dados.link, dados.inscricoesInicio, dados.inscricoesFim, usuarioId]);
+    await registrarHistorico(cliente, id, 'edicao', atual.rows[0], resultado.rows[0], usuarioId);
     await cliente.query('COMMIT');
     return resultado.rows[0];
   } catch (erro) {
@@ -158,70 +94,25 @@ async function editar(id, dados, usuarioId) {
 
 async function alterarStatus(id, novoStatus, usuarioId) {
   const cliente = await banco.connect();
-
   try {
     await cliente.query('BEGIN');
-    await cliente.query(
-      'SELECT pg_advisory_xact_lock($1, $2)',
-      [configuracaoEvento.CHAVE_BLOQUEIO_1, configuracaoEvento.CHAVE_BLOQUEIO_2]
-    );
-    const atual = await cliente.query('SELECT * FROM eventos WHERE id = $1 FOR UPDATE', [id]);
-
+    const atual = await cliente.query('SELECT * FROM eventos WHERE id=$1 FOR UPDATE', [id]);
     if (!atual.rows[0]) {
       await cliente.query('ROLLBACK');
       return null;
     }
-
     if (novoStatus === 'ativo') {
-      const dataAtual = formatarDataRio(new Date());
-      const dataInicial = new Date(atual.rows[0].data_inicial).toISOString().slice(0, 10);
-      const dataFinal = new Date(atual.rows[0].data_final).toISOString().slice(0, 10);
-
-      if (dataAtual < dataInicial || dataAtual > dataFinal) {
-        const erroPeriodo = new Error('O evento só pode ser ativado dentro do período informado.');
-        erroPeriodo.codigoAplicacao = 'EVENTO_FORA_PERIODO';
-        throw erroPeriodo;
-      }
-
-      const encerrados = await cliente.query(
-        `
-          UPDATE eventos
-          SET status = 'encerrado', atualizado_por_usuario_id = $1
-          WHERE status = 'ativo' AND id <> $2
-          RETURNING *
-        `,
-        [usuarioId, id]
-      );
-      let indice;
-      for (indice = 0; indice < encerrados.rows.length; indice += 1) {
-        await registrarHistorico(
-          cliente,
-          encerrados.rows[indice].id,
-          'encerramento',
-          Object.assign({}, encerrados.rows[indice], { status: 'ativo' }),
-          encerrados.rows[indice],
-          usuarioId
-        );
+      const agora = Date.now();
+      if (agora > new Date(atual.rows[0].inscricoes_fim).getTime()) {
+        const erro = new Error('O período de inscrições deste evento já terminou.');
+        erro.codigoAplicacao = 'EVENTO_FORA_PERIODO';
+        throw erro;
       }
     }
-
-    const resultado = await cliente.query(
-      `
-        UPDATE eventos
-        SET status = $2, atualizado_por_usuario_id = $3
-        WHERE id = $1
-        RETURNING *
-      `,
-      [id, novoStatus, usuarioId]
-    );
-    await registrarHistorico(
-      cliente,
-      id,
-      novoStatus === 'ativo' ? 'ativacao' : 'encerramento',
-      atual.rows[0],
-      resultado.rows[0],
-      usuarioId
-    );
+    const resultado = await cliente.query(`
+      UPDATE eventos SET status=$2, atualizado_por_usuario_id=$3 WHERE id=$1 RETURNING *
+    `, [id, novoStatus, usuarioId]);
+    await registrarHistorico(cliente, id, novoStatus === 'ativo' ? 'ativacao' : 'encerramento', atual.rows[0], resultado.rows[0], usuarioId);
     await cliente.query('COMMIT');
     return resultado.rows[0];
   } catch (erro) {
@@ -232,11 +123,24 @@ async function alterarStatus(id, novoStatus, usuarioId) {
   }
 }
 
-module.exports = {
-  alterarStatus,
-  buscarAtivo,
-  buscarAtivoPorId,
-  criar,
-  editar,
-  listar
-};
+async function listarParticipantes(eventoId, filtros) {
+  const valores=[eventoId];
+  const condicoes=['vinculo.evento_id=$1'];
+  if(filtros.nome){valores.push('%'+filtros.nome+'%');condicoes.push('contato.nome ILIKE $'+valores.length);}
+  if(filtros.telefone){valores.push('%'+filtros.telefone+'%');condicoes.push('contato.telefone_normalizado LIKE $'+valores.length);}
+  if(filtros.statusInscricao){valores.push(filtros.statusInscricao);condicoes.push('vinculo.status_inscricao=$'+valores.length);}
+  if(filtros.statusMensagem){valores.push(filtros.statusMensagem);condicoes.push("COALESCE((SELECT status FROM comunicacoes WHERE contato_id=contato.id AND evento_id=vinculo.evento_id ORDER BY criado_em DESC,id DESC LIMIT 1),'nao_contatado')=$"+valores.length);}
+  return (await banco.query(`
+    SELECT contato.id,contato.nome,contato.telefone,contato.bairro,vinculo.status_inscricao,
+      vinculo.cadastrado_em,
+      COALESCE((SELECT status FROM comunicacoes WHERE contato_id=contato.id AND evento_id=vinculo.evento_id ORDER BY criado_em DESC,id DESC LIMIT 1),'nao_contatado') AS status_mensagem
+    FROM contato_eventos AS vinculo INNER JOIN contatos AS contato ON contato.id=vinculo.contato_id
+    WHERE ${condicoes.join(' AND ')} ORDER BY vinculo.cadastrado_em DESC
+  `,valores)).rows;
+}
+
+async function atualizarStatusInscricao(eventoId,contatoId,status){
+  return (await banco.query(`UPDATE contato_eventos SET status_inscricao=$3 WHERE evento_id=$1 AND contato_id=$2 RETURNING *`,[eventoId,contatoId,status])).rows[0]||null;
+}
+
+module.exports = { alterarStatus, atualizarStatusInscricao, buscarDisponivelPorId, criar, editar, listar, listarParticipantes };

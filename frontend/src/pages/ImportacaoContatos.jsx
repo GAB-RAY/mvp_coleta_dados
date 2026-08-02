@@ -1,22 +1,67 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import CabecalhoAdministrativo from '../components/CabecalhoAdministrativo';
+import CampoSelecao from '../components/CampoSelecao';
 import MensagemRetorno from '../components/MensagemRetorno';
 import {
   confirmarImportacao,
+  excluirImportacao,
+  listarImportacoes,
+  listarOrigens,
   preVisualizarImportacao
 } from '../services/contatoService';
-import { removerToken } from '../utils/armazenamentoToken';
+import { obterUsuario, removerToken } from '../utils/armazenamentoToken';
+
+const NOVA_ORIGEM = '__nova_origem__';
+
+const ROTULOS_STATUS = {
+  pre_visualizada: 'Pré-visualizada',
+  processando: 'Processando',
+  concluida: 'Concluída',
+  falhou: 'Falhou'
+};
+
+function formatarData(data) {
+  if (!data) {
+    return 'Não confirmado';
+  }
+
+  return new Intl.DateTimeFormat('pt-BR', {
+    dateStyle: 'short',
+    timeStyle: 'short'
+  }).format(new Date(data));
+}
 
 function ImportacaoContatos() {
   const navegacao = useNavigate();
+  const usuario = obterUsuario();
+  const usuarioAdministrador = usuario && usuario.perfil === 'administrador';
   const [arquivo, setArquivo] = useState(null);
   const [origem, setOrigem] = useState('');
+  const [novaOrigem, setNovaOrigem] = useState('');
+  const [origensImportacao, setOrigensImportacao] = useState([]);
+  const [importacoes, setImportacoes] = useState([]);
   const [preVisualizacao, setPreVisualizacao] = useState(null);
   const [relatorio, setRelatorio] = useState(null);
   const [processando, setProcessando] = useState(false);
   const [mensagem, setMensagem] = useState('');
   const [tipoMensagem, setTipoMensagem] = useState('informacao');
+
+  async function carregarListas() {
+    try {
+      const respostas = await Promise.all([listarOrigens(), listarImportacoes()]);
+      setOrigensImportacao((respostas[0].origens || []).filter(function (item) {
+        return item.tipo === 'importacao';
+      }));
+      setImportacoes(respostas[1].importacoes || []);
+    } catch (erro) {
+      tratarErro(erro);
+    }
+  }
+
+  useEffect(function () {
+    carregarListas();
+  }, []);
 
   function tratarErro(erro) {
     if (erro.statusHttp === 401) {
@@ -34,18 +79,21 @@ function ImportacaoContatos() {
     setMensagem('');
     setRelatorio(null);
 
-    if (!arquivo || !origem.trim()) {
+    const origemInformada = origem === NOVA_ORIGEM ? novaOrigem.trim() : origem;
+
+    if (!arquivo || !origemInformada) {
       setTipoMensagem('erro');
-      setMensagem('Selecione o arquivo e informe a origem da lista.');
+      setMensagem('Selecione o arquivo e a origem da lista.');
       return;
     }
 
     setProcessando(true);
     try {
-      const resposta = await preVisualizarImportacao(arquivo, origem.trim());
+      const resposta = await preVisualizarImportacao(arquivo, origemInformada);
       setPreVisualizacao(resposta.importacao);
       setTipoMensagem('sucesso');
       setMensagem(resposta.mensagem);
+      await carregarListas();
     } catch (erro) {
       tratarErro(erro);
     } finally {
@@ -61,6 +109,38 @@ function ImportacaoContatos() {
       setRelatorio(resposta.relatorio);
       setTipoMensagem('sucesso');
       setMensagem(resposta.mensagem);
+      await carregarListas();
+    } catch (erro) {
+      tratarErro(erro);
+    } finally {
+      setProcessando(false);
+    }
+  }
+
+  async function excluir(item) {
+    const confirmado = window.confirm(
+      'Excluir o registro da importação "' + item.origem.nome + '"? ' +
+      'Os contatos já importados serão preservados.'
+    );
+
+    if (!confirmado) {
+      return;
+    }
+
+    setProcessando(true);
+    setMensagem('');
+
+    try {
+      const resposta = await excluirImportacao(item.id);
+      setTipoMensagem('sucesso');
+      setMensagem(resposta.mensagem);
+
+      if (preVisualizacao && String(preVisualizacao.importacaoId) === String(item.id)) {
+        setPreVisualizacao(null);
+        setRelatorio(null);
+      }
+
+      await carregarListas();
     } catch (erro) {
       tratarErro(erro);
     } finally {
@@ -90,10 +170,33 @@ function ImportacaoContatos() {
           </div>
           <MensagemRetorno mensagem={mensagem} tipo={tipoMensagem} />
           <form className="formulario-importacao" onSubmit={visualizar}>
-            <div className="grupo-campo">
-              <label htmlFor="origem-importacao">Origem da lista *</label>
-              <input id="origem-importacao" className="campo-input" value={origem} onChange={function (evento) { setOrigem(evento.target.value); }} placeholder="Ex.: Lista reunião comunitária" />
-            </div>
+            <CampoSelecao
+              id="origem-importacao"
+              nome="origem"
+              rotulo="Origem da lista"
+              valor={origem}
+              aoAlterar={function (evento) { setOrigem(evento.target.value); }}
+              opcoes={origensImportacao.map(function (item) {
+                return { valor: item.nome, rotulo: item.nome };
+              }).concat([{ valor: NOVA_ORIGEM, rotulo: 'Cadastrar nova origem' }])}
+              placeholder="Selecione uma origem"
+              obrigatorio
+              desabilitado={processando}
+            />
+            {origem === NOVA_ORIGEM && (
+              <div className="grupo-campo">
+                <label htmlFor="nova-origem-importacao">Nome da nova origem *</label>
+                <input
+                  id="nova-origem-importacao"
+                  className="campo-input"
+                  value={novaOrigem}
+                  onChange={function (evento) { setNovaOrigem(evento.target.value); }}
+                  placeholder="Ex.: Lista reunião comunitária"
+                  required
+                  disabled={processando}
+                />
+              </div>
+            )}
             <div className="grupo-campo">
               <label htmlFor="arquivo-importacao">Arquivo *</label>
               <input id="arquivo-importacao" className="campo-input" type="file" accept=".csv,.xlsx" onChange={function (evento) { setArquivo(evento.target.files[0] || null); }} />
@@ -145,6 +248,63 @@ function ImportacaoContatos() {
             </div>
           </section>
         )}
+
+        <section className="cartao painel-resultados historico-importacoes">
+          <div className="cabecalho-resultados">
+            <div>
+              <h2>Importações realizadas</h2>
+              <p>Histórico dos arquivos processados, sem exibir os dados dos contatos.</p>
+            </div>
+          </div>
+
+          {importacoes.length === 0 && (
+            <p className="estado-vazio-importacoes">Nenhuma importação registrada.</p>
+          )}
+
+          {importacoes.length > 0 && (
+            <div className="tabela-responsiva">
+              <table className="tabela-contatos tabela-historico-importacoes">
+                <thead>
+                  <tr>
+                    <th>Origem</th>
+                    <th>Arquivo</th>
+                    <th>Status</th>
+                    <th>Linhas</th>
+                    <th>Responsável</th>
+                    <th>Data</th>
+                    {usuarioAdministrador && <th>Ações</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {importacoes.map(function (item) {
+                    return (
+                      <tr key={item.id}>
+                        <td>{item.origem.nome}</td>
+                        <td>{item.nomeArquivo}</td>
+                        <td>{ROTULOS_STATUS[item.status] || item.status}</td>
+                        <td>{item.totalRecebido}</td>
+                        <td>{item.responsavel}</td>
+                        <td>{formatarData(item.confirmadoEm || item.criadoEm)}</td>
+                        {usuarioAdministrador && (
+                          <td>
+                            <button
+                              className="botao botao-perigo botao-excluir-importacao"
+                              type="button"
+                              onClick={function () { excluir(item); }}
+                              disabled={processando || item.status === 'processando'}
+                            >
+                              Excluir
+                            </button>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
       </div>
     </main>
   );

@@ -3,6 +3,7 @@ const solicitacaoExclusaoService = require('../exclusoes/solicitacaoExclusaoServ
 const criarAppError = require('../../utils/AppError');
 const normalizarTelefone = require('../../utils/normalizarTelefone');
 const categoriasProblema = require('../../config/categoriasProblema');
+const textoFormularioModel = require('./textoFormularioModel');
 const bairroService = require('../bairros/bairroService');
 const eventoModel = require('../eventos/eventoModel');
 
@@ -60,7 +61,10 @@ function validarBooleano(valor, nomeCampo, obrigatorio) {
 
 function validarIdade(valor) {
   if (!Number.isInteger(valor) || valor < 16 || valor > 120) {
-    throw criarAppError('Idade deve ser um número inteiro entre 16 e 120.', 400);
+    throw criarAppError(
+      'O cadastro é permitido somente para pessoas com idade inteira entre 16 e 120 anos.',
+      400
+    );
   }
 
   return valor;
@@ -163,7 +167,7 @@ async function validarDadosDoContato(dadosRecebidos) {
   }
 
   if (aceitePrivacidade !== true) {
-    throw criarAppError('O aceite do Aviso de Privacidade é obrigatório.', 400);
+    throw criarAppError('O consentimento para participação é obrigatório.', 400);
   }
 
   if (telefoneNormalizado.length < 10 || telefoneNormalizado.length > 15) {
@@ -209,9 +213,10 @@ function transformarContatoParaResposta(contato) {
     aceitePrivacidade: contato.aceite_privacidade,
     origemAtual: contato.origem_nome || contato.origem_atual,
     statusContato: contato.status_contato,
+    statusAtendimento: contato.status_atendimento || 'nunca_enviado',
+    ultimoAtendimentoEm: contato.ultimo_atendimento_em,
     bloqueadoParaMensagens: contato.bloqueado_para_mensagens,
     bloqueadoParaLigacoes: contato.bloqueado_para_ligacoes,
-    bloqueadoParaCampanhas: contato.bloqueado_para_campanhas,
     exclusaoSolicitadaEm: contato.exclusao_solicitada_em,
     exclusaoSolicitadaPor: contato.exclusao_solicitada_por_usuario_id
       ? {
@@ -333,7 +338,7 @@ async function listarOpcoesFormulario(eventoIdRecebido) {
       throw criarAppError('O identificador do evento é inválido.', 400);
     }
 
-    eventoAtivo = await eventoModel.buscarAtivoPorId(eventoId);
+    eventoAtivo = await eventoModel.buscarDisponivelPorId(eventoId);
 
     if (!eventoAtivo) {
       throw criarAppError(
@@ -342,19 +347,39 @@ async function listarOpcoesFormulario(eventoIdRecebido) {
       );
     }
   } else {
-    eventoAtivo = await eventoModel.buscarAtivo();
+    eventoAtivo = null;
+  }
+
+  const resultados = await Promise.all([
+    bairroService.listarNomesAtivos(),
+    textoFormularioModel.listarAtivos()
+  ]);
+  const textos = resultados[1];
+
+  if (!textos.aviso_privacidade || !textos.mensagens || !textos.ligacoes) {
+    throw criarAppError('Os textos ativos do formulário não estão completos.', 503);
   }
 
   return {
-    bairros: await bairroService.listarNomesAtivos(),
+    bairros: resultados[0],
     categoriasProblema: categoriasProblema.slice(),
+    textosConsentimento: {
+      avisoPrivacidade: textos.aviso_privacidade,
+      mensagens: textos.mensagens,
+      ligacoes: textos.ligacoes
+    },
     eventoAtivo: eventoAtivo
       ? {
           id: eventoAtivo.id,
           nome: eventoAtivo.nome,
           motivo: eventoAtivo.motivo,
+          descricao: eventoAtivo.descricao,
           dataInicial: eventoAtivo.data_inicial,
-          dataFinal: eventoAtivo.data_final
+          dataFinal: eventoAtivo.data_final,
+          local: eventoAtivo.local_evento,
+          link: eventoAtivo.link_evento,
+          inscricoesInicio: eventoAtivo.inscricoes_inicio,
+          inscricoesFim: eventoAtivo.inscricoes_fim
         }
       : null,
     contextoCadastro: eventoAtivo
@@ -574,7 +599,26 @@ function prepararFiltros(parametrosRecebidos) {
     parametrosRecebidos.origem,
     'origem'
   );
-  const status = tratarFiltroTexto(parametrosRecebidos.status, 'status');
+  const status = tratarFiltroPossivelmenteNaoInformado(
+    parametrosRecebidos.status,
+    'status'
+  );
+  const statusAtendimento = tratarOpcaoFiltro(
+    parametrosRecebidos.statusAtendimento,
+    'statusAtendimento',
+    [
+      'nunca_enviado',
+      'preparada',
+      'enviada',
+      'nao_respondeu',
+      'aguardando_resposta',
+      'respondido',
+      'sem_resposta',
+      'recusou_atendimento',
+      'numero_invalido',
+      'concluido'
+    ]
+  );
   const consentimentoWhatsapp = tratarFiltroConsentimento(
     parametrosRecebidos.consentimentoWhatsapp,
     'consentimentoWhatsapp'
@@ -655,6 +699,7 @@ function prepararFiltros(parametrosRecebidos) {
     consentimentoLigacoes,
     origem,
     status,
+    statusAtendimento,
     idadeMinima,
     idadeMaxima,
     idadeNaoInformada,
@@ -787,7 +832,8 @@ async function detalharContato(idRecebido) {
         usuario: historico.usuario_nome,
         criadoEm: historico.criado_em
       };
-    })
+    }),
+    comunicacoes: resultado.comunicacoes
   };
 }
 

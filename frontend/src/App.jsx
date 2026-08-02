@@ -7,6 +7,7 @@ import Login from './pages/Login';
 import ContatosAdministrativos from './pages/ContatosAdministrativos';
 import DetalhesContato from './pages/DetalhesContato';
 import CadastroManual from './pages/CadastroManual';
+import ComunicacoesAdministrativas from './pages/ComunicacoesAdministrativas';
 import ImportacaoContatos from './pages/ImportacaoContatos';
 import Relatorios from './pages/Relatorios';
 import DashboardAdministrativo from './pages/DashboardAdministrativo';
@@ -15,6 +16,9 @@ import PaginaNaoEncontrada from './pages/PaginaNaoEncontrada';
 import EventosAdministrativos from './pages/EventosAdministrativos';
 import SolicitacoesExclusao from './pages/SolicitacoesExclusao';
 import BackupsAdministrativos from './pages/BackupsAdministrativos';
+import Privacidade from './pages/Privacidade';
+import Termos from './pages/Termos';
+import ExcluirDados from './pages/ExcluirDados';
 
 function TituloDaPagina() {
   const localizacao = useLocation();
@@ -27,6 +31,17 @@ function TituloDaPagina() {
 
     if (localizacao.pathname === '/login') {
       document.title = 'Acesso administrativo | Central de Comunicação';
+      return;
+    }
+
+    const titulosPublicos = {
+      '/privacidade': 'Política de Privacidade | Acorda VK',
+      '/termos': 'Termos de Uso | Acorda VK',
+      '/excluir-dados': 'Excluir dados | Acorda VK'
+    };
+
+    if (titulosPublicos[localizacao.pathname]) {
+      document.title = titulosPublicos[localizacao.pathname];
       return;
     }
 
@@ -43,6 +58,9 @@ function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/participar" replace />} />
         <Route path="/participar" element={<FormularioPublico />} />
+        <Route path="/privacidade" element={<Privacidade />} />
+        <Route path="/termos" element={<Termos />} />
+        <Route path="/excluir-dados" element={<ExcluirDados />} />
         <Route path="/login" element={<Login />} />
 
         <Route element={<RotaProtegida />}>
@@ -50,6 +68,7 @@ function App() {
           <Route path="/admin/contatos" element={<ContatosAdministrativos />} />
           <Route path="/admin/contatos/:id" element={<DetalhesContato />} />
           <Route path="/admin/contatos/novo" element={<CadastroManual />} />
+          <Route path="/admin/comunicacoes" element={<ComunicacoesAdministrativas />} />
           <Route path="/admin/importacoes" element={<ImportacaoContatos />} />
           <Route path="/admin/relatorios" element={<Relatorios />} />
           <Route path="/admin/eventos" element={<EventosAdministrativos />} />

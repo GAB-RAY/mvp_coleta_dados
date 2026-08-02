@@ -7,7 +7,11 @@ import Carregando from '../components/Carregando';
 import MensagemRetorno from '../components/MensagemRetorno';
 import Paginacao from '../components/Paginacao';
 import TabelaContatos from '../components/TabelaContatos';
-import { listarContatos } from '../services/contatoService';
+import {
+  buscarOpcoesFormulario,
+  listarContatos,
+  listarOrigens
+} from '../services/contatoService';
 import { listarEventos } from '../services/eventoService';
 import { removerToken } from '../utils/armazenamentoToken';
 
@@ -18,6 +22,7 @@ const FILTROS_INICIAIS = {
   problema: '',
   origem: '',
   status: '',
+  statusAtendimento: '',
   idadeMinima: '',
   idadeMaxima: '',
   idadeNaoInformada: '',
@@ -43,6 +48,25 @@ const OPCOES_ORDENACAO = [
   { valor: 'nome_desc', rotulo: 'Nome: Z a A' }
 ];
 
+const OPCOES_STATUS_CADASTRO = [
+  { valor: 'ativo', rotulo: 'Ativo' },
+  { valor: 'importado', rotulo: 'Importado' },
+  { valor: 'nao_informado', rotulo: 'Não informado' }
+];
+
+const OPCOES_STATUS_ATENDIMENTO = [
+  { valor: 'nunca_enviado', rotulo: 'Nunca recebeu mensagem' },
+  { valor: 'preparada', rotulo: 'Mensagem preparada, ainda não confirmada' },
+  { valor: 'enviada', rotulo: 'Mensagem enviada' },
+  { valor: 'nao_respondeu', rotulo: 'Não respondeu' },
+  { valor: 'aguardando_resposta', rotulo: 'Aguardando resposta' },
+  { valor: 'respondido', rotulo: 'Respondeu' },
+  { valor: 'sem_resposta', rotulo: 'Sem resposta' },
+  { valor: 'recusou_atendimento', rotulo: 'Recusou atendimento' },
+  { valor: 'numero_invalido', rotulo: 'Telefone inválido' },
+  { valor: 'concluido', rotulo: 'Concluído' }
+];
+
 const PAGINACAO_INICIAL = {
   paginaAtual: 1,
   limite: 20,
@@ -65,6 +89,7 @@ function prepararFiltros(filtros) {
     problema: prepararTexto(filtros.problema),
     origem: prepararTexto(filtros.origem),
     status: filtros.status.trim(),
+    statusAtendimento: filtros.statusAtendimento,
     idadeMinima: filtros.idadeMinima,
     idadeMaxima: filtros.idadeMaxima,
     idadeNaoInformada: filtros.idadeNaoInformada,
@@ -84,12 +109,6 @@ function criarFiltrosIniciais(parametrosBusca) {
     const valor = parametrosBusca.get(chave);
     if (valor !== null && valor !== '') {
       filtros[chave] = valor;
-    }
-  });
-
-  ['bairro', 'problema', 'origem'].forEach(function (chave) {
-    if (filtros[chave] === 'nao_informado') {
-      filtros[chave] = 'Não informado';
     }
   });
 
@@ -120,12 +139,25 @@ function ContatosAdministrativos() {
   const [mensagemErro, setMensagemErro] = useState('');
   const [versaoConsulta, setVersaoConsulta] = useState(0);
   const [eventos, setEventos] = useState([]);
+  const [origens, setOrigens] = useState([]);
+  const [bairros, setBairros] = useState([]);
+  const [categoriasProblema, setCategoriasProblema] = useState([]);
 
   useEffect(function () {
-    listarEventos().then(function (resposta) {
-      setEventos(resposta.eventos || []);
+    Promise.all([
+      listarEventos(),
+      listarOrigens(),
+      buscarOpcoesFormulario()
+    ]).then(function (respostas) {
+      setEventos(respostas[0].eventos || []);
+      setOrigens(respostas[1].origens || []);
+      setBairros(respostas[2].bairros || []);
+      setCategoriasProblema(respostas[2].categoriasProblema || []);
     }).catch(function () {
       setEventos([]);
+      setOrigens([]);
+      setBairros([]);
+      setCategoriasProblema([]);
     });
   }, []);
 
@@ -237,155 +269,28 @@ function ContatosAdministrativos() {
           <form className="formulario-filtros" onSubmit={buscar}>
             <fieldset className="grade-filtros" disabled={carregando}>
               <legend className="apenas-leitor-tela">Filtros dos contatos</legend>
+              <div className="titulo-grupo-filtros">Identificação</div>
+              <CampoFormulario id="filtro-nome" nome="nome" rotulo="Nome" valor={filtrosFormulario.nome} aoAlterar={alterarFiltro} placeholder="Nome ou parte dele" desabilitado={carregando} />
+              <CampoFormulario id="filtro-telefone" nome="telefone" rotulo="Telefone" tipo="tel" valor={filtrosFormulario.telefone} aoAlterar={alterarFiltro} placeholder="(21) 99999-9999" desabilitado={carregando} inputMode="tel" />
+              <CampoFormulario id="filtro-idade-minima" nome="idadeMinima" rotulo="Idade mínima" tipo="number" valor={filtrosFormulario.idadeMinima} aoAlterar={alterarFiltro} minimo={16} maximo={120} desabilitado={carregando} />
+              <CampoFormulario id="filtro-idade-maxima" nome="idadeMaxima" rotulo="Idade máxima" tipo="number" valor={filtrosFormulario.idadeMaxima} aoAlterar={alterarFiltro} minimo={16} maximo={120} desabilitado={carregando} />
 
-              <CampoFormulario
-                id="filtro-nome"
-                nome="nome"
-                rotulo="Nome"
-                valor={filtrosFormulario.nome}
-                aoAlterar={alterarFiltro}
-                placeholder="Nome ou parte dele"
-                desabilitado={carregando}
-              />
+              <div className="titulo-grupo-filtros">Perfil do cadastro</div>
+              <CampoSelecao id="filtro-bairro" nome="bairro" rotulo="Bairro" valor={filtrosFormulario.bairro} aoAlterar={alterarFiltro} opcoes={[{ valor: 'nao_informado', rotulo: 'Não informado' }].concat(bairros)} placeholder="Todos" desabilitado={carregando} />
+              <CampoSelecao id="filtro-problema" nome="problema" rotulo="Problema" valor={filtrosFormulario.problema} aoAlterar={alterarFiltro} opcoes={[{ valor: 'nao_informado', rotulo: 'Não informado' }].concat(categoriasProblema)} placeholder="Todos" desabilitado={carregando} />
+              <CampoSelecao id="filtro-origem" nome="origem" rotulo="Origem" valor={filtrosFormulario.origem} aoAlterar={alterarFiltro} opcoes={[{ valor: 'nao_informado', rotulo: 'Não informado' }].concat(origens.map(function (origem) { return { valor: origem.nome, rotulo: origem.nome }; }))} placeholder="Todas" desabilitado={carregando} />
+              <CampoSelecao id="filtro-status" nome="status" rotulo="Status do cadastro" valor={filtrosFormulario.status} aoAlterar={alterarFiltro} opcoes={OPCOES_STATUS_CADASTRO} placeholder="Todos" desabilitado={carregando} />
+              <CampoSelecao id="filtro-evento" nome="eventoId" rotulo="Evento" valor={filtrosFormulario.eventoId} aoAlterar={alterarFiltro} opcoes={[{ valor: 'sem_evento', rotulo: 'Cadastro geral (sem evento)' }].concat(eventos.map(function (item) { return { valor: String(item.id), rotulo: item.nome }; }))} placeholder="Todos" desabilitado={carregando} />
 
-              <CampoFormulario
-                id="filtro-telefone"
-                nome="telefone"
-                rotulo="Telefone"
-                tipo="tel"
-                valor={filtrosFormulario.telefone}
-                aoAlterar={alterarFiltro}
-                placeholder="(21) 99999-9999"
-                desabilitado={carregando}
-                inputMode="tel"
-              />
+              <div className="titulo-grupo-filtros">Comunicação e atendimento</div>
+              <CampoSelecao id="filtro-status-atendimento" nome="statusAtendimento" rotulo="Andamento do atendimento" valor={filtrosFormulario.statusAtendimento} aoAlterar={alterarFiltro} opcoes={OPCOES_STATUS_ATENDIMENTO} placeholder="Todos" desabilitado={carregando} />
+              <CampoSelecao id="filtro-autorizacao-mensagens" nome="autorizacaoMensagens" rotulo="Autorização de mensagens" valor={filtrosFormulario.autorizacaoMensagens} aoAlterar={alterarFiltro} opcoes={OPCOES_CONSENTIMENTO} placeholder="Todos" desabilitado={carregando} />
+              <CampoSelecao id="filtro-autorizacao-ligacoes" nome="autorizacaoLigacoes" rotulo="Autorização de ligações" valor={filtrosFormulario.autorizacaoLigacoes} aoAlterar={alterarFiltro} opcoes={OPCOES_CONSENTIMENTO} placeholder="Todos" desabilitado={carregando} />
 
-              <CampoFormulario
-                id="filtro-bairro"
-                nome="bairro"
-                rotulo="Bairro"
-                valor={filtrosFormulario.bairro}
-                aoAlterar={alterarFiltro}
-                placeholder="Bairro ou parte dele"
-                desabilitado={carregando}
-              />
-
-              <CampoFormulario
-                id="filtro-problema"
-                nome="problema"
-                rotulo="Problema"
-                valor={filtrosFormulario.problema}
-                aoAlterar={alterarFiltro}
-                placeholder="Categoria ou parte dela"
-                desabilitado={carregando}
-              />
-
-              <CampoFormulario
-                id="filtro-idade-minima"
-                nome="idadeMinima"
-                rotulo="Idade mínima"
-                tipo="number"
-                valor={filtrosFormulario.idadeMinima}
-                aoAlterar={alterarFiltro}
-                minimo={16}
-                maximo={120}
-                desabilitado={carregando}
-              />
-
-              <CampoFormulario
-                id="filtro-idade-maxima"
-                nome="idadeMaxima"
-                rotulo="Idade máxima"
-                tipo="number"
-                valor={filtrosFormulario.idadeMaxima}
-                aoAlterar={alterarFiltro}
-                minimo={16}
-                maximo={120}
-                desabilitado={carregando}
-              />
-
-              <CampoSelecao
-                id="filtro-autorizacao-mensagens"
-                nome="autorizacaoMensagens"
-                rotulo="Autorização de mensagens"
-                valor={filtrosFormulario.autorizacaoMensagens}
-                aoAlterar={alterarFiltro}
-                opcoes={OPCOES_CONSENTIMENTO}
-                placeholder="Todos"
-                desabilitado={carregando}
-              />
-
-              <CampoSelecao
-                id="filtro-autorizacao-ligacoes"
-                nome="autorizacaoLigacoes"
-                rotulo="Autorização de ligações"
-                valor={filtrosFormulario.autorizacaoLigacoes}
-                aoAlterar={alterarFiltro}
-                opcoes={OPCOES_CONSENTIMENTO}
-                placeholder="Todos"
-                desabilitado={carregando}
-              />
-
-              <CampoFormulario
-                id="filtro-origem"
-                nome="origem"
-                rotulo="Origem"
-                valor={filtrosFormulario.origem}
-                aoAlterar={alterarFiltro}
-                placeholder="Origem ou parte dela"
-                desabilitado={carregando}
-              />
-
-              <CampoFormulario
-                id="filtro-data-inicial"
-                nome="dataInicial"
-                rotulo="Cadastro a partir de"
-                tipo="date"
-                valor={filtrosFormulario.dataInicial}
-                aoAlterar={alterarFiltro}
-                desabilitado={carregando}
-              />
-
-              <CampoFormulario
-                id="filtro-data-final"
-                nome="dataFinal"
-                rotulo="Cadastro até"
-                tipo="date"
-                valor={filtrosFormulario.dataFinal}
-                aoAlterar={alterarFiltro}
-                desabilitado={carregando}
-              />
-
-              <CampoSelecao
-                id="filtro-ordenacao"
-                nome="ordenacao"
-                rotulo="Ordenação"
-                valor={filtrosFormulario.ordenacao}
-                aoAlterar={alterarFiltro}
-                opcoes={OPCOES_ORDENACAO}
-                desabilitado={carregando}
-              />
-
-              <CampoFormulario
-                id="filtro-status"
-                nome="status"
-                rotulo="Status"
-                valor={filtrosFormulario.status}
-                aoAlterar={alterarFiltro}
-                placeholder="Status ou parte dele"
-                desabilitado={carregando}
-              />
-
-              <CampoSelecao
-                id="filtro-evento"
-                nome="eventoId"
-                rotulo="Evento"
-                valor={filtrosFormulario.eventoId}
-                aoAlterar={alterarFiltro}
-                opcoes={[{ valor: 'sem_evento', rotulo: 'Cadastro geral (sem evento)' }].concat(eventos.map(function (item) { return { valor: String(item.id), rotulo: item.nome }; }))}
-                placeholder="Todos"
-                desabilitado={carregando}
-              />
+              <div className="titulo-grupo-filtros">Período e ordenação</div>
+              <CampoFormulario id="filtro-data-inicial" nome="dataInicial" rotulo="Cadastro a partir de" tipo="date" valor={filtrosFormulario.dataInicial} aoAlterar={alterarFiltro} desabilitado={carregando} />
+              <CampoFormulario id="filtro-data-final" nome="dataFinal" rotulo="Cadastro até" tipo="date" valor={filtrosFormulario.dataFinal} aoAlterar={alterarFiltro} desabilitado={carregando} />
+              <CampoSelecao id="filtro-ordenacao" nome="ordenacao" rotulo="Ordenação" valor={filtrosFormulario.ordenacao} aoAlterar={alterarFiltro} opcoes={OPCOES_ORDENACAO} desabilitado={carregando} />
             </fieldset>
 
             <div className="acoes-filtros">

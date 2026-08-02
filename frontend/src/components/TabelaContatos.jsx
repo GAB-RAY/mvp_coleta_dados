@@ -73,6 +73,22 @@ function exibirNomesDosEventos(eventos) {
   }).join(', ');
 }
 
+function exibirStatusAtendimento(status) {
+  const rotulos = {
+    nunca_enviado: 'Nunca enviado',
+    preparada: 'Preparada',
+    enviada: 'Enviada',
+    aguardando_resposta: 'Aguardando resposta',
+    respondido: 'Respondeu',
+    sem_resposta: 'Sem resposta',
+    recusou_atendimento: 'Recusou',
+    numero_invalido: 'Telefone inválido',
+    concluido: 'Concluído'
+  };
+
+  return rotulos[status] || 'Nunca enviado';
+}
+
 function TabelaContatos(propriedades) {
   return (
     <div className="tabela-responsiva" tabIndex="0" aria-label="Tabela de contatos cadastrados">
@@ -88,7 +104,8 @@ function TabelaContatos(propriedades) {
             <th scope="col">Ligações</th>
             <th scope="col">Origem</th>
             <th scope="col">Evento</th>
-            <th scope="col">Status</th>
+            <th scope="col">Cadastro</th>
+            <th scope="col">Atendimento</th>
             <th scope="col">Data de cadastro</th>
             <th scope="col">Ações</th>
           </tr>
@@ -107,11 +124,20 @@ function TabelaContatos(propriedades) {
                 <td>{exibirValorOuNaoInformado(contato.origemAtual)}</td>
                 <td>{exibirNomesDosEventos(contato.eventos)}</td>
                 <td>{exibirValorOuNaoInformado(contato.statusContato)}</td>
+                <td>{exibirStatusAtendimento(contato.statusAtendimento)}</td>
                 <td className="texto-sem-quebra">{formatarData(contato.criadoEm)}</td>
                 <td>
-                  <Link className="link-detalhes" to={'/admin/contatos/' + contato.id}>
-                    Ver detalhes
-                  </Link>
+                  <div className="acoes-contato-tabela">
+                    <Link className="link-detalhes" to={'/admin/contatos/' + contato.id}>
+                      Ver detalhes
+                    </Link>
+                    <Link
+                      className="link-mensagem-contato"
+                      to={'/admin/comunicacoes?contatoId=' + contato.id}
+                    >
+                      Enviar mensagem
+                    </Link>
+                  </div>
                 </td>
               </tr>
             );

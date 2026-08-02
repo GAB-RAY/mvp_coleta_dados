@@ -1,5 +1,15 @@
 const importacaoService = require('./importacaoService');
 
+async function listar(requisicao, resposta, proximo) {
+  try {
+    return resposta.status(200).json({
+      importacoes: await importacaoService.listar()
+    });
+  } catch (erro) {
+    return proximo(erro);
+  }
+}
+
 async function preVisualizar(requisicao, resposta, proximo) {
   try {
     const resultado = await importacaoService.preVisualizar(
@@ -33,7 +43,21 @@ async function confirmar(requisicao, resposta, proximo) {
   }
 }
 
+async function excluir(requisicao, resposta, proximo) {
+  try {
+    await importacaoService.excluir(requisicao.params.id);
+
+    return resposta.status(200).json({
+      mensagem: 'Importação excluída com sucesso. Os contatos importados foram preservados.'
+    });
+  } catch (erro) {
+    return proximo(erro);
+  }
+}
+
 module.exports = {
   preVisualizar,
-  confirmar
+  confirmar,
+  excluir,
+  listar
 };

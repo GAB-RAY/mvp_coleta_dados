@@ -79,46 +79,57 @@ psql --set ON_ERROR_STOP=1 --dbname criar_banco --file database/criar_banco.sql
 
 O projeto não utiliza migrations. Para atualizar um banco existente, gere e valide um backup completo, crie um banco vazio com `database/criar_banco.sql` e restaure somente os dados expressamente aprovados. Nunca execute o schema em um banco com estrutura ou dados.
 
-Para aplicar a identidade pública `Acorda VK` em um banco existente sem apagar o aviso anterior:
+Para aplicar a identidade pública e os textos atuais de consentimento em um banco
+existente, sem apagar versões anteriores:
 
 ```powershell
 npm run atualizar-identidade-publica
 ```
 
-O comando é idempotente, desativa somente a versão anterior do aviso e mantém todo o histórico já registrado.
+O comando é idempotente. Ele mantém uma versão ativa de cada tipo, preserva as
+versões anteriores e não altera consentimentos já registrados. As versões ativas
+são `aviso_privacidade_v3`, `mensagens_whatsapp_v3` e `ligacoes_v3`.
 
-O schema atual tem 22 tabelas:
+O schema atual tem 21 tabelas:
 
 - cadastros: `bairros`, `origens`, `usuarios`, `contatos`;
 - privacidade: `consentimentos`, `aceites_privacidade`, `historico_contatos`, `solicitacoes_exclusao`;
 - eventos: `eventos`, `historico_eventos`, `contato_eventos`;
 - operação: `importacoes`, `importacao_linhas`, `tentativas_login`, `textos_formulario`, `backups_banco`;
-- futura integração ManyChat: `campanhas`, `campanha_contatos`, `envios_campanha`, `respostas_campanha`, `eventos_manychat`, `sincronizacoes_manychat`.
+- comunicação manual: `numeros_whatsapp`, `modelos_mensagem`, `campanhas`,
+  `comunicacoes`, `historico_comunicacoes`.
+
+As tabelas de comunicação organizam o atendimento manual. As autorizações
+registradas servem para controle de privacidade e contato realizado pela equipe.
 
 As colunas anteriores de compatibilidade em `contatos` foram mantidas apenas quando ainda participam das interfaces de importação e resposta da API. Os antigos marcadores de exclusão lógica foram removidos. O fluxo oficial usa `solicitacoes_exclusao`.
 
 ## Regras de negócio atuais
 
-- O formulário aceita cadastro com ou sem evento ativo.
-- Quando há evento ativo dentro do período, o backend cria automaticamente o vínculo em `contato_eventos`; o frontend não escolhe o evento.
+- `/participar` é sempre o cadastro geral e nunca escolhe automaticamente um evento ativo.
+- Cada evento usa o link exclusivo `/participar?evento=<id>` e somente esse contexto cria o vínculo em `contato_eventos`.
+- Vários eventos podem estar ativos simultaneamente. A disponibilidade de cada formulário depende do status e do próprio período de inscrições.
 - O QR exclusivo usa `GET /api/publico/contatos/opcoes?eventoId=<id>`. O backend
   aceita somente o evento informado que continuar ativo e dentro do período;
   após encerramento ou expiração, retorna HTTP `410`.
-- O frontend envia `eventoIdExibido`. Se o evento ativo mudar antes do envio, o backend não persiste o cadastro e retorna `409` para atualização do contexto.
-- Um advisory lock transacional compartilhado/exclusivo impede que ativação, encerramento ou edição de evento atravessem uma submissão pública já em processamento.
-- Com evento ativo, o formulário começa solicitando nome completo e telefone. Se o telefone não existir, o preenchimento completo é liberado.
+- O frontend envia `eventoIdExibido`; o backend confirma que aquele evento específico continua aceitando inscrições antes de persistir.
+- No link exclusivo de um evento disponível, o formulário começa solicitando nome completo e telefone. Se o telefone não existir, o preenchimento completo é liberado.
 - Se o telefone existir, nome completo e telefone precisam corresponder ao cadastro. A API não devolve os dados pessoais armazenados.
 - Depois da confirmação, o contato original recebe somente o vínculo com o evento. A origem e o tipo de entrada não mudam.
 - A restrição única `(contato_id, evento_id)` e o `ON CONFLICT` impedem duas inscrições do mesmo contato no mesmo evento.
-- O índice parcial único `eventos_apenas_um_ativo` garante no PostgreSQL que apenas um evento tenha status `ativo`, inclusive diante de ativações simultâneas.
+- A unicidade `(contato_id, evento_id)` impede inscrição duplicada, sem limitar a quantidade de eventos ativos.
 - Um reenvio para o mesmo evento retorna `200` e informa que a inscrição já está registrada, sem duplicar o vínculo.
-- Sem evento ativo, o formulário continua funcionando normalmente e não exibe aviso adicional.
+- O formulário geral continua funcionando normalmente, independentemente dos eventos ativos.
 - Um telefone não sobrescreve silenciosamente dados existentes; somente campos vazios podem ser complementados no fluxo público.
 - A opção `Meus dados mudaram` somente é liberada após a correspondência de nome completo e telefone. As alterações declaradas são aplicadas com o evento em contexto e registradas como `atualizacao_cadastro_publico_evento`.
 - Autorizações de mensagens e ligações são independentes e versionadas; o
   frontend as envia conforme o estado visível das caixas no momento do envio.
+- No formulário público, ambas começam desmarcadas. `mensagens` representa o
+  opt-in específico para WhatsApp; uma resposta não marcada não cria autorização.
+- `consentimentos` guarda separadamente tipo, resposta, estado, texto, versão,
+  canal, origem, data, revogação, motivo e vínculo com o registro anterior.
 - Revogar cria um novo registro ligado ao anterior por `registro_anterior_id`; nenhuma rota apaga revogações.
-- Pedido pendente bloqueia mensagens, ligações e campanhas.
+- Pedido pendente bloqueia mensagens e ligações.
 - Operador pode pedir exclusão, mas não pode aprovar, rejeitar ou exportar.
 - Administrador pode aprovar ou rejeitar. Aprovação exclui fisicamente o contato e dados pessoais relacionados.
 - `consentimentos` e `solicitacoes_exclusao` preservam a trilha administrativa após a exclusão, com `contato_id` nulo e o identificador original numérico.
@@ -127,6 +138,14 @@ As colunas anteriores de compatibilidade em `contatos` foram mantidas apenas qua
   distribuição das categorias para cada bairro.
 - A quantidade máxima de registros carregados por uma exportação é configurada em `RELATORIO_LIMITE_REGISTROS`, evitando consumo de memória sem limite.
 - O backup pelo painel exige perfil `administrador`, impede execuções simultâneas, usa `pg_dump` sem shell, gera SHA-256 e registra sucesso ou falha em `backups_banco`.
+- Comunicações são exclusivamente manuais. O estado de autorização não esconde o contato nem o botão de atendimento; bloqueios e revogações explícitas continuam impedindo a preparação da mensagem.
+- Abrir `wa.me` não altera o status. Somente `confirmar-envio` registra data,
+  hora e usuário da confirmação.
+- O operador atualiza manualmente: aguardando resposta, respondeu, sem resposta,
+  recusou atendimento, telefone inválido ou concluído.
+- Uma campanha já confirmada para o mesmo contato gera alerta. O reenvio exige
+  confirmação explícita e motivo, preservado no registro.
+- Campanhas são agrupadores de segmentação e histórico do atendimento manual.
 
 ## Rotas
 
@@ -137,10 +156,10 @@ Públicas:
 | GET | `/api/teste` | Saúde da API e PostgreSQL. |
 | GET | `/api/saude/vivo` | Liveness sem depender do banco. |
 | GET | `/api/saude/pronto` | Readiness com consulta ao PostgreSQL. |
-| GET | `/api/publico/contatos/opcoes` | Bairros, categorias e contexto do evento ativo; aceita `eventoId` para validar QR exclusivo. |
+| GET | `/api/publico/contatos/opcoes` | Bairros e categorias; aceita `eventoId` para validar um formulário exclusivo. |
 | POST | `/api/publico/contatos/verificar-evento` | Verifica nome completo e telefone sem retornar dados pessoais. |
-| POST | `/api/publico/contatos/inscrever-evento` | Confirma o vínculo de um contato existente com o evento ativo. |
-| POST | `/api/publico/contatos` | Cadastro público e vínculo automático ao evento. |
+| POST | `/api/publico/contatos/inscrever-evento` | Confirma o vínculo de um contato existente com o evento informado. |
+| POST | `/api/publico/contatos` | Cadastro geral ou inscrição no evento explicitamente informado. |
 | POST | `/api/autenticacao/login` | Login e emissão do JWT. |
 
 Administrativas com JWT:
@@ -155,6 +174,18 @@ Administrativas com JWT:
 | POST/PUT | `/api/admin/eventos` e `/api/admin/eventos/:id` | admin |
 | POST | `/api/admin/eventos/:id/ativar` | admin |
 | POST | `/api/admin/eventos/:id/encerrar` | admin |
+| GET | `/api/admin/eventos/:id/participantes` | operador/admin |
+| PATCH | `/api/admin/eventos/:id/participantes/:contatoId` | operador/admin |
+| GET/POST/PUT/DELETE | `/api/admin/comunicacoes/numeros` | leitura operador/admin; escrita admin; exclusão somente sem histórico |
+| GET/POST/PUT | `/api/admin/comunicacoes/modelos` | leitura operador/admin; escrita admin |
+| GET/POST/PUT | `/api/admin/comunicacoes/campanhas` | leitura operador/admin; escrita admin |
+| GET | `/api/admin/comunicacoes/operadores` | operador/admin |
+| GET | `/api/admin/comunicacoes/contatos` | operador/admin; segmentação |
+| GET | `/api/admin/comunicacoes` | operador/admin |
+| POST | `/api/admin/comunicacoes/preparar` | operador/admin |
+| POST | `/api/admin/comunicacoes/:id/confirmar-envio` | operador/admin |
+| GET | `/api/admin/comunicacoes/:id/historico` | operador/admin |
+| PATCH | `/api/admin/comunicacoes/:id` | operador/admin |
 | GET | `/api/admin/solicitacoes-exclusao` | admin |
 | POST | `/api/admin/solicitacoes-exclusao/:id/aprovar` | admin |
 | POST | `/api/admin/solicitacoes-exclusao/:id/rejeitar` | admin |
@@ -166,10 +197,14 @@ Administrativas com JWT:
 | GET/POST | `/api/admin/usuarios` | admin |
 | PATCH | `/api/admin/usuarios/meu-perfil` | admin, somente o próprio nome |
 | PATCH | `/api/admin/usuarios/:id/senha` | admin, somente senha de operador |
+| GET | `/api/admin/importacoes` | operador/admin |
 | POST | `/api/admin/importacoes/pre-visualizar` | operador/admin |
 | POST | `/api/admin/importacoes/:id/confirmar` | operador/admin |
+| DELETE | `/api/admin/importacoes/:id` | admin |
 
 A listagem e os relatórios aceitam `eventoId=<id>` ou `eventoId=sem_evento`, além dos filtros documentados no frontend. Os filtros `bairro`, `problema` e `origem` aceitam `nao_informado`; para idade ausente, use `idadeNaoInformada=true`. Na tela de eventos, `Ver participantes` abre a listagem já filtrada; nome completo e telefone formatado podem ser pesquisados junto com o evento.
+
+A listagem de importações retorna apenas metadados do lote, sem os dados dos contatos. A exclusão é restrita ao administrador, não pode ocorrer enquanto o lote está sendo processado e preserva os contatos que já foram importados. As linhas técnicas da importação são removidas em cascata.
 
 ## Administradores
 
@@ -218,21 +253,22 @@ npm run testar:schema-vazio
 npm run testar:importacao-carga
 ```
 
-Resultado de 27/07/2026: 329 verificações aprovadas.
+Resultado de 02/08/2026: 376 verificações aprovadas.
 
-- estrutura, 166 bairros, unicidades de vínculo/evento ativo e proteções ManyChat: 28;
-- cadastro público: 27;
+- estrutura, 166 bairros, eventos simultâneos e integridade: 22;
+- cadastro público, idade mínima, opt-in opcional, textos públicos e metadados versionados: 42;
 - administração e filtros: 43;
 - cadastro manual: 24;
-- importações: 24;
+- importações: 30;
 - relatórios, necessidades por bairro e permissões CSV/Excel: 25;
 - segurança e usuários: 54;
-- privacidade: 15;
+- privacidade e bloqueio durante pedido de exclusão: 16;
 - eventos, QR exclusivo, identificação por nome e telefone, contato novo, reinscrição idempotente, atualização auditada, busca de participantes, permissões e exclusão física: 49;
+- comunicação manual, CRUD seguro de números, textos prontos obrigatórios, campanhas, permissões, confirmação explícita, reenvio justificado, auditoria e filtros: 31;
 - backups, permissões, integridade e auditoria: 18.
 - resiliência, rate limit, concorrência, saúde, pool e configuração: 22.
 
-O teste de schema cria um banco temporário vazio, aplica `database/criar_banco.sql`, valida 22 tabelas e 166 bairros e remove o banco temporário ao final.
+O teste de schema cria um banco temporário vazio, aplica `database/criar_banco.sql`, valida 21 tabelas e 166 bairros e remove o banco temporário ao final.
 
 O teste de carga de importação gera 15.000 contatos temporários, percorre pré-visualização, confirmação e persistência, valida a rejeição de 20.001 linhas, remove todos os dados de teste e ressincroniza as sequências utilizadas. Ele recusa execução quando `NODE_ENV=production`.
 
@@ -242,7 +278,5 @@ O backup mais recente anterior à atualização estrutural está fora do reposit
 
 ## Pendências reais
 
-- integração efetiva com a API/webhooks do ManyChat;
-- execução de campanhas e filas de envio;
 - política de retenção e armazenamento externo dos arquivos de backup em produção;
 - política definitiva de retenção dos registros administrativos após exclusão.
