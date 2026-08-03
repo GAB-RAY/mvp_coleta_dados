@@ -125,6 +125,8 @@ Quando o contato já recebeu a mesma campanha, o painel exige confirmação e
 motivo antes de preparar um reenvio. O envio, a confirmação e a atualização do
 andamento são realizados manualmente pela equipe.
 
+A lista de contatos da tela de mensagens e paginada, busca nome/telefone em toda a base e preserva a selecao ao trocar de pagina. Cada preparo manual aceita no maximo 500 contatos.
+
 ## Painel e permissões
 
 Operadores e administradores podem cadastrar, editar, consultar, revogar consentimentos, solicitar exclusão e abrir a tela de eventos. Para operador, eventos são somente leitura e permitem acessar participantes. Somente administradores veem os controles de criação, edição, ativação e encerramento, além de usuários, fila de exclusões e backups. Os botões de exportação CSV e Excel também aparecem somente para administrador.

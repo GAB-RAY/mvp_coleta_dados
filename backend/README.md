@@ -157,6 +157,8 @@ As colunas anteriores de compatibilidade em `contatos` foram mantidas apenas qua
   confirmação explícita e motivo, preservado no registro.
 - Campanhas são agrupadores de segmentação e histórico do atendimento manual.
 
+- A rota de contatos para comunicacao usa paginacao, busca por nome/telefone, filtros combinados e limite maximo de 100 itens por pagina. O preparo aceita ate 500 contatos por operacao.
+
 ## Rotas
 
 Públicas:

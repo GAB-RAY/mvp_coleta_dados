@@ -23,18 +23,20 @@ function dataHora(valor, nome, fimDoDia) {
 
 function validarDados(recebidos) {
   const dados = recebidos || {};
-  const dataInicial = dataHora(dados.dataInicial, 'Data e horário inicial');
-  const dataFinal = dataHora(dados.dataFinal, 'Data e horário final', true);
-  const inscricoesInicio = dataHora(dados.inscricoesInicio || dados.dataInicial, 'Início das inscrições');
-  const inscricoesFim = dataHora(dados.inscricoesFim || dados.dataFinal, 'Fim das inscrições', true);
-  if (dataFinal < dataInicial) throw criarAppError('O fim do evento não pode ser anterior ao início.', 400);
-  if (inscricoesFim < inscricoesInicio) throw criarAppError('O fim das inscrições não pode ser anterior ao início.', 400);
+  const dataInicial = dataHora(dados.dataInicial, 'Data e horario inicial');
+  const dataFinal = dataHora(dados.dataFinal, 'Data e horario final', true);
+
+  if (dataFinal < dataInicial) {
+    throw criarAppError('O fim do evento nao pode ser anterior ao inicio.', 400);
+  }
+
   return {
     nome: texto(dados.nome, 'Nome', 150, true),
-    descricao: texto(dados.descricao || dados.motivo, 'Descrição', 2000, true),
-    local: texto(dados.local, 'Local', 500, false),
-    link: texto(dados.link, 'Link', 1000, false),
-    dataInicial, dataFinal, inscricoesInicio, inscricoesFim
+    descricao: texto(dados.descricao || dados.motivo, 'Descricao', 2000, true),
+    dataInicial: dataInicial,
+    dataFinal: dataFinal,
+    inscricoesInicio: dataInicial,
+    inscricoesFim: dataFinal
   };
 }
 
@@ -42,7 +44,7 @@ function transformar(evento) {
   return {
     id: evento.id, nome: evento.nome, descricao: evento.descricao || evento.motivo,
     motivo: evento.descricao || evento.motivo, dataInicial: evento.data_inicial,
-    dataFinal: evento.data_final, local: evento.local_evento, link: evento.link_evento,
+    dataFinal: evento.data_final, local: null, link: null,
     inscricoesInicio: evento.inscricoes_inicio, inscricoesFim: evento.inscricoes_fim,
     status: evento.status, totalCadastros: evento.total_cadastros,
     criadoPor: evento.criado_por, atualizadoPor: evento.atualizado_por,

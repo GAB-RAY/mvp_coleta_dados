@@ -389,10 +389,7 @@ async function listarContatos(filtros) {
     condicoes.push('NOT EXISTS (SELECT 1 FROM comunicacoes cc WHERE cc.contato_id=contato.id AND cc.campanha_id=$' + valores.length + ' AND cc.enviada_em IS NOT NULL)');
   }
 
-  return (await banco.query(`
-    SELECT contato.id,contato.nome,contato.telefone,contato.bairro,contato.problema,
-      contato.idade,COALESCE(consentimento.estado,'nao_informado') AS consentimento_mensagens,
-      ultima.status AS ultimo_status,ultima.criado_em AS ultimo_contato_em
+  const juncoes = `
     FROM contatos AS contato
     LEFT JOIN LATERAL (
       SELECT estado FROM consentimentos
@@ -403,9 +400,29 @@ async function listarContatos(filtros) {
       SELECT status,criado_em FROM comunicacoes
       WHERE contato_id=contato.id ORDER BY criado_em DESC,id DESC LIMIT 1
     ) AS ultima ON TRUE
-    WHERE ${condicoes.join(' AND ')}
-    ORDER BY contato.nome NULLS LAST,contato.id LIMIT 500
+  `;
+  const where = 'WHERE ' + condicoes.join(' AND ');
+  const totalRegistros = Number((await banco.query(`
+    SELECT COUNT(*) AS total
+    ${juncoes}
+    ${where}
+  `, valores)).rows[0].total);
+
+  valores.push(filtros.limite);
+  const parametroLimite = '$' + valores.length;
+  valores.push(filtros.deslocamento);
+  const parametroDeslocamento = '$' + valores.length;
+  const contatos = (await banco.query(`
+    SELECT contato.id,contato.nome,contato.telefone,contato.bairro,contato.problema,
+      contato.idade,COALESCE(consentimento.estado,'nao_informado') AS consentimento_mensagens,
+      ultima.status AS ultimo_status,ultima.criado_em AS ultimo_contato_em
+    ${juncoes}
+    ${where}
+    ORDER BY contato.nome NULLS LAST,contato.id
+    LIMIT ${parametroLimite} OFFSET ${parametroDeslocamento}
   `, valores)).rows;
+
+  return { contatos, totalRegistros };
 }
 
 async function listarHistorico(id) {

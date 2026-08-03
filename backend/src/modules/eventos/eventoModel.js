@@ -60,7 +60,7 @@ async function buscarDisponivelPorId(id, clienteRecebido) {
   const resultado = await executor.query(`
     SELECT * FROM eventos
     WHERE id = $1 AND status = 'ativo'
-      AND CURRENT_TIMESTAMP BETWEEN inscricoes_inicio AND inscricoes_fim
+      AND CURRENT_TIMESTAMP BETWEEN data_inicial AND data_final
     LIMIT 1
   `, [id]);
   return resultado.rows[0] || null;
@@ -87,7 +87,7 @@ async function criar(dados, usuarioId) {
       RETURNING *
     `, [
       dados.nome, dados.descricao, dados.descricao, dados.dataInicial,
-      dados.dataFinal, dados.local, dados.link, dados.inscricoesInicio,
+      dados.dataFinal, null, null, dados.inscricoesInicio,
       dados.inscricoesFim, usuarioId
     ]);
     await registrarHistorico(cliente, resultado.rows[0].id, 'criacao', null, resultado.rows[0], usuarioId);
@@ -119,7 +119,7 @@ async function editar(id, dados, usuarioId) {
         inscricoes_inicio=$8, inscricoes_fim=$9, atualizado_por_usuario_id=$10
       WHERE id=$1 RETURNING *
     `, [id, dados.nome, dados.descricao, dados.dataInicial, dados.dataFinal,
-      dados.local, dados.link, dados.inscricoesInicio, dados.inscricoesFim, usuarioId]);
+      null, null, dados.inscricoesInicio, dados.inscricoesFim, usuarioId]);
     await registrarHistorico(cliente, id, 'edicao', atual.rows[0], resultado.rows[0], usuarioId);
     await cliente.query('COMMIT');
     return resultado.rows[0];
@@ -145,7 +145,7 @@ async function alterarStatus(id, novoStatus, usuarioId) {
     }
     if (novoStatus === 'ativo') {
       const agora = Date.now();
-      if (agora > new Date(atual.rows[0].inscricoes_fim).getTime()) {
+      if (agora > new Date(atual.rows[0].data_final).getTime()) {
         const erro = new Error('O período de inscrições deste evento já terminou.');
         erro.codigoAplicacao = 'EVENTO_FORA_PERIODO';
         throw erro;

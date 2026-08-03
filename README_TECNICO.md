@@ -384,7 +384,7 @@ Não existe endpoint de exclusão direta de contato, revogação ou histórico.
 
 - estados operacionais: `rascunho`, `ativo` e `encerrado`; a exclusão lógica usa `excluido`;
 - vários eventos podem estar ativos simultaneamente;
-- contém nome, descrição, data e horário, local/link e período de inscrições;
+- contem nome, descricao e data/horario do evento;
 - a criação, edição, ativação, encerramento e exclusão geram histórico;
 - `/participar` permanece como cadastro geral e cada evento usa `/participar?evento=<id>`;
 - o backend decide automaticamente se o telefone é novo ou se nome completo e telefone correspondem a um cadastro existente;
@@ -423,6 +423,8 @@ Depois do envio real, o operador usa a confirmação específica. Respostas e
 andamento também são manuais. A mesma campanha para o mesmo contato exige
 confirmação e motivo de reenvio. Nenhuma mensagem é enviada pelo servidor. A equipe abre a conversa em
 `wa.me` e confirma o envio manualmente.
+
+A selecao de contatos na tela de mensagens consulta o banco com paginacao, busca por nome/telefone em toda a base, filtros combinados e limite maximo de 100 contatos por pagina. A preparacao continua limitada a 500 contatos por vez para manter o envio manual controlado.
 
 ### 3.13 Relatórios, exportação e backup
 

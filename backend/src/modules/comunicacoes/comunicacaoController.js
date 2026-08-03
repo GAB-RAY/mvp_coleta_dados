@@ -86,7 +86,8 @@ function listarOperadores(req, res, next) {
 }
 function listarContatos(req, res, next) {
   return executar(next, async function responder() {
-    return res.status(200).json({ contatos: await service.listarContatos(req.query) });
+    const resultado = await service.listarContatos(req.query);
+    return res.status(200).json(resultado);
   });
 }
 function preparar(req, res, next) {

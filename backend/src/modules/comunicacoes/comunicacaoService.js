@@ -388,12 +388,15 @@ async function listar(filtros) {
 async function listarContatos(filtrosRecebidos) {
   const filtros = filtrosRecebidos || {};
   const situacoes = ['nunca_enviado'].concat(STATUS_FILTRO);
+  const pagina = validarId(filtros.pagina || 1, 'Pagina', false);
+  const limiteRecebido = validarId(filtros.limite || 50, 'Limite', false);
+  const limite = Math.min(limiteRecebido, 100);
 
   if (filtros.situacao && !situacoes.includes(filtros.situacao)) {
     throw criarAppError('Situação de atendimento inválida.', 400);
   }
 
-  return comunicacaoModel.listarContatos({
+  const resultado = await comunicacaoModel.listarContatos({
     busca: validarTexto(filtros.busca, 'Busca', 150, true),
     bairro: tratarFiltroPossivelmenteNaoInformado(filtros.bairro, 'Bairro'),
     problema: tratarFiltroPossivelmenteNaoInformado(filtros.problema, 'Problema'),
@@ -406,8 +409,20 @@ async function listarContatos(filtrosRecebidos) {
       filtros.campanhaNaoRecebidaId,
       'Campanha',
       true
-    )
+    ),
+    limite,
+    deslocamento: (pagina - 1) * limite
   });
+
+  return {
+    contatos: resultado.contatos,
+    paginacao: {
+      paginaAtual: pagina,
+      limite,
+      totalRegistros: resultado.totalRegistros,
+      totalPaginas: Math.ceil(resultado.totalRegistros / limite)
+    }
+  };
 }
 
 async function atualizar(idRecebido, dadosRecebidos, usuario) {

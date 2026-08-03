@@ -323,8 +323,8 @@ Evento possui:
 - nome;
 - descrição;
 - data e horário inicial e final;
-- local ou link;
-- período de inscrições;
+- sem campo separado de local ou link;
+- o periodo do evento tambem define a validade das inscricoes;
 - estado `rascunho`, `ativo` ou `encerrado`;
 - usuário criador e atualizador;
 - datas de criação e atualização.
@@ -334,9 +334,9 @@ Regras:
 - permitir vários eventos ativos simultaneamente;
 - registrar histórico de criação, edição, ativação e encerramento;
 - manter `/participar` como cadastro geral e gerar `/participar?evento=<id>` para cada evento;
-- vincular ao evento somente quando o identificador exclusivo estiver presente e o período de inscrições estiver aberto;
+- vincular ao evento somente quando o identificador exclusivo estiver presente e o evento estiver ativo dentro do periodo do proprio evento;
 - enviar ocultamente o identificador do evento exibido; usar `null` quando nenhum evento foi mostrado;
-- se o evento informado não continuar ativo ou com inscrições abertas, cancelar a transação com `409` e não persistir parcialmente;
+- se o evento informado nao continuar ativo ou dentro do periodo do evento, cancelar a transacao com `409` e nao persistir parcialmente;
 - coordenar submissão pública e edição/alteração de status do evento com advisory lock transacional compartilhado/exclusivo;
 - no formulário exclusivo de evento, começar solicitando nome completo e telefone;
 - se o telefone não existir, abrir o formulário completo, criar o contato e vinculá-lo ao evento;
@@ -371,6 +371,9 @@ Regras:
 - registrar manualmente andamento, envio, resposta e responsável;
 - preservar histórico por contato e evento e alertar repetição da mesma campanha;
 - usar somente `{{nome}}`, `{{evento}}`, `{{data}}`, `{{horario}}`, `{{local}}` e `{{link}}` como campos substituíveis.
+
+- listar contatos para atendimento com paginacao no banco, busca por nome/telefone em toda a base, filtros combinados e limite maximo de 100 por pagina;
+- limitar cada preparo manual a 500 contatos;
 
 ### 9. Autenticação e usuários
 

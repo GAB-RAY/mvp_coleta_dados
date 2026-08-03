@@ -20,11 +20,7 @@ const FORMULARIO_INICIAL = {
   nome: '',
   descricao: '',
   dataInicial: '',
-  dataFinal: '',
-  local: '',
-  link: '',
-  inscricoesInicio: '',
-  inscricoesFim: ''
+  dataFinal: ''
 };
 
 function paraCampoDataHora(valor) {
@@ -81,11 +77,7 @@ function EventosAdministrativos() {
       nome: evento.nome,
       descricao: evento.descricao,
       dataInicial: paraCampoDataHora(evento.dataInicial),
-      dataFinal: paraCampoDataHora(evento.dataFinal),
-      local: evento.local || '',
-      link: evento.link || '',
-      inscricoesInicio: paraCampoDataHora(evento.inscricoesInicio),
-      inscricoesFim: paraCampoDataHora(evento.inscricoesFim)
+      dataFinal: paraCampoDataHora(evento.dataFinal)
     });
   }
 
@@ -268,10 +260,6 @@ function EventosAdministrativos() {
                 <CampoFormulario id="descricao" rotulo="Descrição" valor={formulario.descricao} aoAlterar={alterar} obrigatorio />
                 <CampoFormulario id="dataInicial" rotulo="Início do evento" tipo="datetime-local" valor={formulario.dataInicial} aoAlterar={alterar} obrigatorio />
                 <CampoFormulario id="dataFinal" rotulo="Fim do evento" tipo="datetime-local" valor={formulario.dataFinal} aoAlterar={alterar} obrigatorio />
-                <CampoFormulario id="local" rotulo="Local" valor={formulario.local} aoAlterar={alterar} />
-                <CampoFormulario id="link" rotulo="Link" tipo="url" valor={formulario.link} aoAlterar={alterar} />
-                <CampoFormulario id="inscricoesInicio" rotulo="Início das inscrições" tipo="datetime-local" valor={formulario.inscricoesInicio} aoAlterar={alterar} obrigatorio />
-                <CampoFormulario id="inscricoesFim" rotulo="Fim das inscrições" tipo="datetime-local" valor={formulario.inscricoesFim} aoAlterar={alterar} obrigatorio />
               </fieldset>
               <div className="acoes-filtros">
                 <button className="botao botao-primario" type="submit">

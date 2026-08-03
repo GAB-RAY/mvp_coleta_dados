@@ -381,6 +381,45 @@ async function executar() {
       'Filtros combinados de dados não informados não encontraram o contato.'
     );
 
+    const cadastroIncompleto = await requisitar(
+      base,
+      '/api/admin/comunicacoes/contatos?cadastroIncompleto=true',
+      { headers: cabecalhosOperador }
+    );
+    verificar(
+      cadastroIncompleto.status === 200 &&
+        cadastroIncompleto.corpo.contatos.some(function (item) {
+          return item.id === contatoNaoInformado.id;
+        }),
+      'Filtro de cadastro incompleto não encontrou o contato com dados vazios.'
+    );
+
+    const buscaPaginada = await requisitar(
+      base,
+      '/api/admin/comunicacoes/contatos?busca=' +
+        encodeURIComponent('Contato Não Informado') + '&limite=1',
+      { headers: cabecalhosOperador }
+    );
+    verificar(
+      buscaPaginada.status === 200 &&
+        buscaPaginada.corpo.contatos.length === 1 &&
+        buscaPaginada.corpo.contatos[0].id === contatoNaoInformado.id &&
+        buscaPaginada.corpo.paginacao.limite === 1 &&
+        buscaPaginada.corpo.paginacao.totalRegistros >= 1,
+      'Busca paginada de contatos para comunicação falhou.'
+    );
+
+    const limiteMaximo = await requisitar(
+      base,
+      '/api/admin/comunicacoes/contatos?limite=500',
+      { headers: cabecalhosOperador }
+    );
+    verificar(
+      limiteMaximo.status === 200 &&
+        limiteMaximo.corpo.paginacao.limite === 100,
+      'Limite máximo da paginação de contatos não foi aplicado.'
+    );
+
     await banco.query(
       'UPDATE contatos SET bloqueado_para_mensagens = TRUE WHERE id = $1',
       [contatoSemResposta.id]

@@ -49,26 +49,16 @@ const FILTROS_CONTATOS_INICIAIS = {
   campanhaNaoRecebidaId: '', cadastroIncompleto: false
 };
 
-function normalizarPesquisa(valor) {
-  return String(valor || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .trim();
-}
+const LIMITE_CONTATOS_POR_PAGINA = 50;
+const PAGINACAO_CONTATOS_INICIAL = {
+  paginaAtual: 1,
+  limite: LIMITE_CONTATOS_POR_PAGINA,
+  totalRegistros: 0,
+  totalPaginas: 0
+};
 
 function normalizarId(valor) {
   return String(valor);
-}
-
-function manterSelecionadosVisiveis(selecionadosAtuais, contatosVisiveis) {
-  const idsVisiveis = new Set(contatosVisiveis.map(function (item) {
-    return normalizarId(item.id);
-  }));
-
-  return selecionadosAtuais.filter(function (id) {
-    return idsVisiveis.has(normalizarId(id));
-  });
 }
 
 function ComunicacoesAdministrativas() {
@@ -97,6 +87,10 @@ function ComunicacoesAdministrativas() {
   const [buscaContatos, setBuscaContatos] = useState('');
   const [filtrosContatos, setFiltrosContatos] = useState(FILTROS_CONTATOS_INICIAIS);
   const [filtrandoContatos, setFiltrandoContatos] = useState(false);
+  const [paginacaoContatos, setPaginacaoContatos] = useState(PAGINACAO_CONTATOS_INICIAL);
+  const [consultaContatosAplicada, setConsultaContatosAplicada] = useState({
+    pagina: 1, limite: LIMITE_CONTATOS_POR_PAGINA
+  });
   const [filaManual, setFilaManual] = useState([]);
   const [mensagem, setMensagem] = useState('');
   const [duplicidade, setDuplicidade] = useState(false);
@@ -120,7 +114,7 @@ function ComunicacoesAdministrativas() {
         listarCampanhas(),
         listarOperadores(),
         listarEventos(),
-        listarContatosComunicacao({}),
+        listarContatosComunicacao({ pagina: 1, limite: LIMITE_CONTATOS_POR_PAGINA }),
         listarComunicacoes(filtros),
         deveCarregarContatoInicial
           ? buscarDetalhesContato(contatoIdInicial)
@@ -137,6 +131,8 @@ function ComunicacoesAdministrativas() {
       setBairros(resultados[8].bairros || []);
       setCategoriasProblema(resultados[8].categoriasProblema || []);
       const contatosDisponiveis = resultados[5].contatos || [];
+      setPaginacaoContatos(resultados[5].paginacao || PAGINACAO_CONTATOS_INICIAL);
+      setConsultaContatosAplicada({ pagina: 1, limite: LIMITE_CONTATOS_POR_PAGINA });
       const detalhesContatoInicial = resultados[7];
 
       if (deveCarregarContatoInicial) {
@@ -190,60 +186,99 @@ function ComunicacoesAdministrativas() {
     };
   }
 
-  async function filtrarContatosPorEvento(eventoId) {
-    const resposta = await listarContatosComunicacao(Object.assign(
-      {}, filtrosContatos, { eventoId: eventoId || '' }
-    ));
-    const contatosEncontrados = resposta.contatos || [];
-    setContatos(contatosEncontrados);
-    setSelecionados(function (selecionadosAtuais) {
-      return manterSelecionadosVisiveis(selecionadosAtuais, contatosEncontrados);
-    });
+  function aplicarRespostaContatos(resposta, consulta) {
+    setContatos(resposta.contatos || []);
+    setPaginacaoContatos(resposta.paginacao || PAGINACAO_CONTATOS_INICIAL);
+    setConsultaContatosAplicada(consulta);
   }
 
-  async function buscarSegmento() {
+  async function consultarContatos(consulta, limparSelecionados) {
     setFiltrandoContatos(true);
     setMensagem('');
     try {
-      const resposta = await listarContatosComunicacao(Object.assign(
-        {}, filtrosContatos, { eventoId: preparo.eventoId || '' }
-      ));
-      const contatosEncontrados = resposta.contatos || [];
-      setContatos(contatosEncontrados);
-      setSelecionados(function (selecionadosAtuais) {
-        return manterSelecionadosVisiveis(selecionadosAtuais, contatosEncontrados);
-      });
-      setMensagem(contatosEncontrados.length + ' contato(s) encontrado(s) com os filtros selecionados.');
+      const resposta = await listarContatosComunicacao(consulta);
+      aplicarRespostaContatos(resposta, consulta);
+      if (limparSelecionados) {
+        setSelecionados([]);
+      }
+      return resposta;
     } catch (erro) {
       setMensagem(erro.message);
+      return null;
     } finally {
       setFiltrandoContatos(false);
     }
   }
 
+  async function filtrarContatosPorEvento(eventoId) {
+    const consulta = Object.assign({}, filtrosContatos, {
+      eventoId: eventoId || '',
+      busca: buscaContatos.trim(),
+      pagina: 1,
+      limite: LIMITE_CONTATOS_POR_PAGINA
+    });
+    await consultarContatos(consulta, true);
+  }
+
+  async function buscarSegmento() {
+    const consulta = Object.assign({}, filtrosContatos, {
+      eventoId: preparo.eventoId || '',
+      busca: buscaContatos.trim(),
+      pagina: 1,
+      limite: LIMITE_CONTATOS_POR_PAGINA
+    });
+    const resposta = await consultarContatos(consulta, true);
+    if (resposta) {
+      setMensagem(resposta.paginacao.totalRegistros + ' contato(s) encontrado(s) com os filtros selecionados.');
+    }
+  }
+
+  async function buscarContatoNoBanco(evento) {
+    evento.preventDefault();
+    const consulta = Object.assign({}, consultaContatosAplicada, {
+      busca: buscaContatos.trim(),
+      pagina: 1,
+      limite: LIMITE_CONTATOS_POR_PAGINA
+    });
+    await consultarContatos(consulta, false);
+  }
+
+  async function mudarPaginaContatos(novaPagina) {
+    if (novaPagina < 1 || novaPagina > paginacaoContatos.totalPaginas || filtrandoContatos) {
+      return;
+    }
+    await consultarContatos(Object.assign({}, consultaContatosAplicada, {
+      pagina: novaPagina,
+      limite: LIMITE_CONTATOS_POR_PAGINA
+    }), false);
+  }
+
   async function limparFiltrosPublico() {
+    const consulta = {
+      eventoId: preparo.eventoId || '',
+      busca: '',
+      pagina: 1,
+      limite: LIMITE_CONTATOS_POR_PAGINA
+    };
     setFiltrosContatos(FILTROS_CONTATOS_INICIAIS);
-    setFiltrandoContatos(true);
-    try {
-      const resposta = await listarContatosComunicacao({
-        eventoId: preparo.eventoId || ''
-      });
-      setContatos(resposta.contatos || []);
-      setSelecionados([]);
+    setBuscaContatos('');
+    const resposta = await consultarContatos(consulta, true);
+    if (resposta) {
       setMensagem('Filtros removidos.');
-    } catch (erro) {
-      setMensagem(erro.message);
-    } finally {
-      setFiltrandoContatos(false);
     }
   }
 
   function selecionarContato(id) {
     const idNormalizado = normalizarId(id);
     setSelecionados(function (selecionadosAtuais) {
-      return selecionadosAtuais.includes(idNormalizado)
-        ? selecionadosAtuais.filter(function (item) { return item !== idNormalizado; })
-        : selecionadosAtuais.concat(idNormalizado);
+      if (selecionadosAtuais.includes(idNormalizado)) {
+        return selecionadosAtuais.filter(function (item) { return item !== idNormalizado; });
+      }
+      if (selecionadosAtuais.length >= 500) {
+        setMensagem('O limite por preparacao e de 500 contatos.');
+        return selecionadosAtuais;
+      }
+      return selecionadosAtuais.concat(idNormalizado);
     });
   }
 
@@ -253,7 +288,11 @@ function ComunicacoesAdministrativas() {
     });
 
     setSelecionados(function (selecionadosAtuais) {
-      return Array.from(new Set(selecionadosAtuais.concat(idsVisiveis)));
+      const combinados = Array.from(new Set(selecionadosAtuais.concat(idsVisiveis)));
+      if (combinados.length > 500) {
+        setMensagem('Foram mantidos os primeiros 500 contatos selecionados.');
+      }
+      return combinados.slice(0, 500);
     });
   }
 
@@ -406,19 +445,14 @@ function ComunicacoesAdministrativas() {
     navegacao('/login', { replace: true });
   }
 
-  const pesquisaNormalizada = normalizarPesquisa(buscaContatos);
-  const telefonePesquisado = buscaContatos.replace(/\D/g, '');
-  const contatosVisiveis = contatos.filter(function (item) {
-    if (!pesquisaNormalizada && !telefonePesquisado) {
-      return true;
-    }
-
-    const nome = normalizarPesquisa(item.nome);
-    const telefone = String(item.telefone || '').replace(/\D/g, '');
-
-    return nome.includes(pesquisaNormalizada) ||
-      (telefonePesquisado && telefone.includes(telefonePesquisado));
-  });
+  const contatosVisiveis = contatos;
+  const primeiroContatoExibido = paginacaoContatos.totalRegistros === 0
+    ? 0
+    : ((paginacaoContatos.paginaAtual - 1) * paginacaoContatos.limite) + 1;
+  const ultimoContatoExibido = Math.min(
+    paginacaoContatos.paginaAtual * paginacaoContatos.limite,
+    paginacaoContatos.totalRegistros
+  );
 
   return (
     <main className="pagina-administrativa">
@@ -549,16 +583,21 @@ function ComunicacoesAdministrativas() {
             </div>
 
             <div className="ferramentas-seletor-contatos">
-              <label className="busca-contatos-comunicacao">
-                <span>Buscar contato</span>
-                <input
-                  className="campo-input"
-                  type="search"
-                  value={buscaContatos}
-                  onChange={function (evento) { setBuscaContatos(evento.target.value); }}
-                  placeholder="Digite nome ou telefone"
-                />
-              </label>
+              <form className="busca-paginada-contatos" onSubmit={buscarContatoNoBanco}>
+                <label className="busca-contatos-comunicacao">
+                  <span>Buscar contato em toda a base</span>
+                  <input
+                    className="campo-input"
+                    type="search"
+                    value={buscaContatos}
+                    onChange={function (evento) { setBuscaContatos(evento.target.value); }}
+                    placeholder="Digite nome ou telefone"
+                  />
+                </label>
+                <button className="botao botao-primario botao-buscar-contatos" type="submit" disabled={filtrandoContatos}>
+                  {filtrandoContatos ? 'Buscando...' : 'Buscar'}
+                </button>
+              </form>
               <div className="acoes-seletor-contatos">
                 <button
                   className="botao botao-secundario"
@@ -566,7 +605,7 @@ function ComunicacoesAdministrativas() {
                   onClick={function () { selecionarContatosVisiveis(contatosVisiveis); }}
                   disabled={contatosVisiveis.length === 0}
                 >
-                  Selecionar visíveis
+                  Selecionar esta página
                 </button>
                 <button
                   className="botao botao-secundario"
@@ -607,9 +646,32 @@ function ComunicacoesAdministrativas() {
               })}
             </div>
 
-            <small className="resumo-seletor-contatos">
-              Exibindo {contatosVisiveis.length} de {contatos.length} contatos carregados.
-            </small>
+            <div className="rodape-seletor-contatos">
+              <small className="resumo-seletor-contatos">
+                Exibindo {primeiroContatoExibido}-{ultimoContatoExibido} de {paginacaoContatos.totalRegistros} contatos.
+              </small>
+              <nav className="paginacao-contatos" aria-label="Paginas de contatos">
+                <button
+                  className="botao-pagina-contatos"
+                  type="button"
+                  onClick={function () { mudarPaginaContatos(paginacaoContatos.paginaAtual - 1); }}
+                  disabled={paginacaoContatos.paginaAtual <= 1 || filtrandoContatos}
+                  aria-label="Pagina anterior"
+                >
+                  &lsaquo;
+                </button>
+                <span>Página <strong>{paginacaoContatos.paginaAtual}</strong> de {Math.max(paginacaoContatos.totalPaginas, 1)}</span>
+                <button
+                  className="botao-pagina-contatos"
+                  type="button"
+                  onClick={function () { mudarPaginaContatos(paginacaoContatos.paginaAtual + 1); }}
+                  disabled={paginacaoContatos.paginaAtual >= paginacaoContatos.totalPaginas || filtrandoContatos}
+                  aria-label="Proxima pagina"
+                >
+                  &rsaquo;
+                </button>
+              </nav>
+            </div>
           </div>
           <div className="rodape-preparo-mensagens">
             <div><strong>Pronto para preparar?</strong><small>Nenhuma mensagem será enviada automaticamente.</small></div>
