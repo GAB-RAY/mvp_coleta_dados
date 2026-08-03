@@ -77,24 +77,20 @@ createdb criar_banco
 psql --set ON_ERROR_STOP=1 --dbname criar_banco --file backend/database/criar_banco.sql
 ```
 
-Para atualizar um banco existente, faça e teste um backup completo, crie um banco vazio com o schema atual e restaure somente os dados expressamente aprovados. O projeto não utiliza migrations.
+O schema final já inclui o ledger `schema_migrations` e registra as migrations incorporadas. Ele deve ser usado somente na criação de um banco novo.
 
 > Nunca execute `backend/database/criar_banco.sql` sobre um banco que já possua estrutura ou dados. O próprio script recusa essa execução.
 
-O schema atual possui 21 tabelas. `numeros_whatsapp`, `modelos_mensagem`,
-`campanhas`, `comunicacoes` e `historico_comunicacoes` organizam somente
-o trabalho manual. A tabela `backups_banco` registra cada tentativa de
-backup, seu responsável, estado, tamanho e hash SHA-256.
-
-Para um banco existente que já possui o módulo anterior de mensagens, faça
-backup e execute uma vez:
+Para atualizar um banco existente, faça e valide o backup e execute:
 
 ```powershell
 cd backend
-npm run banco:sincronizar-comunicacao
+npm run banco:migrar
 ```
 
-O comando usa transação, advisory lock e operações idempotentes; não apaga dados.
+O runner usa `schema_migrations`, checksum SHA-256, transação e advisory lock. Uma migration aplicada nunca é repetida; alterar um arquivo já executado interrompe a operação. O `prestart` executa somente esse runner e não reaplica DDL em toda inicialização.
+
+O schema atual possui 22 tabelas. `schema_migrations` controla a evolução do banco. `numeros_whatsapp`, `modelos_mensagem`, `campanhas`, `comunicacoes` e `historico_comunicacoes` organizam somente o trabalho manual. A tabela `backups_banco` registra cada tentativa de backup, seu responsável, estado, tamanho e hash SHA-256.
 
 ## Como iniciar
 
@@ -159,7 +155,7 @@ O plano de 512 MiB e o PostgreSQL de nó único são adequados para a publicaç�
 
 No App Platform, configure:
 
-- readiness: `/api/saude/pronto`;
+- readiness: `/api/saude/pronto`, que valida conexão e tabelas/colunas críticas;
 - liveness: `/api/saude/vivo`;
 - alertas de falha de deploy, reinício, CPU, memória e latência;
 - `NODE_ENV=production` e `DIGITALOCEAN_CONFIAR_IP=true`;
@@ -174,12 +170,12 @@ No App Platform, configure:
 
 Em 02/08/2026:
 
-- schema criado em banco vazio de teste: 21 tabelas;
-- banco principal recriado exclusivamente pelo schema completo, sem migrations;
+- schema criado em banco vazio de teste: 22 tabelas e ledger versionado;
+- banco existente atualizado por migrations incrementais com checksum e advisory lock;
 - backup prévio restaurado e validado em banco separado;
 - `npm run testar:importacao-carga`: 15.000 contatos importados e validados, com limpeza automática;
 - limite máximo validado: arquivo único com 20.000 contatos;
-- `npm test`: 385 verificações aprovadas;
+- `npm test`: 392 verificações aprovadas;
 - `npm run build`: 69 módulos transformados;
 - banco principal validado com 166 bairros e integridade estrutural preservada;
-- sincronizador da comunicação executado novamente sem reaplicar estruturas.
+- runner executado novamente sem reaplicar migrations.

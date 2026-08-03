@@ -39,6 +39,7 @@ BEGIN
       'comunicacoes',
       'historico_comunicacoes',
       'origens',
+      'schema_migrations',
       'eventos',
       'historico_eventos',
       'contato_eventos',
@@ -71,6 +72,18 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+CREATE TABLE public.schema_migrations (
+  versao VARCHAR(20) NOT NULL,
+  nome_arquivo VARCHAR(255) NOT NULL,
+  checksum_sha256 CHAR(64) NOT NULL,
+  executada_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT schema_migrations_pkey PRIMARY KEY (versao),
+  CONSTRAINT schema_migrations_nome_arquivo_unico UNIQUE (nome_arquivo),
+  CONSTRAINT schema_migrations_checksum_formato CHECK (
+    checksum_sha256 ~ '^[a-f0-9]{64}$'
+  )
+);
 
 CREATE TABLE public.bairros (
   id BIGINT GENERATED ALWAYS AS IDENTITY,
@@ -200,8 +213,12 @@ CREATE TABLE public.contatos (
   CONSTRAINT contatos_idade_valida CHECK (
     idade IS NULL OR idade BETWEEN 16 AND 120
   ),
-  CONSTRAINT contatos_nome_nao_vazio CHECK (
-    LENGTH(TRIM(nome)) >= 2
+  CONSTRAINT contatos_nome_valido CHECK (
+    nome IS NULL
+    OR (
+      LENGTH(TRIM(nome)) >= 2
+      AND TRIM(nome) ~ '[[:alpha:]]'
+    )
   ),
   CONSTRAINT contatos_problema_nao_vazio CHECK (
     LENGTH(TRIM(problema)) >= 3
@@ -1095,5 +1112,13 @@ VALUES
     'ligacoes_v3',
     'Autorizo o recebimento de ligações telefônicas relacionadas às ações e iniciativas do projeto Acorda VK. Posso revogar esta autorização a qualquer momento pelo canal indicado na Política de Privacidade.'
   );
+
+INSERT INTO public.schema_migrations (
+  versao,
+  nome_arquivo,
+  checksum_sha256
+) VALUES
+  ('001', '001_validar_estrutura_atual.sql', '7aef945e473bce835222ccdb4df9c792151872becaf0d2313e6de35fe781e136'),
+  ('002', '002_normalizar_nomes_importados.sql', 'a62f33a5a53c6d931f9f58e3aff2864170669f0f750fb8084dd9a7ba5ba680eb');
 
 COMMIT;

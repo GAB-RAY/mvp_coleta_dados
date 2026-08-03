@@ -56,17 +56,19 @@ async function executar() {
         (SELECT COUNT(*)::integer FROM origens WHERE ativa = TRUE) AS origens,
         (SELECT COUNT(*)::integer FROM textos_formulario WHERE ativo = TRUE) AS textos,
         (SELECT COUNT(*)::integer FROM usuarios) AS usuarios,
-        (SELECT COUNT(*)::integer FROM contatos) AS contatos`
+        (SELECT COUNT(*)::integer FROM contatos) AS contatos,
+        (SELECT COUNT(*)::integer FROM schema_migrations) AS migrations`
     );
     assert.deepStrictEqual(resultado.rows[0], {
-      tabelas: 21,
+      tabelas: 22,
       bairros: 166,
       origens: 2,
       textos: 3,
       usuarios: 0,
-      contatos: 0
+      contatos: 0,
+      migrations: 2
     });
-    console.log('Schema final validado em banco vazio: 21 tabelas e 166 bairros.');
+    console.log('Schema final validado em banco vazio: 22 tabelas e 166 bairros.');
   } finally {
     if (bancoTeste) {
       await bancoTeste.end();

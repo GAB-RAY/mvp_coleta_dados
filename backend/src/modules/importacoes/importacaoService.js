@@ -4,6 +4,7 @@ const ExcelJS = require('exceljs');
 const importacaoModel = require('./importacaoModel');
 const criarAppError = require('../../utils/AppError');
 const normalizarTelefone = require('../../utils/normalizarTelefone');
+const normalizarNomePessoa = require('../../utils/normalizarNomePessoa');
 const categoriasProblema = require('../../config/categoriasProblema');
 const configuracaoImportacao = require('../../config/importacao');
 const bairroService = require('../bairros/bairroService');
@@ -203,7 +204,9 @@ function validarLinha(linha, telefonesDoArquivo, bairrosAtivos) {
   const valores = linha.valores;
   const telefone = buscarValor(valores, ['telefone', 'celular', 'whatsapp']);
   const telefoneNormalizado = normalizarTelefone(telefone);
-  const nome = buscarValor(valores, ['nome', 'nome_completo']) || null;
+  const nome = normalizarNomePessoa(
+    buscarValor(valores, ['nome', 'nome_completo'])
+  );
   const bairroInformado = buscarValor(valores, ['bairro']) || null;
   const bairro = bairroInformado
     ? bairroService.encontrarNomeCanonico(bairroInformado, bairrosAtivos)

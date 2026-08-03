@@ -55,6 +55,7 @@ async function validarCatalogo(cliente) {
     'modelos_mensagem',
     'numeros_whatsapp',
     'origens',
+    'schema_migrations',
     'solicitacoes_exclusao',
     'tentativas_login',
     'textos_formulario',
@@ -204,7 +205,7 @@ async function validarCatalogo(cliente) {
             AND slug IN ('formulario-publico', 'cadastro-manual')
         ) AS origens_obrigatorias,
         (SELECT COUNT(*)::integer FROM textos_formulario WHERE ativo = TRUE) AS textos,
-        to_regclass('public.schema_migrations') IS NULL AS sem_ledger_antigo
+        (SELECT COUNT(*)::integer FROM schema_migrations) AS migrations_executadas
     `
   );
 
@@ -215,8 +216,8 @@ async function validarCatalogo(cliente) {
   );
   verificar(configuracoes.rows[0].textos === 3, 'Os três textos ativos não existem.');
   verificar(
-    configuracoes.rows[0].sem_ledger_antigo === true,
-    'O ledger das migrations antigas não deveria existir no banco reorganizado.'
+    configuracoes.rows[0].migrations_executadas === 2,
+    'O ledger deve registrar exatamente as duas migrations atuais.'
   );
 
   const relacionamentoBairro = await cliente.query(

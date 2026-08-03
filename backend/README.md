@@ -10,9 +10,7 @@ Copy-Item .env.example .env
 npm start
 ```
 
-Antes de iniciar o servidor, o `prestart` executa o sincronizador idempotente
-dos estados de exclusão de eventos. Quando a estrutura já está atualizada,
-nenhuma alteração é reaplicada.
+Antes de iniciar o servidor, o `prestart` executa apenas `npm run banco:migrar`. O runner usa ledger, checksum SHA-256 e advisory lock para aplicar somente migrations pendentes. Arquivos já aplicados não podem ser alterados.
 
 Variáveis principais:
 
@@ -81,7 +79,15 @@ Para banco novo e vazio:
 psql --set ON_ERROR_STOP=1 --dbname criar_banco --file database/criar_banco.sql
 ```
 
-O projeto não utiliza migrations. Para atualizar um banco existente, gere e valide um backup completo, crie um banco vazio com `database/criar_banco.sql` e restaure somente os dados expressamente aprovados. Nunca execute o schema em um banco com estrutura ou dados.
+O projeto utiliza migrations incrementais em `database/migrations`. Para banco existente, gere e valide um backup e execute:
+
+```powershell
+npm run banco:migrar
+```
+
+O runner cria e consulta `schema_migrations`, verifica o checksum de cada arquivo, serializa execuções concorrentes com advisory lock e aplica cada migration em transação própria. Nunca edite uma migration já registrada; crie a próxima versão.
+
+O `database/criar_banco.sql` continua exclusivo para banco vazio e já registra as migrations incorporadas. Nunca execute o schema completo em banco com estrutura ou dados.
 
 Para aplicar a identidade pública e os textos atuais de consentimento em um banco
 existente, sem apagar versões anteriores:
@@ -94,12 +100,12 @@ O comando é idempotente. Ele mantém uma versão ativa de cada tipo, preserva a
 versões anteriores e não altera consentimentos já registrados. As versões ativas
 são `aviso_privacidade_v3`, `mensagens_whatsapp_v3` e `ligacoes_v3`.
 
-O schema atual tem 21 tabelas:
+O schema atual tem 22 tabelas:
 
 - cadastros: `bairros`, `origens`, `usuarios`, `contatos`;
 - privacidade: `consentimentos`, `aceites_privacidade`, `historico_contatos`, `solicitacoes_exclusao`;
 - eventos: `eventos`, `historico_eventos`, `contato_eventos`;
-- operação: `importacoes`, `importacao_linhas`, `tentativas_login`, `textos_formulario`, `backups_banco`;
+- operação: `importacoes`, `importacao_linhas`, `tentativas_login`, `textos_formulario`, `backups_banco`, `schema_migrations`;
 - comunicação manual: `numeros_whatsapp`, `modelos_mensagem`, `campanhas`,
   `comunicacoes`, `historico_comunicacoes`.
 
@@ -159,7 +165,7 @@ Públicas:
 |---|---|---|
 | GET | `/api/teste` | Saúde da API e PostgreSQL. |
 | GET | `/api/saude/vivo` | Liveness sem depender do banco. |
-| GET | `/api/saude/pronto` | Readiness com consulta ao PostgreSQL. |
+| GET | `/api/saude/pronto` | Readiness com conexão e estrutura crítica do PostgreSQL. |
 | GET | `/api/publico/contatos/opcoes` | Bairros e categorias; aceita `eventoId` para validar um formulário exclusivo. |
 | POST | `/api/publico/contatos/verificar-evento` | Verifica nome completo e telefone sem retornar dados pessoais. |
 | POST | `/api/publico/contatos/inscrever-evento` | Confirma o vínculo de um contato existente com o evento informado. |
@@ -210,7 +216,7 @@ Administrativas com JWT:
 
 A listagem e os relatórios aceitam `eventoId=<id>` ou `eventoId=sem_evento`, além dos filtros documentados no frontend. Os filtros `bairro`, `problema` e `origem` aceitam `nao_informado`; para idade ausente, use `idadeNaoInformada=true`. Na tela de eventos, `Ver participantes` abre a listagem já filtrada; nome completo e telefone formatado podem ser pesquisados junto com o evento.
 
-A listagem de importações retorna apenas metadados do lote, sem os dados dos contatos. A exclusão é restrita ao administrador, não pode ocorrer enquanto o lote está sendo processado e preserva os contatos que já foram importados. As linhas técnicas da importação são removidas em cascata.
+A listagem de importações retorna apenas metadados do lote, sem os dados dos contatos. A exclusão é restrita ao administrador, não pode ocorrer enquanto o lote está sendo processado e preserva os contatos que já foram importados. As linhas técnicas da importação são removidas em cascata. Nomes exclusivamente numéricos são tratados como ausentes; códigos antigos são preservados em `historico_contatos` antes da normalização.
 
 ## Administradores
 
@@ -259,9 +265,10 @@ npm run testar:schema-vazio
 npm run testar:importacao-carga
 ```
 
-Resultado de 02/08/2026: 385 verificações aprovadas.
+Resultado de 02/08/2026: 392 verificações aprovadas.
 
-- estrutura, 166 bairros, eventos simultâneos e integridade: 22;
+- estrutura, 166 bairros, migrations, eventos simultâneos e integridade: 22;
+- normalização de nomes importados: 7;
 - cadastro público, idade mínima, opt-in opcional, textos públicos e metadados versionados: 42;
 - administração e filtros: 43;
 - cadastro manual: 24;
@@ -274,7 +281,7 @@ Resultado de 02/08/2026: 385 verificações aprovadas.
 - backups, permissões, integridade e auditoria: 18.
 - resiliência, rate limit, concorrência, saúde, pool e configuração: 22.
 
-O teste de schema cria um banco temporário vazio, aplica `database/criar_banco.sql`, valida 21 tabelas e 166 bairros e remove o banco temporário ao final.
+O teste de schema cria um banco temporário vazio, aplica `database/criar_banco.sql`, valida 22 tabelas, duas migrations registradas e 166 bairros e remove o banco temporário ao final.
 
 O teste de carga de importação gera 15.000 contatos temporários, percorre pré-visualização, confirmação e persistência, valida a rejeição de 20.001 linhas, remove todos os dados de teste e ressincroniza as sequências utilizadas. Ele recusa execução quando `NODE_ENV=production`.
 

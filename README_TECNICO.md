@@ -186,7 +186,7 @@ RELATORIO_LIMITE_REGISTROS=50000
 |---|---|---|
 | `GET` | `/api/teste` | Testa API e conexão PostgreSQL. |
 | `GET` | `/api/saude/vivo` | Confirma que o processo está vivo. |
-| `GET` | `/api/saude/pronto` | Confirma que a API e o PostgreSQL estão prontos. |
+| `GET` | `/api/saude/pronto` | Confirma conexão e tabelas/colunas críticas do PostgreSQL. |
 | `GET` | `/api/publico/contatos/opcoes` | Retorna bairros e categorias; valida `eventoId` quando informado. |
 | `POST` | `/api/publico/contatos/verificar-evento` | Compara nome completo e telefone sem retornar dados pessoais. |
 | `POST` | `/api/publico/contatos/inscrever-evento` | Vincula ao evento informado um contato existente já identificado. |
@@ -329,7 +329,8 @@ Um administrador não pode alterar a conta nem a senha de outro administrador.
 - a tela lista os metadados dos lotes sem expor os dados importados;
 - somente o administrador exclui um lote, e essa exclusão preserva os contatos e a origem associada;
 - complementos efetivos geram histórico;
-- a importação não cria consentimentos automaticamente.
+- a importação não cria consentimentos automaticamente;
+- nomes exclusivamente numéricos são tratados como ausentes; registros antigos são normalizados com o valor anterior preservado no histórico.
 
 Cabeçalhos reconhecidos:
 
@@ -448,7 +449,7 @@ Backup:
 
 ### 3.14 Banco de dados
 
-O schema possui 21 tabelas:
+O schema possui 22 tabelas:
 
 | Grupo | Tabelas |
 |---|---|
@@ -457,6 +458,7 @@ O schema possui 21 tabelas:
 | Eventos | `eventos`, `historico_eventos`, `contato_eventos` |
 | Importação e conteúdo | `importacoes`, `importacao_linhas`, `textos_formulario` |
 | Comunicação manual | `numeros_whatsapp`, `modelos_mensagem`, `campanhas`, `comunicacoes`, `historico_comunicacoes` |
+| Evolução estrutural | `schema_migrations` |
 
 Proteções relevantes:
 
@@ -478,7 +480,7 @@ createdb criar_banco
 psql --set ON_ERROR_STOP=1 --dbname criar_banco --file backend/database/criar_banco.sql
 ```
 
-O projeto atual não possui migrations. O script completo recusa execução em banco que já tenha estrutura. Nunca execute `criar_banco.sql` sobre banco existente com dados.
+O projeto utiliza migrations incrementais em `backend/database/migrations`, aplicadas por `npm run banco:migrar`. O ledger guarda versão, arquivo, checksum SHA-256 e data. Advisory lock impede dois runners simultâneos e cada migration usa transação. O script completo continua exclusivo para banco vazio e já registra as migrations incorporadas.
 
 ## 4. Frontend
 
@@ -599,7 +601,7 @@ npm run criar-admin -- "Nome" "email@dominio.com" "SenhaForte123!"
 npm run testar:schema-vazio
 npm run testar:importacao-carga
 npm run banco:sincronizar-sequencias
-npm run banco:sincronizar-eventos
+npm run banco:migrar
 ```
 
 O conjunto `npm test` executa verificações de:
@@ -615,7 +617,7 @@ O conjunto `npm test` executa verificações de:
 - eventos e exclusões;
 - backups.
 
-Último resultado documentado no projeto, em 02/08/2026: 385 verificações do backend aprovadas e build do frontend concluído com 69 módulos transformados.
+Último resultado documentado no projeto, em 02/08/2026: 392 verificações do backend aprovadas e build do frontend concluído com 69 módulos transformados.
 
 O teste adicional `testar:importacao-carga` valida separadamente 15.000 contatos temporários em um único arquivo, a rejeição de 20.001 linhas, pré-visualização, confirmação, contagem persistida, limpeza automática e ressincronização das sequências utilizadas. O limite aceito de 20.000 linhas também foi executado com sucesso. O script recusa execução em produção.
 

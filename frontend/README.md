@@ -142,7 +142,7 @@ a listagem mostra somente os contatos que realmente não possuem aquele dado.
 
 Na gestão de usuários, o administrador pode atualizar o próprio nome e criar contas com perfil de operador ou administrador. Outros administradores aparecem protegidos e não podem ter seus dados ou senha alterados; a redefinição administrativa de senha fica disponível somente para operadores.
 
-Contatos importados somente com telefone mantêm nome, bairro, idade e categoria como `NULL` no banco. Na listagem, nos detalhes e na pré-visualização da importação, esses valores ausentes aparecem visualmente como “Não informado”, permitindo complementação futura sem confundir o texto com um dado real.
+Contatos importados somente com telefone mantêm nome, bairro, idade e categoria como `NULL` no banco. Nomes exclusivamente numéricos também são tratados como ausentes, evitando exibir códigos de planilha como nomes de pessoas. Na listagem, nos detalhes e na pré-visualização da importação, esses valores aparecem visualmente como “Não informado”.
 
 A importação aceita um único arquivo CSV ou XLSX com até 5 MB e 20.000 linhas. A origem é escolhida em um dropdown com as fontes de importação existentes, com opção para cadastrar uma nova. Durante a confirmação, o botão permanece bloqueado e informa que a importação está em andamento.
 O seletor de arquivo usa um botão próprio, mostra o nome escolhido e continua

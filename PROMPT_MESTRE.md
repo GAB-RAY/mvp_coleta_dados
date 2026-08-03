@@ -59,8 +59,8 @@ Considere este cenário somente quando não houver implementação aproveitável
 #### Estado de referência deste documento
 
 Na atualização de 31/07/2026, o repositório já possuía backend, frontend e
-schema completo implementados. O schema atual possui 21 tabelas e 166 bairros.
-A suíte do backend concluiu 385 verificações e o build do frontend transformou
+schema completo implementados. O schema atual possui 22 tabelas e 166 bairros.
+A suíte do backend concluiu 392 verificações e o build do frontend transformou
 69 módulos. Esses resultados servem como referência de regressão, não como
 substitutos para uma nova execução dos testes no ambiente recebido.
 
@@ -626,7 +626,10 @@ Tabelas obrigatórias:
 16. `textos_formulario`.
 17. `numeros_whatsapp`;
 18. `modelos_mensagem`;
-19. `comunicacoes`.
+19. `comunicacoes`;
+20. `campanhas`;
+21. `historico_comunicacoes`;
+22. `schema_migrations`.
 
 Implementar chaves estrangeiras, checks, índices e triggers para:
 
@@ -651,7 +654,7 @@ createdb criar_banco
 psql --set ON_ERROR_STOP=1 --dbname criar_banco --file backend/database/criar_banco.sql
 ```
 
-Nunca executar o schema completo sobre banco com dados. Para qualquer mudança futura em produção: backup completo, restauração testada, script incremental versionado, teste em cópia, aplicação controlada e validação posterior. Nunca apagar ou recriar banco de produção.
+Nunca executar o schema completo sobre banco com dados. Bancos existentes evoluem somente por migrations incrementais em `backend/database/migrations`, registradas com checksum em `schema_migrations`, protegidas por advisory lock e transação. Antes de uma migration estrutural: backup completo, restauração testada, teste em cópia, aplicação controlada e validação posterior. Nunca apagar ou recriar banco de produção.
 
 ### 18. Endpoints
 
@@ -890,7 +893,7 @@ Ao terminar:
 - banco e backend preferencialmente na mesma região;
 - deploy automático ligado à branch de produção somente após validação;
 - testes rápidos de formulário, login, painel, exportação e backup depois de cada publicação;
-- readiness em `/api/saude/pronto` e liveness em `/api/saude/vivo`;
+- readiness em `/api/saude/pronto`, validando conexão e estrutura crítica, e liveness em `/api/saude/vivo`;
 - alertas de deploy, reinício, CPU, memória, latência e banco;
 - duas instâncias do backend e standby PostgreSQL quando indisponibilidade não for aceitável;
 - teste de carga em homologação antes de eventos de grande alcance.
