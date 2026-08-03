@@ -1,6 +1,6 @@
 const banco = require('../../config/banco');
 
-let colunasEventosCache = null;
+const colunasTabelasCache = {};
 
 function camposEvento() {
   return `
@@ -13,23 +13,27 @@ function camposEvento() {
   `;
 }
 
-async function obterColunasEventos(executor) {
-  if (colunasEventosCache) {
-    return colunasEventosCache;
+async function obterColunasTabela(executor, nomeTabela) {
+  if (colunasTabelasCache[nomeTabela]) {
+    return colunasTabelasCache[nomeTabela];
   }
 
   const resultado = await executor.query(`
     SELECT column_name
     FROM information_schema.columns
     WHERE table_schema = 'public'
-      AND table_name = 'eventos'
-  `);
+      AND table_name = $1
+  `, [nomeTabela]);
 
-  colunasEventosCache = new Set(resultado.rows.map(function (linha) {
+  colunasTabelasCache[nomeTabela] = new Set(resultado.rows.map(function (linha) {
     return linha.column_name;
   }));
 
-  return colunasEventosCache;
+  return colunasTabelasCache[nomeTabela];
+}
+
+async function obterColunasEventos(executor) {
+  return obterColunasTabela(executor, 'eventos');
 }
 
 function adicionarCampo(colunasSql, valoresSql, valores, nomeColuna, valor) {
@@ -249,16 +253,25 @@ async function alterarStatus(id, novoStatus, usuarioId) {
 }
 
 async function listarParticipantes(eventoId, filtros) {
+  const colunasComunicacoes = await obterColunasTabela(banco, 'comunicacoes');
+  const podeConsultarComunicacoes = colunasComunicacoes.has('contato_id') &&
+    colunasComunicacoes.has('evento_id') &&
+    colunasComunicacoes.has('status') &&
+    colunasComunicacoes.has('criado_em') &&
+    colunasComunicacoes.has('id');
+  const statusMensagemSql = podeConsultarComunicacoes
+    ? "COALESCE((SELECT status FROM comunicacoes WHERE contato_id=contato.id AND evento_id=vinculo.evento_id ORDER BY criado_em DESC,id DESC LIMIT 1),'nao_contatado')"
+    : "'nao_contatado'";
   const valores=[eventoId];
   const condicoes=["vinculo.evento_id=$1","evento.status<>'excluido'"];
   if(filtros.nome){valores.push('%'+filtros.nome+'%');condicoes.push('contato.nome ILIKE $'+valores.length);}
   if(filtros.telefone){valores.push('%'+filtros.telefone+'%');condicoes.push('contato.telefone_normalizado LIKE $'+valores.length);}
   if(filtros.statusInscricao){valores.push(filtros.statusInscricao);condicoes.push('vinculo.status_inscricao=$'+valores.length);}
-  if(filtros.statusMensagem){valores.push(filtros.statusMensagem);condicoes.push("COALESCE((SELECT status FROM comunicacoes WHERE contato_id=contato.id AND evento_id=vinculo.evento_id ORDER BY criado_em DESC,id DESC LIMIT 1),'nao_contatado')=$"+valores.length);}
+  if(filtros.statusMensagem){valores.push(filtros.statusMensagem);condicoes.push(statusMensagemSql+'=$'+valores.length);}
   return (await banco.query(`
     SELECT contato.id,contato.nome,contato.telefone,contato.bairro,vinculo.status_inscricao,
       vinculo.cadastrado_em,
-      COALESCE((SELECT status FROM comunicacoes WHERE contato_id=contato.id AND evento_id=vinculo.evento_id ORDER BY criado_em DESC,id DESC LIMIT 1),'nao_contatado') AS status_mensagem
+      ${statusMensagemSql} AS status_mensagem
     FROM contato_eventos AS vinculo
     INNER JOIN contatos AS contato ON contato.id=vinculo.contato_id
     INNER JOIN eventos AS evento ON evento.id=vinculo.evento_id

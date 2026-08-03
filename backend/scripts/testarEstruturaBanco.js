@@ -205,7 +205,15 @@ async function validarCatalogo(cliente) {
             AND slug IN ('formulario-publico', 'cadastro-manual')
         ) AS origens_obrigatorias,
         (SELECT COUNT(*)::integer FROM textos_formulario WHERE ativo = TRUE) AS textos,
-        (SELECT COUNT(*)::integer FROM schema_migrations) AS migrations_executadas
+        (
+          SELECT COUNT(*)::integer
+          FROM schema_migrations
+          WHERE nome_arquivo IN (
+            '001_validar_estrutura_atual.sql',
+            '002_normalizar_nomes_importados.sql',
+            '003_garantir_eventos_participantes.sql'
+          )
+        ) AS migrations_atuais
     `
   );
 
@@ -216,8 +224,8 @@ async function validarCatalogo(cliente) {
   );
   verificar(configuracoes.rows[0].textos === 3, 'Os três textos ativos não existem.');
   verificar(
-    configuracoes.rows[0].migrations_executadas === 2,
-    'O ledger deve registrar exatamente as duas migrations atuais.'
+    configuracoes.rows[0].migrations_atuais === 3,
+    'O ledger deve registrar as tres migrations atuais.'
   );
 
   const relacionamentoBairro = await cliente.query(
