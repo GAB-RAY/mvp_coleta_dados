@@ -8,7 +8,7 @@
     "node": "24.x"
   },
   "scripts": {
-    "prestart": "npm run banco:sincronizar-estrutura-producao && npm run banco:sincronizar-comunicacao && npm run banco:sincronizar-eventos",
+    "prestart": "npm run banco:sincronizar-compatibilidade-comunicacao && npm run banco:sincronizar-estrutura-producao && npm run banco:sincronizar-comunicacao && npm run banco:sincronizar-eventos",
     "test": "npm run testar:banco && npm run testar:publico && npm run testar:admin && npm run testar:manual && npm run testar:importacoes && npm run testar:relatorios && npm run testar:seguranca && npm run testar:privacidade && npm run testar:eventos-exclusoes && npm run testar:comunicacoes && npm run testar:backups && npm run testar:resiliencia",
     "start": "node src/server.js",
     "heroku-postbuild": "pg_dump --version",
@@ -31,7 +31,8 @@
     "testar:backups": "node scripts/testarBackups.js",
     "testar:resiliencia": "node scripts/testarResiliencia.js",
     "testar:schema-vazio": "node scripts/testarSchemaVazio.js",
-    "banco:sincronizar-estrutura-producao": "node scripts/sincronizarEstruturaProducao.js"
+    "banco:sincronizar-estrutura-producao": "node scripts/sincronizarEstruturaProducao.js",
+    "banco:sincronizar-compatibilidade-comunicacao": "node scripts/sincronizarCompatibilidadeComunicacao.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
