@@ -45,7 +45,8 @@ function transformar(evento) {
     id: evento.id, nome: evento.nome, descricao: evento.descricao || evento.motivo,
     motivo: evento.descricao || evento.motivo, dataInicial: evento.data_inicial,
     dataFinal: evento.data_final, local: null, link: null,
-    inscricoesInicio: evento.inscricoes_inicio, inscricoesFim: evento.inscricoes_fim,
+    inscricoesInicio: evento.inscricoes_inicio || evento.data_inicial,
+    inscricoesFim: evento.inscricoes_fim || evento.data_final,
     status: evento.status, totalCadastros: evento.total_cadastros,
     criadoPor: evento.criado_por, atualizadoPor: evento.atualizado_por,
     criadoEm: evento.criado_em, atualizadoEm: evento.atualizado_em

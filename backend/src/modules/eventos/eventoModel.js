@@ -1,5 +1,7 @@
 const banco = require('../../config/banco');
 
+let colunasEventosCache = null;
+
 function camposEvento() {
   return `
     SELECT evento.*, criador.nome AS criado_por, atualizador.nome AS atualizado_por,
@@ -9,6 +11,36 @@ function camposEvento() {
     INNER JOIN usuarios AS atualizador ON atualizador.id = evento.atualizado_por_usuario_id
     LEFT JOIN contato_eventos AS contato_evento ON contato_evento.evento_id = evento.id
   `;
+}
+
+async function obterColunasEventos(executor) {
+  if (colunasEventosCache) {
+    return colunasEventosCache;
+  }
+
+  const resultado = await executor.query(`
+    SELECT column_name
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'eventos'
+  `);
+
+  colunasEventosCache = new Set(resultado.rows.map(function (linha) {
+    return linha.column_name;
+  }));
+
+  return colunasEventosCache;
+}
+
+function adicionarCampo(colunasSql, valoresSql, valores, nomeColuna, valor) {
+  colunasSql.push(nomeColuna);
+  valores.push(valor);
+  valoresSql.push('$' + valores.length);
+}
+
+function adicionarSet(partesSql, valores, nomeColuna, valor) {
+  valores.push(valor);
+  partesSql.push(nomeColuna + '=$' + valores.length);
 }
 
 async function listar() {
@@ -78,18 +110,43 @@ async function criar(dados, usuarioId) {
   const cliente = await banco.connect();
   try {
     await cliente.query('BEGIN');
+
+    const colunasEventos = await obterColunasEventos(cliente);
+    const colunasSql = [];
+    const valoresSql = [];
+    const valores = [];
+
+    adicionarCampo(colunasSql, valoresSql, valores, 'nome', dados.nome);
+    adicionarCampo(colunasSql, valoresSql, valores, 'motivo', dados.descricao);
+    if (colunasEventos.has('descricao')) {
+      adicionarCampo(colunasSql, valoresSql, valores, 'descricao', dados.descricao);
+    }
+    adicionarCampo(colunasSql, valoresSql, valores, 'data_inicial', dados.dataInicial);
+    adicionarCampo(colunasSql, valoresSql, valores, 'data_final', dados.dataFinal);
+
+    if (colunasEventos.has('local_evento')) {
+      adicionarCampo(colunasSql, valoresSql, valores, 'local_evento', null);
+    }
+    if (colunasEventos.has('link_evento')) {
+      adicionarCampo(colunasSql, valoresSql, valores, 'link_evento', null);
+    }
+    if (colunasEventos.has('inscricoes_inicio')) {
+      adicionarCampo(colunasSql, valoresSql, valores, 'inscricoes_inicio', dados.dataInicial);
+    }
+    if (colunasEventos.has('inscricoes_fim')) {
+      adicionarCampo(colunasSql, valoresSql, valores, 'inscricoes_fim', dados.dataFinal);
+    }
+
+    adicionarCampo(colunasSql, valoresSql, valores, 'status', 'rascunho');
+    adicionarCampo(colunasSql, valoresSql, valores, 'criado_por_usuario_id', usuarioId);
+    adicionarCampo(colunasSql, valoresSql, valores, 'atualizado_por_usuario_id', usuarioId);
+
     const resultado = await cliente.query(`
-      INSERT INTO eventos (
-        nome, motivo, descricao, data_inicial, data_final, local_evento,
-        link_evento, inscricoes_inicio, inscricoes_fim, status,
-        criado_por_usuario_id, atualizado_por_usuario_id
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'rascunho',$10,$10)
+      INSERT INTO eventos (${colunasSql.join(', ')})
+      VALUES (${valoresSql.join(', ')})
       RETURNING *
-    `, [
-      dados.nome, dados.descricao, dados.descricao, dados.dataInicial,
-      dados.dataFinal, null, null, dados.inscricoesInicio,
-      dados.inscricoesFim, usuarioId
-    ]);
+    `, valores);
+
     await registrarHistorico(cliente, resultado.rows[0].id, 'criacao', null, resultado.rows[0], usuarioId);
     await cliente.query('COMMIT');
     return resultado.rows[0];
@@ -113,13 +170,39 @@ async function editar(id, dados, usuarioId) {
       await cliente.query('ROLLBACK');
       return null;
     }
+
+    const colunasEventos = await obterColunasEventos(cliente);
+    const partesSql = [];
+    const valores = [id];
+
+    adicionarSet(partesSql, valores, 'nome', dados.nome);
+    adicionarSet(partesSql, valores, 'motivo', dados.descricao);
+    if (colunasEventos.has('descricao')) {
+      adicionarSet(partesSql, valores, 'descricao', dados.descricao);
+    }
+    adicionarSet(partesSql, valores, 'data_inicial', dados.dataInicial);
+    adicionarSet(partesSql, valores, 'data_final', dados.dataFinal);
+
+    if (colunasEventos.has('local_evento')) {
+      adicionarSet(partesSql, valores, 'local_evento', null);
+    }
+    if (colunasEventos.has('link_evento')) {
+      adicionarSet(partesSql, valores, 'link_evento', null);
+    }
+    if (colunasEventos.has('inscricoes_inicio')) {
+      adicionarSet(partesSql, valores, 'inscricoes_inicio', dados.dataInicial);
+    }
+    if (colunasEventos.has('inscricoes_fim')) {
+      adicionarSet(partesSql, valores, 'inscricoes_fim', dados.dataFinal);
+    }
+
+    adicionarSet(partesSql, valores, 'atualizado_por_usuario_id', usuarioId);
+
     const resultado = await cliente.query(`
-      UPDATE eventos SET nome=$2, motivo=$3, descricao=$3, data_inicial=$4,
-        data_final=$5, local_evento=$6, link_evento=$7,
-        inscricoes_inicio=$8, inscricoes_fim=$9, atualizado_por_usuario_id=$10
+      UPDATE eventos SET ${partesSql.join(', ')}
       WHERE id=$1 RETURNING *
-    `, [id, dados.nome, dados.descricao, dados.dataInicial, dados.dataFinal,
-      null, null, dados.inscricoesInicio, dados.inscricoesFim, usuarioId]);
+    `, valores);
+
     await registrarHistorico(cliente, id, 'edicao', atual.rows[0], resultado.rows[0], usuarioId);
     await cliente.query('COMMIT');
     return resultado.rows[0];
