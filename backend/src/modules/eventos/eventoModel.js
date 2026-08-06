@@ -121,9 +121,9 @@ async function criar(dados, usuarioId) {
     const valores = [];
 
     adicionarCampo(colunasSql, valoresSql, valores, 'nome', dados.nome);
-    adicionarCampo(colunasSql, valoresSql, valores, 'motivo', dados.descricao);
+    adicionarCampo(colunasSql, valoresSql, valores, 'motivo', dados.nome);
     if (colunasEventos.has('descricao')) {
-      adicionarCampo(colunasSql, valoresSql, valores, 'descricao', dados.descricao);
+      adicionarCampo(colunasSql, valoresSql, valores, 'descricao', dados.nome);
     }
     adicionarCampo(colunasSql, valoresSql, valores, 'data_inicial', dados.dataInicial);
     adicionarCampo(colunasSql, valoresSql, valores, 'data_final', dados.dataFinal);
@@ -180,9 +180,9 @@ async function editar(id, dados, usuarioId) {
     const valores = [id];
 
     adicionarSet(partesSql, valores, 'nome', dados.nome);
-    adicionarSet(partesSql, valores, 'motivo', dados.descricao);
+    adicionarSet(partesSql, valores, 'motivo', dados.nome);
     if (colunasEventos.has('descricao')) {
-      adicionarSet(partesSql, valores, 'descricao', dados.descricao);
+      adicionarSet(partesSql, valores, 'descricao', dados.nome);
     }
     adicionarSet(partesSql, valores, 'data_inicial', dados.dataInicial);
     adicionarSet(partesSql, valores, 'data_final', dados.dataFinal);

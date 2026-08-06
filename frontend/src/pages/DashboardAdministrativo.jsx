@@ -242,7 +242,7 @@ function ColunaLateralDashboard(propriedades) {
     <aside className="coluna-dashboard-lateral">
       <section className="cartao painel-lateral-dashboard">
         <div className="cabecalho-painel-lateral">
-          <span className="mini-simbolo-admin">CC</span>
+          <span className="mini-simbolo-admin">RJ</span>
           <div><strong>Central ativa</strong><small>Dados atualizados</small></div>
           <span className="ponto-status-admin" title="Sistema disponível" />
         </div>
@@ -279,7 +279,7 @@ function ColunaLateralDashboard(propriedades) {
 
       <Link className="chamada-lateral-dashboard" to="/participar">
         <span>Formulário público</span>
-        <strong>Acorda VK</strong>
+        <strong>Acorda RJ</strong>
         <small>Abrir página de participação →</small>
       </Link>
     </aside>
@@ -342,7 +342,7 @@ function DashboardAdministrativo() {
         <CabecalhoAdministrativo
           aoSair={sair}
           titulo="Visão geral"
-          subtitulo="Bem-vindo à sua Central de Comunicação."
+          subtitulo="Bem-vindo ao ACORDA RJ."
         />
 
         {mensagem && <MensagemRetorno mensagem={mensagem} tipo="erro" />}

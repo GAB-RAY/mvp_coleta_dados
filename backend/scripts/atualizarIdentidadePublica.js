@@ -3,7 +3,7 @@ require('dotenv').config({ quiet: true });
 const banco = require('../src/config/banco');
 
 const TEXTO_AVISO_PRIVACIDADE =
-  'Tenho 16 anos ou mais, li o Aviso de Privacidade e consinto com o tratamento dos dados necessários para minha participação voluntária no projeto Acorda VK.';
+  'Tenho 16 anos ou mais, li o Aviso de Privacidade e consinto com o tratamento dos dados necessários para minha participação voluntária no projeto Acorda RJ.';
 
 const TEXTOS_ATIVOS = [
   {
@@ -14,12 +14,12 @@ const TEXTOS_ATIVOS = [
   {
     tipo: 'mensagens',
     versao: 'mensagens_whatsapp_v3',
-    texto: 'Autorizo o recebimento de mensagens pelo WhatsApp enviadas pelo projeto Acorda VK e por Diogo Ventura, incluindo informações sobre ações sociais, projetos comunitários, pesquisas, eventos e conteúdos políticos. Posso revogar esta autorização a qualquer momento pelo canal indicado na Política de Privacidade.'
+    texto: 'Autorizo o recebimento de mensagens pelo WhatsApp enviadas pelo projeto Acorda RJ e por Diogo Ventura, incluindo informações sobre ações sociais, projetos comunitários, pesquisas, eventos e conteúdos políticos. Posso revogar esta autorização a qualquer momento pelo canal indicado na Política de Privacidade.'
   },
   {
     tipo: 'ligacoes',
     versao: 'ligacoes_v3',
-    texto: 'Autorizo o recebimento de ligações telefônicas relacionadas às ações e iniciativas do projeto Acorda VK. Posso revogar esta autorização a qualquer momento pelo canal indicado na Política de Privacidade.'
+    texto: 'Autorizo o recebimento de ligações telefônicas relacionadas às ações e iniciativas do projeto Acorda RJ. Posso revogar esta autorização a qualquer momento pelo canal indicado na Política de Privacidade.'
   }
 ];
 

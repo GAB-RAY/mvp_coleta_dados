@@ -212,7 +212,8 @@ async function validarCatalogo(cliente) {
             '001_validar_estrutura_atual.sql',
             '002_normalizar_nomes_importados.sql',
             '003_garantir_eventos_participantes.sql',
-            '004_permitir_varios_eventos_ativos.sql'
+            '004_permitir_varios_eventos_ativos.sql',
+            '005_padronizar_telefones_contatos.sql'
           )
         ) AS migrations_atuais
     `
@@ -225,8 +226,8 @@ async function validarCatalogo(cliente) {
   );
   verificar(configuracoes.rows[0].textos === 3, 'Os três textos ativos não existem.');
   verificar(
-    configuracoes.rows[0].migrations_atuais === 4,
-    'O ledger deve registrar as quatro migrations atuais.'
+    configuracoes.rows[0].migrations_atuais === 5,
+    'O ledger deve registrar as cinco migrations atuais.'
   );
 
   const relacionamentoBairro = await cliente.query(

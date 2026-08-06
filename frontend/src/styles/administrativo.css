@@ -1491,8 +1491,25 @@
 .tabela-responsiva {
   width: 100%;
   overflow-x: auto;
+  overflow-y: hidden;
   border: 1px solid var(--admin-borda);
   border-radius: 8px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-color: #d9a98e #fff4ed;
+  scrollbar-width: thin;
+}
+
+.tabela-responsiva::-webkit-scrollbar {
+  height: 0.42rem;
+}
+
+.tabela-responsiva::-webkit-scrollbar-track {
+  background: #fff4ed;
+}
+
+.tabela-responsiva::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #d9a98e;
 }
 
 .tabela-responsiva:focus-visible {
@@ -1502,7 +1519,7 @@
 
 .tabela-contatos {
   width: 100%;
-  min-width: 1480px;
+  min-width: 980px;
   border-collapse: collapse;
   font-size: 0.9rem;
 }
@@ -1513,6 +1530,7 @@
   padding: 0.8rem 0.72rem;
   text-align: left;
   vertical-align: top;
+  overflow-wrap: anywhere;
 }
 
 .tabela-contatos th {
@@ -2752,6 +2770,43 @@
   .acoes-seletor-contatos {
     justify-content: flex-start;
   }
+
+  .tabela-contatos {
+    min-width: 760px;
+    font-size: 0.84rem;
+  }
+
+  .tabela-contatos th,
+  .tabela-contatos td {
+    padding: 0.68rem 0.55rem;
+  }
+
+  .cabecalho-painel-detalhes {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .cabecalho-painel-detalhes .acoes-filtros,
+  .acoes-privacidade,
+  .acoes-status-preparada {
+    width: 100%;
+  }
+
+  .cabecalho-painel-detalhes .botao,
+  .acoes-privacidade .botao {
+    width: 100%;
+  }
+
+  .registro-historico {
+    border: 1px solid var(--admin-borda);
+    border-radius: 10px;
+    padding: 0.85rem;
+    background: #fff;
+  }
+
+  .registro-historico + .registro-historico {
+    margin-top: 0.7rem;
+  }
 }
 
 @media (max-width: 560px) {
@@ -2818,6 +2873,23 @@
 
   .paginacao-contatos {
     justify-content: space-between;
+  }
+
+  .tabela-contatos {
+    min-width: 640px;
+  }
+
+  .item-selecao-comunicacao {
+    min-width: 0;
+  }
+
+  .item-selecao-comunicacao strong,
+  .item-selecao-comunicacao small {
+    white-space: normal;
+  }
+
+  .lista-selecao-comunicacoes {
+    max-height: 65vh;
   }
 }
 

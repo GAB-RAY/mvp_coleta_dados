@@ -5,7 +5,7 @@ function Privacidade() {
     <PaginaLegal
       etiqueta="Proteção de dados"
       titulo="Política de Privacidade"
-      introducao="Este documento explica como os dados pessoais são tratados no projeto Acorda VK."
+      introducao="Este documento explica como os dados pessoais são tratados no projeto Acorda RJ."
     >
       <p><strong>Versão 1.0 · Última atualização: 28 de julho de 2026.</strong></p>
 
@@ -13,7 +13,7 @@ function Privacidade() {
         <h2>Controlador dos dados</h2>
         <p>
           O controlador e responsável pelas decisões sobre o tratamento dos dados é
-          <strong> Diogo Ventura</strong>, responsável pelo projeto Acorda VK, no Rio de
+          <strong> Diogo Ventura</strong>, responsável pelo projeto Acorda RJ, no Rio de
           Janeiro. O canal de contato do controlador é informado ao final desta página.
         </p>
       </section>
@@ -78,7 +78,7 @@ function Privacidade() {
         <p>
           Quando houver autorização específica, as mensagens pelo WhatsApp poderão incluir
           ações sociais, projetos comunitários, pesquisas, eventos e conteúdos políticos do
-          projeto Acorda VK e de Diogo Ventura. A autorização pode ser cancelada a qualquer
+          projeto Acorda RJ e de Diogo Ventura. A autorização pode ser cancelada a qualquer
           momento pelo canal de atendimento informado nesta página.
         </p>
         <p>

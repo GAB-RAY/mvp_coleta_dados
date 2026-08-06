@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken');
 const ExcelJS = require('exceljs');
 const aplicacao = require('../src/app');
 const banco = require('../src/config/banco');
+const formatarTelefone = require('../src/utils/formatarTelefone');
 
 const TELEFONE = '21999984001';
 const EMAIL_TESTE = 'relatorios.teste@invalid.local';
@@ -110,11 +111,11 @@ async function executar() {
     assert.ok(respostaCsvAdministrador.headers.get('content-type').includes('text/csv'));
     assert.match(
       respostaCsvAdministrador.headers.get('content-disposition') || '',
-      /^attachment; filename="acorda-vk-contatos-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.csv"$/
+      /^attachment; filename="acorda-rj-contatos-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.csv"$/
     );
     const csv = await respostaCsvAdministrador.text();
     assert.ok(csv.includes('Relatório Teste'));
-    assert.ok(csv.includes(TELEFONE));
+    assert.ok(csv.includes(formatarTelefone(TELEFONE)));
     assert.ok(csv.includes('autorizado'));
     assert.strictEqual(csv.includes('telefone_normalizado'), false);
 
@@ -126,7 +127,7 @@ async function executar() {
     assert.ok(respostaExcel.headers.get('content-type').includes('spreadsheetml.sheet'));
     assert.match(
       respostaExcel.headers.get('content-disposition') || '',
-      /^attachment; filename="acorda-vk-contatos-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.xlsx"$/
+      /^attachment; filename="acorda-rj-contatos-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.xlsx"$/
     );
     const pasta = new ExcelJS.Workbook();
     await pasta.xlsx.load(Buffer.from(await respostaExcel.arrayBuffer()));
@@ -134,7 +135,7 @@ async function executar() {
     assert.ok(planilha, 'A planilha Contatos não foi encontrada.');
     assert.strictEqual(planilha.rowCount, 2);
     assert.strictEqual(planilha.getCell('B2').value, 'Relatório Teste');
-    assert.strictEqual(planilha.getCell('C2').value, TELEFONE);
+    assert.strictEqual(planilha.getCell('C2').value, formatarTelefone(TELEFONE));
 
     console.log('Relatórios: 25 verificações aprovadas.');
     console.log('Agregações e exportações CSV/XLSX autenticadas aprovadas.');

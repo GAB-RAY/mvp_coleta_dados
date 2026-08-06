@@ -206,7 +206,7 @@ async function executar() {
     assert.strictEqual(semAutorizacoes.status, 201);
     assert.strictEqual(
       semAutorizacoes.corpo.mensagem,
-      'Cadastro realizado com sucesso. Obrigado por contribuir com o projeto Acorda VK.'
+      'Cadastro realizado com sucesso. Obrigado por contribuir com o projeto Acorda RJ.'
     );
     let resumo = await buscarResumoContato(PREFIXO_TELEFONE + '010');
     assert.strictEqual(resumo.aceites, 1);

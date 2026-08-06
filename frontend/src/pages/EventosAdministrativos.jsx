@@ -15,10 +15,10 @@ import {
   listarParticipantesEvento
 } from '../services/eventoService';
 import { obterUsuario, removerToken } from '../utils/armazenamentoToken';
+import formatarTelefone from '../utils/formatarTelefone';
 
 const FORMULARIO_INICIAL = {
   nome: '',
-  descricao: '',
   dataInicial: '',
   dataFinal: ''
 };
@@ -75,7 +75,6 @@ function EventosAdministrativos() {
     setEventoEdicao(evento.id);
     setFormulario({
       nome: evento.nome,
-      descricao: evento.descricao,
       dataInicial: paraCampoDataHora(evento.dataInicial),
       dataFinal: paraCampoDataHora(evento.dataFinal)
     });
@@ -243,7 +242,7 @@ function EventosAdministrativos() {
         )}
 
         {eventoParticipantes&&(
-          <section className="cartao painel-resultados"><div className="cabecalho-secao"><div><span className="etiqueta-pagina">Participantes</span><h2>{eventoParticipantes.nome}</h2></div><button className="botao botao-secundario" type="button" onClick={function(){setEventoParticipantes(null);}}>Fechar</button></div><div className="grade-filtros"><label>Nome<input className="campo-input" value={filtrosParticipantes.nome} onChange={function(e){setFiltrosParticipantes(Object.assign({},filtrosParticipantes,{nome:e.target.value}));}}/></label><label>Telefone<input className="campo-input" value={filtrosParticipantes.telefone} onChange={function(e){setFiltrosParticipantes(Object.assign({},filtrosParticipantes,{telefone:e.target.value}));}}/></label><label>Status da inscrição<select className="campo-input" value={filtrosParticipantes.statusInscricao} onChange={function(e){setFiltrosParticipantes(Object.assign({},filtrosParticipantes,{statusInscricao:e.target.value}));}}><option value="">Todos</option><option value="inscrito">Inscrito</option><option value="confirmado">Confirmado</option><option value="presente">Presente</option><option value="cancelado">Cancelado</option></select></label><button className="botao botao-primario" type="button" onClick={function(){carregarParticipantes(eventoParticipantes);}}>Buscar</button></div><div className="tabela-responsiva"><table className="tabela-contatos"><thead><tr><th>Nome</th><th>Telefone</th><th>Inscrição</th><th>Comunicação</th><th>Data</th></tr></thead><tbody>{participantes.map(function(item){return <tr key={item.id}><td>{item.nome}</td><td>{item.telefone}</td><td><select value={item.status_inscricao} onChange={function(e){alterarInscricao(item.id,e.target.value);}}><option value="inscrito">Inscrito</option><option value="confirmado">Confirmado</option><option value="presente">Presente</option><option value="cancelado">Cancelado</option></select></td><td>{item.status_mensagem.replaceAll('_',' ')}</td><td>{new Date(item.cadastrado_em).toLocaleString('pt-BR')}</td></tr>;})}</tbody></table></div></section>
+          <section className="cartao painel-resultados"><div className="cabecalho-secao"><div><span className="etiqueta-pagina">Participantes</span><h2>{eventoParticipantes.nome}</h2></div><button className="botao botao-secundario" type="button" onClick={function(){setEventoParticipantes(null);}}>Fechar</button></div><div className="grade-filtros"><label>Nome<input className="campo-input" value={filtrosParticipantes.nome} onChange={function(e){setFiltrosParticipantes(Object.assign({},filtrosParticipantes,{nome:e.target.value}));}}/></label><label>Telefone<input className="campo-input" value={filtrosParticipantes.telefone} onChange={function(e){setFiltrosParticipantes(Object.assign({},filtrosParticipantes,{telefone:e.target.value}));}}/></label><label>Status da inscrição<select className="campo-input" value={filtrosParticipantes.statusInscricao} onChange={function(e){setFiltrosParticipantes(Object.assign({},filtrosParticipantes,{statusInscricao:e.target.value}));}}><option value="">Todos</option><option value="inscrito">Inscrito</option><option value="confirmado">Confirmado</option><option value="presente">Presente</option><option value="cancelado">Cancelado</option></select></label><button className="botao botao-primario" type="button" onClick={function(){carregarParticipantes(eventoParticipantes);}}>Buscar</button></div><div className="tabela-responsiva"><table className="tabela-contatos"><thead><tr><th>Nome</th><th>Telefone</th><th>Inscrição</th><th>Comunicação</th><th>Data</th></tr></thead><tbody>{participantes.map(function(item){return <tr key={item.id}><td>{item.nome}</td><td>{formatarTelefone(item.telefone)}</td><td><select value={item.status_inscricao} onChange={function(e){alterarInscricao(item.id,e.target.value);}}><option value="inscrito">Inscrito</option><option value="confirmado">Confirmado</option><option value="presente">Presente</option><option value="cancelado">Cancelado</option></select></td><td>{item.status_mensagem.replaceAll('_',' ')}</td><td>{new Date(item.cadastrado_em).toLocaleString('pt-BR')}</td></tr>;})}</tbody></table></div></section>
         )}
 
         {usuarioAdministrador && (
@@ -257,7 +256,6 @@ function EventosAdministrativos() {
             <form className="formulario-filtros" onSubmit={salvar}>
               <fieldset className="grade-filtros">
                 <CampoFormulario id="nome" rotulo="Nome" valor={formulario.nome} aoAlterar={alterar} obrigatorio />
-                <CampoFormulario id="descricao" rotulo="Descrição" valor={formulario.descricao} aoAlterar={alterar} obrigatorio />
                 <CampoFormulario id="dataInicial" rotulo="Início do evento" tipo="datetime-local" valor={formulario.dataInicial} aoAlterar={alterar} obrigatorio />
                 <CampoFormulario id="dataFinal" rotulo="Fim do evento" tipo="datetime-local" valor={formulario.dataFinal} aoAlterar={alterar} obrigatorio />
               </fieldset>
@@ -294,7 +292,7 @@ function EventosAdministrativos() {
                   {eventos.map(function (item) {
                     return (
                       <tr key={item.id}>
-                        <td><strong>{item.nome}</strong><br /><small>{item.descricao}</small></td>
+                        <td><strong>{item.nome}</strong></td>
                         <td>{new Date(item.dataInicial).toLocaleString('pt-BR')} a {new Date(item.dataFinal).toLocaleString('pt-BR')}</td>
                         <td><span className="badge-consentimento consentimento-nao-informado">{item.status}</span></td>
                         <td>{item.totalCadastros || 0}</td>

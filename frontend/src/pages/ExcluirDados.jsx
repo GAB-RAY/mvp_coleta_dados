@@ -2,13 +2,13 @@ import PaginaLegal, { obterEmailPrivacidade } from '../components/PaginaLegal';
 
 function ExcluirDados() {
   const emailPrivacidade = obterEmailPrivacidade();
-  const assunto = encodeURIComponent('Solicitação de exclusão de dados - Acorda VK');
+  const assunto = encodeURIComponent('Solicitação de exclusão de dados - Acorda RJ');
 
   return (
     <PaginaLegal
       etiqueta="Direitos do titular"
       titulo="Solicitar exclusão de dados"
-      introducao="Você pode pedir a exclusão do seu cadastro e interromper as comunicações do projeto Acorda VK."
+      introducao="Você pode pedir a exclusão do seu cadastro e interromper as comunicações do projeto Acorda RJ."
     >
       <section>
         <h2>Como solicitar</h2>

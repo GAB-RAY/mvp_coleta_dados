@@ -32,7 +32,6 @@ function validarDados(recebidos) {
 
   return {
     nome: texto(dados.nome, 'Nome', 150, true),
-    descricao: texto(dados.descricao || dados.motivo, 'Descricao', 2000, true),
     dataInicial: dataInicial,
     dataFinal: dataFinal,
     inscricoesInicio: dataInicial,
@@ -42,8 +41,8 @@ function validarDados(recebidos) {
 
 function transformar(evento) {
   return {
-    id: evento.id, nome: evento.nome, descricao: evento.descricao || evento.motivo,
-    motivo: evento.descricao || evento.motivo, dataInicial: evento.data_inicial,
+    id: evento.id, nome: evento.nome, descricao: null,
+    motivo: null, dataInicial: evento.data_inicial,
     dataFinal: evento.data_final, local: null, link: null,
     inscricoesInicio: evento.inscricoes_inicio || evento.data_inicial,
     inscricoesFim: evento.inscricoes_fim || evento.data_final,

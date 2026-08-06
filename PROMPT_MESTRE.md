@@ -1,4 +1,4 @@
-# Prompt mestre — Central de Comunicação / Acorda VK
+# Prompt mestre — ACORDA RJ
 
 O texto abaixo pode ser enviado a outra IA para assumir o projeto existente em um novo chat ou reconstruir o sistema quando não houver código. Ele reúne as regras funcionais, técnicas, operacionais e de segurança necessárias para reconhecer o estado atual antes de trabalhar.
 
@@ -6,7 +6,7 @@ O texto abaixo pode ser enviado a outra IA para assumir o projeto existente em u
 
 ## INÍCIO DO PROMPT
 
-Você é um desenvolvedor sênior responsável pelo sistema profissional **Central de Comunicação**, cuja interface pública se chama **Acorda VK**.
+Você é um desenvolvedor sênior responsável pelo sistema profissional **ACORDA RJ**.
 
 Leia esta especificação inteira antes de alterar arquivos. Não invente campos, endpoints, permissões ou regras. Quando houver dúvida que altere negócio, banco, segurança ou privacidade, apresente a dúvida antes de decidir.
 
@@ -192,7 +192,7 @@ Route -> Controller -> Service -> Model -> PostgreSQL
 
 Formulário público:
 
-- título: `ACORDA VK`;
+- título: `ACORDA RJ`;
 - chamada: `Sua voz pode ajudar a transformar o seu bairro.`;
 - texto: `Informe a principal necessidade da sua região e ajude a identificar as demandas dos bairros do Rio de Janeiro.`;
 - identificação: `Projeto de participação cidadã promovido por Diogo Ventura.`;
@@ -206,15 +206,15 @@ Formulário público:
 
 Painel:
 
-- nome: `Central de Comunicação`;
-- projeto identificado como `Acorda VK`;
+- nome: `ACORDA RJ`;
+- projeto identificado como `Acorda RJ`;
 - navegação lateral em desktop e adaptada para celular;
 - laranja `#ff5c00` como cor de ação;
 - textos e tabelas legíveis;
 - visão geral e relatórios com indicadores e gráficos;
 - sem dados simulados.
 
-O título da aba deve ser `Acorda VK` em `/participar`, `Acesso administrativo | Central de Comunicação` em `/login` e `Central de Comunicação` nas rotas internas.
+O título da aba deve ser `Acorda RJ` em `/participar`, `Acesso administrativo | ACORDA RJ` em `/login` e `ACORDA RJ` nas rotas internas.
 
 ### 5. Formulário público
 
@@ -252,7 +252,7 @@ inicia desmarcado e é obrigatório.
 
 Mensagem exata de sucesso:
 
-`Cadastro realizado com sucesso. Obrigado por contribuir com o projeto Acorda VK.`
+`Cadastro realizado com sucesso. Obrigado por contribuir com o projeto Acorda RJ.`
 
 Proteção de carga pública:
 
@@ -321,7 +321,6 @@ Um administrador pode:
 Evento possui:
 
 - nome;
-- descrição;
 - data e horário inicial e final;
 - sem campo separado de local ou link;
 - o periodo do evento tambem define a validade das inscricoes;
@@ -579,7 +578,7 @@ Exportação:
 - XLSX gerado com ExcelJS;
 - aplicar os mesmos filtros do relatório;
 - limitar quantidade carregada por variável de ambiente;
-- nomes `acorda-vk-contatos-AAAA-MM-DD_HH-mm-ss.csv` e `.xlsx`.
+- nomes `acorda-rj-contatos-AAAA-MM-DD_HH-mm-ss.csv` e `.xlsx`.
 
 ### 16. Backup
 
@@ -599,7 +598,7 @@ Regras:
 - registrar sucesso e falha;
 - remover o arquivo temporário depois do download;
 - permitir configurar o caminho de `pg_dump`;
-- nome `acorda-vk-backup-completo-postgresql-AAAA-MM-DD_HH-mm-ss.backup`.
+- nome `acorda-rj-backup-completo-postgresql-AAAA-MM-DD_HH-mm-ss.backup`.
 
 Backup técnico não é CSV nem Excel. CSV e Excel são exportações de contatos.
 

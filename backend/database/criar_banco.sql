@@ -1,4 +1,4 @@
--- Criação completa do banco de dados do projeto Acorda VK.
+-- Criação completa do banco de dados do projeto Acorda RJ.
 -- Representa o estado estrutural atual do sistema, sem automação ou
 -- disparo de mensagens.
 --
@@ -879,7 +879,7 @@ COMMENT ON TABLE public.contatos IS
   'Pessoas cadastradas por meio do formulário público.';
 
 COMMENT ON COLUMN public.contatos.telefone IS
-  'Telefone no formato informado pela pessoa.';
+  'Telefone no formato visual oficial do sistema.';
 
 COMMENT ON COLUMN public.contatos.telefone_normalizado IS
   'Telefone contendo somente números, utilizado para impedir duplicidade.';
@@ -1100,17 +1100,17 @@ VALUES
   (
     'aviso_privacidade',
     'aviso_privacidade_v3',
-    'Tenho 16 anos ou mais, li o Aviso de Privacidade e consinto com o tratamento dos dados necessários para minha participação voluntária no projeto Acorda VK.'
+    'Tenho 16 anos ou mais, li o Aviso de Privacidade e consinto com o tratamento dos dados necessários para minha participação voluntária no projeto Acorda RJ.'
   ),
   (
     'mensagens',
     'mensagens_whatsapp_v3',
-    'Autorizo o recebimento de mensagens pelo WhatsApp enviadas pelo projeto Acorda VK e por Diogo Ventura, incluindo informações sobre ações sociais, projetos comunitários, pesquisas, eventos e conteúdos políticos. Posso revogar esta autorização a qualquer momento pelo canal indicado na Política de Privacidade.'
+    'Autorizo o recebimento de mensagens pelo WhatsApp enviadas pelo projeto Acorda RJ e por Diogo Ventura, incluindo informações sobre ações sociais, projetos comunitários, pesquisas, eventos e conteúdos políticos. Posso revogar esta autorização a qualquer momento pelo canal indicado na Política de Privacidade.'
   ),
   (
     'ligacoes',
     'ligacoes_v3',
-    'Autorizo o recebimento de ligações telefônicas relacionadas às ações e iniciativas do projeto Acorda VK. Posso revogar esta autorização a qualquer momento pelo canal indicado na Política de Privacidade.'
+    'Autorizo o recebimento de ligações telefônicas relacionadas às ações e iniciativas do projeto Acorda RJ. Posso revogar esta autorização a qualquer momento pelo canal indicado na Política de Privacidade.'
   );
 
 INSERT INTO public.schema_migrations (
@@ -1119,6 +1119,9 @@ INSERT INTO public.schema_migrations (
   checksum_sha256
 ) VALUES
   ('001', '001_validar_estrutura_atual.sql', '7aef945e473bce835222ccdb4df9c792151872becaf0d2313e6de35fe781e136'),
-  ('002', '002_normalizar_nomes_importados.sql', 'a62f33a5a53c6d931f9f58e3aff2864170669f0f750fb8084dd9a7ba5ba680eb');
+  ('002', '002_normalizar_nomes_importados.sql', 'a62f33a5a53c6d931f9f58e3aff2864170669f0f750fb8084dd9a7ba5ba680eb'),
+  ('003', '003_garantir_eventos_participantes.sql', '266712d2a762b159ce4805495825b6e39ca51d727ef3ceccf3054433dd97d8a6'),
+  ('004', '004_permitir_varios_eventos_ativos.sql', '7bea0fb8ad8385e6167543846991cba81d508c9f6c8de053d774c0fdb3a3dc35'),
+  ('005', '005_padronizar_telefones_contatos.sql', 'e4a97142a38ba42b5de283a9aeb0e72ca0107acc2d3e394cba083b0a72b12977');
 
 COMMIT;

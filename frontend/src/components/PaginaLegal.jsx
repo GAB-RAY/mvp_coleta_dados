@@ -12,7 +12,7 @@ function PaginaLegal(propriedades) {
       <header className="cabecalho-legal">
         <Link className="marca-legal" to="/participar" aria-label="Ir para o formulário público">
           <span aria-hidden="true">AV</span>
-          <strong>ACORDA VK</strong>
+          <strong>ACORDA RJ</strong>
         </Link>
         <span>Diogo Ventura · Rio de Janeiro</span>
       </header>
@@ -44,7 +44,7 @@ function PaginaLegal(propriedades) {
       </article>
 
       <footer className="rodape-legal">
-        <span>Projeto Acorda VK · Diogo Ventura</span>
+        <span>Projeto Acorda RJ · Diogo Ventura</span>
         <nav aria-label="Documentos públicos">
           <Link to="/privacidade">Privacidade</Link>
           <Link to="/termos">Termos</Link>

@@ -40,7 +40,7 @@ async function gerarBackup() {
     sha256: resposta.headers.get('X-Backup-SHA256') || '',
     nomeArquivo: obterNomeArquivo(
       resposta,
-      'acorda-vk-backup-completo-postgresql.backup'
+      'acorda-rj-backup-completo-postgresql.backup'
     )
   };
 }

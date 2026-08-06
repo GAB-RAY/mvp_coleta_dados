@@ -1,6 +1,8 @@
-# Backend — Central de Comunicação
+# Backend — ACORDA RJ
 
-API do projeto Acorda VK construída com Node.js, Express, PostgreSQL, CommonJS e SQL parametrizado. A organização é modular por funcionalidade: controller → service → model.
+API do projeto Acorda RJ construída com Node.js, Express, PostgreSQL, CommonJS e SQL parametrizado. A organização é modular por funcionalidade: controller → service → model.
+
+Telefones são exibidos no padrão `(DD) 99999-9999` ou `(DD) 9999-9999`. A prevenção de duplicidade usa `telefone_normalizado`, com apenas números.
 
 ## Instalação e ambiente
 
@@ -254,7 +256,7 @@ No painel, um administrador também pode gerar e baixar um backup em `/admin/bac
 
 Na DigitalOcean App Platform, o arquivo `Aptfile` instala o cliente oficial do PostgreSQL 18 durante a compilação. O script `heroku-postbuild` valida a presença do `pg_dump` e interrompe a implantação caso o executável não esteja disponível, evitando publicar o recurso de backup sem sua dependência de sistema.
 
-O backup técnico usa o nome `acorda-vk-backup-completo-postgresql-AAAA-MM-DD_HH-mm-ss.backup`. Ele é restaurável pelo PostgreSQL e não deve ser confundido com as exportações de contatos, baixadas como `acorda-vk-contatos-AAAA-MM-DD_HH-mm-ss.xlsx` ou `.csv`.
+O backup técnico usa o nome `acorda-rj-backup-completo-postgresql-AAAA-MM-DD_HH-mm-ss.backup`. Ele é restaurável pelo PostgreSQL e não deve ser confundido com as exportações de contatos, baixadas como `acorda-rj-contatos-AAAA-MM-DD_HH-mm-ss.xlsx` ou `.csv`.
 
 Para não afetar o formulário durante picos, o painel recusa iniciar backup quando a fila do banco já está acima do limite configurado. Também há limite preventivo de tamanho para o arquivo temporário. Em produção, o mecanismo principal deve ser o backup/PITR do PostgreSQL gerenciado; o backup do painel deve ser executado em horário de menor movimento, baixado e armazenado fora da App Platform.
 

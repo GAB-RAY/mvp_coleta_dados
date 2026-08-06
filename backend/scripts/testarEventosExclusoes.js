@@ -5,6 +5,7 @@ const assert = require('assert');
 const bcrypt = require('bcrypt');
 const aplicacao = require('../src/app');
 const banco = require('../src/config/banco');
+const formatarTelefone = require('../src/utils/formatarTelefone');
 const formatarDataRio = require('../src/utils/formatarDataRio');
 
 const SENHA = 'TesteEventos123!';
@@ -358,7 +359,7 @@ async function executar() {
     verificar(
       buscaNomeParticipante.status === 200 &&
         buscaNomeParticipante.corpo.contatos.some(function (contato) {
-          return contato.telefone === telefoneExistenteEvento;
+          return contato.telefone === formatarTelefone(telefoneExistenteEvento);
         }),
       'Busca de participante por nome completo falhou.'
     );
@@ -419,7 +420,7 @@ async function executar() {
       });
     }), 'Listagem não mostrou evento e data de vínculo.');
     const contatoInscritoNovo = filtroEvento.corpo.contatos.find(function (contato) {
-      return contato.telefone === telefoneEvento;
+      return contato.telefone === formatarTelefone(telefoneEvento);
     });
     const contatoId = contatoInscritoNovo.id;
 
@@ -470,7 +471,7 @@ async function executar() {
     });
     verificar(cadastroGeral.status === 201 && cadastroGeral.corpo.evento === null, 'Cadastro geral sem evento foi bloqueado ou vinculado indevidamente.');
     const semEvento = await requisitar(baseUrl, '/api/admin/contatos?eventoId=sem_evento', { headers: adminHeaders });
-    verificar(semEvento.status === 200 && semEvento.corpo.contatos.some(function (item) { return item.telefone === telefoneGeral; }), 'Filtro de cadastros gerais falhou.');
+    verificar(semEvento.status === 200 && semEvento.corpo.contatos.some(function (item) { return item.telefone === formatarTelefone(telefoneGeral); }), 'Filtro de cadastros gerais falhou.');
 
     const totalInscricoesAntesExclusao = Number((await banco.query(
       'SELECT COUNT(*) AS total FROM contato_eventos WHERE evento_id=$1',

@@ -101,7 +101,7 @@ function obterClasseLink(dados) {
 
 function CabecalhoAdministrativo(propriedades) {
   const titulo = propriedades.titulo || 'Visão geral';
-  const subtitulo = propriedades.subtitulo || 'Acompanhe os dados da Central de Comunicação.';
+  const subtitulo = propriedades.subtitulo || 'Acompanhe os dados do ACORDA RJ.';
   const usuario = obterUsuario();
   const usuarioAdministrador = usuario && usuario.perfil === 'administrador';
   const itensPermitidos = ITENS_NAVEGACAO.filter(function (item) {
@@ -117,10 +117,10 @@ function CabecalhoAdministrativo(propriedades) {
     <>
       <aside className="barra-lateral-admin">
         <div className="marca-admin">
-          <span className="simbolo-marca-admin" aria-hidden="true">CC</span>
+          <span className="simbolo-marca-admin" aria-hidden="true">RJ</span>
           <div>
-            <strong>Central de</strong>
-            <span>Comunicação</span>
+            <strong>ACORDA</strong>
+            <span>RJ</span>
           </div>
         </div>
 
@@ -145,7 +145,7 @@ function CabecalhoAdministrativo(propriedades) {
 
         <div className="rodape-barra-admin">
           <span className="rotulo-navegacao-admin">Projeto</span>
-          <p>Acorda VK</p>
+          <p>Acorda RJ</p>
           <button type="button" className="botao-sair-admin" onClick={propriedades.aoSair}>
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M10 4H4v16h6M15 8l4 4-4 4M8 12h11" />
@@ -157,7 +157,7 @@ function CabecalhoAdministrativo(propriedades) {
 
       <header className="cabecalho-administrativo">
         <div>
-          <span className="etiqueta-cabecalho-admin">Central de Comunicação</span>
+          <span className="etiqueta-cabecalho-admin">ACORDA RJ</span>
           <h1>{titulo}</h1>
           <p>{subtitulo}</p>
         </div>

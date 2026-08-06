@@ -4,6 +4,7 @@ const ExcelJS = require('exceljs');
 const importacaoModel = require('./importacaoModel');
 const criarAppError = require('../../utils/AppError');
 const normalizarTelefone = require('../../utils/normalizarTelefone');
+const formatarTelefone = require('../../utils/formatarTelefone');
 const normalizarNomePessoa = require('../../utils/normalizarNomePessoa');
 const categoriasProblema = require('../../config/categoriasProblema');
 const configuracaoImportacao = require('../../config/importacao');
@@ -255,7 +256,7 @@ function validarLinha(linha, telefonesDoArquivo, bairrosAtivos) {
   return {
     numeroLinha: linha.numeroLinha,
     dados: {
-      telefone,
+      telefone: formatarTelefone(telefoneNormalizado),
       telefoneNormalizado,
       nome,
       bairro,

@@ -175,7 +175,7 @@ async function gerarCsv(parametros) {
 async function gerarExcel(parametros) {
   const contatos = await buscarContatos(parametros);
   const pasta = new ExcelJS.Workbook();
-  pasta.creator = 'Central de Comunicação';
+  pasta.creator = 'ACORDA RJ';
   pasta.created = new Date();
   const planilha = pasta.addWorksheet('Contatos', {
     views: [{ state: 'frozen', ySplit: 1 }]

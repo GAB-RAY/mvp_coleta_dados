@@ -25,19 +25,19 @@ function TituloDaPagina() {
 
   useEffect(function () {
     if (localizacao.pathname === '/participar' || localizacao.pathname === '/') {
-      document.title = 'Acorda VK';
+      document.title = 'Acorda RJ';
       return;
     }
 
     if (localizacao.pathname === '/login') {
-      document.title = 'Acesso administrativo | Central de Comunicação';
+      document.title = 'Acesso administrativo | ACORDA RJ';
       return;
     }
 
     const titulosPublicos = {
-      '/privacidade': 'Política de Privacidade | Acorda VK',
-      '/termos': 'Termos de Uso | Acorda VK',
-      '/excluir-dados': 'Excluir dados | Acorda VK'
+      '/privacidade': 'Política de Privacidade | Acorda RJ',
+      '/termos': 'Termos de Uso | Acorda RJ',
+      '/excluir-dados': 'Excluir dados | Acorda RJ'
     };
 
     if (titulosPublicos[localizacao.pathname]) {
@@ -45,8 +45,12 @@ function TituloDaPagina() {
       return;
     }
 
-    document.title = 'Central de Comunicação';
+    document.title = 'ACORDA RJ';
   }, [localizacao.pathname]);
+
+  useEffect(function () {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [localizacao.pathname, localizacao.search]);
 
   return null;
 }

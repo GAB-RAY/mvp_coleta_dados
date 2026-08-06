@@ -4,7 +4,7 @@ async function cadastrar(requisicao, resposta, proximo) {
   try {
     const resultado = await contatoService.cadastrarContato(requisicao.body);
     let statusHttp = 201;
-    let mensagem = 'Cadastro realizado com sucesso. Obrigado por contribuir com o projeto Acorda VK.';
+    let mensagem = 'Cadastro realizado com sucesso. Obrigado por contribuir com o projeto Acorda RJ.';
 
     if (resultado.eventoAtivo && !resultado.contatoCriado) {
       statusHttp = 200;

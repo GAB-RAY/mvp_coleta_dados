@@ -45,7 +45,7 @@ function localizarPgDump() {
 
 function criarNomeArquivo() {
   const data = new Date().toISOString().slice(0, 19).replace('T', '_').replace(/:/g, '-');
-  return 'acorda-vk-backup-completo-postgresql-' + data + '.backup';
+  return 'acorda-rj-backup-completo-postgresql-' + data + '.backup';
 }
 
 function lerInteiro(nome, valorPadrao, minimo, maximo) {
@@ -180,7 +180,7 @@ async function gerar(usuario) {
       throw new Error('BACKUP_TEMPO_LIMITE_MS possui valor inválido.');
     }
 
-    diretorio = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'acorda-vk-'));
+    diretorio = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'acorda-rj-'));
     const nomeArquivo = criarNomeArquivo();
     const caminhoArquivo = path.join(diretorio, nomeArquivo);
     const argumentos = [

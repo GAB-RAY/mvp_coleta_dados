@@ -5,7 +5,7 @@ function Termos() {
     <PaginaLegal
       etiqueta="Uso do formulário"
       titulo="Termos de Uso"
-      introducao="Estes termos apresentam as condições de utilização do formulário público do projeto Acorda VK."
+      introducao="Estes termos apresentam as condições de utilização do formulário público do projeto Acorda RJ."
     >
       <section>
         <h2>Participação voluntária</h2>

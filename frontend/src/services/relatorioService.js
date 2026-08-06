@@ -47,7 +47,7 @@ async function baixarArquivo(filtros, formato) {
     arquivo: await resposta.blob(),
     nomeArquivo: obterNomeArquivo(
       resposta,
-      'acorda-vk-contatos.' + formato
+      'acorda-rj-contatos.' + formato
     )
   };
 }

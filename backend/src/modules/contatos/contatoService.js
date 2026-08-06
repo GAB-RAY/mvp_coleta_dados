@@ -2,6 +2,7 @@ const contatoModel = require('./contatoModel');
 const solicitacaoExclusaoService = require('../exclusoes/solicitacaoExclusaoService');
 const criarAppError = require('../../utils/AppError');
 const normalizarTelefone = require('../../utils/normalizarTelefone');
+const formatarTelefone = require('../../utils/formatarTelefone');
 const categoriasProblema = require('../../config/categoriasProblema');
 const textoFormularioModel = require('./textoFormularioModel');
 const bairroService = require('../bairros/bairroService');
@@ -180,7 +181,7 @@ async function validarDadosDoContato(dadosRecebidos) {
 
   return {
     nome,
-    telefone,
+    telefone: formatarTelefone(telefoneNormalizado),
     telefoneNormalizado,
     idade: validarIdade(dadosRecebidos.idade),
     bairro,
@@ -433,7 +434,7 @@ async function validarDadosCadastroManual(dadosRecebidos) {
 
   return {
     nome: validarCampoTexto(dadosRecebidos.nome, 'Nome', 2, 150),
-    telefone,
+    telefone: formatarTelefone(telefoneNormalizado),
     telefoneNormalizado,
     bairro,
     idade: validarIdade(dadosRecebidos.idade),

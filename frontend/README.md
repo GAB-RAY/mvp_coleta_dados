@@ -1,6 +1,8 @@
-# Frontend — Central de Comunicação
+# Frontend — ACORDA RJ
 
-Interface React/Vite do projeto Acorda VK. O frontend consome somente rotas reais do backend e não usa dados simulados.
+Interface React/Vite do projeto Acorda RJ. O frontend consome somente rotas reais do backend e não usa dados simulados.
+
+Telefones são apresentados em um único padrão visual: `(DD) 99999-9999` ou `(DD) 9999-9999`.
 
 ## Instalação
 
@@ -61,7 +63,7 @@ desmarcadas e exigem escolha voluntária da pessoa. O aceite obrigatório do Avi
 de Privacidade também inicia desmarcado. Não marcar as autorizações opcionais não
 impede o cadastro.
 
-O texto do WhatsApp identifica Acorda VK e Diogo Ventura, informa as categorias
+O texto do WhatsApp identifica Acorda RJ e Diogo Ventura, informa as categorias
 de conteúdo e orienta a revogação pelo canal oficial de privacidade. A
 autorização de ligação possui texto e caixa separados. O formulário contém
 links para Privacidade, Termos e Exclusão de dados.
@@ -76,7 +78,7 @@ e versão mostrados à pessoa são os mesmos gravados no histórico do PostgreSQ
 
 O formulário não exibe descrição do problema. `/participar` é sempre o cadastro geral. Cada evento possui link próprio em `/participar?evento=<id>`.
 
-O visual público usa a identidade `Acorda VK`, cabeçalho laranja, apresentação destacada e laterais com elementos laranja discretos. Nome, bairro e categoria ocupam a largura total; telefone e idade ficam lado a lado quando houver espaço e são empilhados no celular. A aba do formulário mostra `Acorda VK`, enquanto login e painel usam `Central de Comunicação`.
+O visual público usa a identidade `Acorda RJ`, cabeçalho laranja, apresentação destacada e laterais com elementos laranja discretos. Nome, bairro e categoria ocupam a largura total; telefone e idade ficam lado a lado quando houver espaço e são empilhados no celular. A aba do formulário, login e painel mostram `ACORDA RJ`.
 Após o formulário, um resumo compacto mantém acesso direto às páginas de
 Privacidade, Termos e Exclusão sem repetir textos longos.
 
@@ -154,7 +156,7 @@ A própria página apresenta o histórico resumido dos lotes, com origem, arquiv
 
 Ao gerar um backup, o frontend baixa o arquivo retornado pelo backend e exibe o hash SHA-256. O histórico informa responsável, data, estado, tamanho e hash, sem expor credenciais do banco.
 
-Os arquivos possuem nomes distintos: o backup restaurável usa `acorda-vk-backup-completo-postgresql-AAAA-MM-DD_HH-mm-ss.backup`; as planilhas usam `acorda-vk-contatos-AAAA-MM-DD_HH-mm-ss.xlsx` ou `.csv`.
+Os arquivos possuem nomes distintos: o backup restaurável usa `acorda-rj-backup-completo-postgresql-AAAA-MM-DD_HH-mm-ss.backup`; as planilhas usam `acorda-rj-contatos-AAAA-MM-DD_HH-mm-ss.xlsx` ou `.csv`.
 
 Sessões expiradas removem o token local e redirecionam ao login. O frontend esconde ações sem permissão, mas a autorização definitiva é sempre conferida pelo backend.
 

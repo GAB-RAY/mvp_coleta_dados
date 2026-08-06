@@ -238,7 +238,7 @@ function UsuariosAdministrativos() {
         <CabecalhoAdministrativo
           aoSair={sair}
           titulo="Usuários"
-          subtitulo="Cadastre administradores e operadores da Central de Comunicação."
+          subtitulo="Cadastre administradores e operadores do ACORDA RJ."
         />
 
         <div className="grade-gestao-usuarios">

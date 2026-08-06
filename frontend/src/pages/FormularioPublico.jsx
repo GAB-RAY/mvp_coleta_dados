@@ -375,7 +375,7 @@ function FormularioPublico() {
               <path d="M4 11v2h4l6 4V7l-6 4H4Z" />
               <path d="M17 9c1.3 1.4 1.3 4.6 0 6M19.5 6.5c3 3 3 8 0 11" />
             </svg>
-            <span className="nome-projeto">ACORDA VK</span>
+            <span className="nome-projeto">ACORDA RJ</span>
           </div>
           <span className="responsavel-cabecalho-publico">
             Diogo Ventura · Rio de Janeiro
@@ -689,7 +689,7 @@ function FormularioPublico() {
 
       <footer className="rodape-publico">
         <div className="identificacao-rodape">
-          <span>ACORDA VK</span>
+          <span>ACORDA RJ</span>
           <p>
             <strong>Responsável pela iniciativa e pelo tratamento dos dados:</strong>{' '}
             Diogo Ventura.

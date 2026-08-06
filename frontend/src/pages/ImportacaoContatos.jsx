@@ -11,6 +11,7 @@ import {
   preVisualizarImportacao
 } from '../services/contatoService';
 import { obterUsuario, removerToken } from '../utils/armazenamentoToken';
+import formatarTelefone from '../utils/formatarTelefone';
 
 const NOVA_ORIGEM = '__nova_origem__';
 
@@ -223,7 +224,7 @@ function ImportacaoContatos() {
                     return (
                       <tr key={linha.numeroLinha}>
                         <td>{linha.numeroLinha}</td>
-                        <td>{linha.dados.telefone || 'Não informado'}</td>
+                        <td>{formatarTelefone(linha.dados.telefone)}</td>
                         <td>{linha.dados.nome || 'Não informado'}</td>
                         <td>{linha.dados.bairro || 'Não informado'}</td>
                         <td>{linha.valida ? 'Válida' : linha.erro}</td>

@@ -1,6 +1,6 @@
-# README técnico — Central de Comunicação
+# README técnico — ACORDA RJ
 
-Este documento descreve o estado atual do frontend e do backend do projeto **Acorda VK**. Ele foi produzido a partir do código, do schema PostgreSQL e dos scripts existentes no repositório.
+Este documento descreve o estado atual do frontend e do backend do projeto **Acorda RJ**. Ele foi produzido a partir do código, do schema PostgreSQL e dos scripts existentes no repositório.
 
 ## 1. Visão geral
 
@@ -15,7 +15,9 @@ Componentes da solução:
 - dois perfis internos: `operador` e `administrador`;
 - schema completo para criação de banco vazio em `backend/database/criar_banco.sql`.
 
-O formulário público usa o nome **Acorda VK**. O painel interno usa a identidade **Central de Comunicação**.
+O formulário público, o login e o painel administrativo usam a identidade **ACORDA RJ**.
+
+Telefone possui um único padrão visual no sistema: `(DD) 99999-9999` para celulares brasileiros e `(DD) 9999-9999` para telefones com 10 dígitos. A coluna `telefone_normalizado` continua sendo a referência interna para impedir duplicidades; a migration `005_padronizar_telefones_contatos.sql` corrige os contatos já existentes.
 
 ## 2. Estrutura do repositório
 
@@ -236,7 +238,7 @@ Regras principais:
 - vínculo novo de contato existente retorna `200` com `inscricaoEventoCriada: true`;
 - vínculo já existente retorna `200` com `jaInscritoEvento: true` e mensagem de inscrição repetida;
 - se nada mudou, não é criado histórico repetido;
-- a mensagem de sucesso é: `Cadastro realizado com sucesso. Obrigado por contribuir com o projeto Acorda VK.`
+- a mensagem de sucesso é: `Cadastro realizado com sucesso. Obrigado por contribuir com o projeto Acorda RJ.`
 
 ### 3.6 Rotas administrativas
 
@@ -384,7 +386,7 @@ Não existe endpoint de exclusão direta de contato, revogação ou histórico.
 
 - estados operacionais: `rascunho`, `ativo` e `encerrado`; a exclusão lógica usa `excluido`;
 - vários eventos podem estar ativos simultaneamente;
-- contem nome, descricao e data/horario do evento;
+- contém nome e data/horário do evento;
 - a criação, edição, ativação, encerramento e exclusão geram histórico;
 - `/participar` permanece como cadastro geral e cada evento usa `/participar?evento=<id>`;
 - o backend decide automaticamente se o telefone é novo ou se nome completo e telefone correspondem a um cadastro existente;
@@ -436,7 +438,7 @@ Exportações:
 - planilha XLSX;
 - exclusivas para administrador;
 - usam os mesmos filtros do relatório;
-- nomes no formato `acorda-vk-contatos-AAAA-MM-DD_HH-mm-ss`.
+- nomes no formato `acorda-rj-contatos-AAAA-MM-DD_HH-mm-ss`.
 
 Backup:
 
@@ -447,7 +449,7 @@ Backup:
 - calcula SHA-256;
 - registra responsável, estado, nome, tamanho, hash e eventual erro;
 - remove o arquivo temporário do servidor depois do download;
-- nome no formato `acorda-vk-backup-completo-postgresql-AAAA-MM-DD_HH-mm-ss.backup`.
+- nome no formato `acorda-rj-backup-completo-postgresql-AAAA-MM-DD_HH-mm-ss.backup`.
 
 ### 3.14 Banco de dados
 
@@ -503,7 +505,7 @@ Os componentes, o layout responsivo e os gráficos são implementados no própri
 | Rota | Página | Acesso |
 |---|---|---|
 | `/` | Redireciona para `/participar` | público |
-| `/participar` | Formulário Acorda VK | público |
+| `/participar` | Formulário Acorda RJ | público |
 | `/privacidade` | Política de Privacidade | público |
 | `/termos` | Termos de Uso | público |
 | `/excluir-dados` | Orientação para exclusão e revogação | público |
@@ -548,8 +550,8 @@ O token e os dados básicos do usuário são mantidos no armazenamento local do 
 - responsivo para celulares, notebooks e telas maiores;
 - cor principal `#ff5c00`;
 - cabeçalho discreto, formulário direto e rodapé;
-- identificação Acorda VK e Diogo Ventura;
-- título da aba `Acorda VK` no formulário e `Central de Comunicação` nas rotas administrativas;
+- identificação Acorda RJ e Diogo Ventura;
+- título da aba `Acorda RJ` no formulário e `ACORDA RJ` nas rotas administrativas;
 - seletor pesquisável de bairro;
 - categoria em seleção fechada;
 - autorizações opcionais de WhatsApp e ligações desmarcadas inicialmente;

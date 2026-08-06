@@ -8,7 +8,7 @@ function obterNumerosBrasileiros(numeros) {
 
 function formatarTelefone(telefone) {
   if (telefone === null || telefone === undefined || telefone === '') {
-    return 'Não informado';
+    return '';
   }
 
   const numeros = String(telefone).replace(/\D/g, '');
@@ -29,4 +29,4 @@ function formatarTelefone(telefone) {
   return String(telefone);
 }
 
-export default formatarTelefone;
+module.exports = formatarTelefone;
