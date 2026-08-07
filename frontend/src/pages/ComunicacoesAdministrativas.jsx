@@ -407,17 +407,36 @@ function ComunicacoesAdministrativas() {
     }
   }
 
+  function marcarComoPreparadaLocalmente(idsRecebidos) {
+    const ids = new Set(idsRecebidos.map(function (id) { return String(id); }));
+
+    setComunicacoes(comunicacoes.map(function (registro) {
+      if (!ids.has(String(registro.id))) {
+        return registro;
+      }
+
+      return Object.assign({}, registro, {
+        status: 'preparada',
+        enviada_em: null,
+        confirmado_por_usuario_id: null
+      });
+    }));
+  }
+
   async function desfazer(item) {
     if (!window.confirm('Desfazer esta confirmacao de envio? Use apenas quando a mensagem nao foi enviada manualmente.')) {
       return;
     }
 
     try {
+      setMensagem('Desfazendo confirmacao...');
       const resposta = await desfazerConfirmacao(item.id);
-      setMensagem(resposta.mensagem);
-      await carregar();
+      marcarComoPreparadaLocalmente([item.id]);
+      setMensagem(resposta.mensagem || 'Confirmacao desfeita. A mensagem voltou para preparada.');
+      await carregar(filtrosHistorico);
     } catch (erro) {
       setMensagem(erro.message);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }
 
@@ -426,6 +445,7 @@ function ComunicacoesAdministrativas() {
 
     if (ids.length === 0) {
       setMensagem('Nao ha mensagens enviadas visiveis para desfazer.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
@@ -434,11 +454,18 @@ function ComunicacoesAdministrativas() {
     }
 
     try {
+      setMensagem('Desfazendo confirmacoes visiveis...');
       const resposta = await desfazerConfirmacoes(ids);
-      setMensagem(resposta.mensagem);
-      await carregar();
+      if (Number(resposta.totalDesfeito || 0) > 0) {
+        marcarComoPreparadaLocalmente(ids);
+        setMensagem(resposta.mensagem || 'Confirmacoes desfeitas. As mensagens voltaram para preparadas.');
+      } else {
+        setMensagem('Nenhuma mensagem enviada visivel foi alterada. Atualize a lista e tente novamente.');
+      }
+      await carregar(filtrosHistorico);
     } catch (erro) {
       setMensagem(erro.message);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }
 
