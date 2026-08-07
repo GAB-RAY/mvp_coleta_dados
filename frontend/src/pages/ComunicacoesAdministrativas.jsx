@@ -10,6 +10,7 @@ import { listarEventos } from '../services/eventoService';
 import {
   atualizarComunicacao,
   cancelarComunicacao,
+  cancelarComunicacoesPreparadas,
   confirmarEnvio,
   excluirNumero,
   listarCampanhas,
@@ -417,6 +418,22 @@ function ComunicacoesAdministrativas() {
     }
   }
 
+  async function cancelarTodasPreparadas() {
+    if (!window.confirm('Cancelar todas as mensagens preparadas pendentes? Mensagens já confirmadas não serão alteradas.')) {
+      return;
+    }
+
+    try {
+      const resposta = await cancelarComunicacoesPreparadas();
+      setFilaManual([]);
+      setSelecionados([]);
+      setMensagem(resposta.mensagem);
+      await carregar();
+    } catch (erro) {
+      setMensagem(erro.message);
+    }
+  }
+
   async function copiarMensagem(item) {
     try {
       await navigator.clipboard.writeText(item.texto_preparado);
@@ -688,7 +705,7 @@ function ComunicacoesAdministrativas() {
 
         {filaManual.length > 0 && (
           <section className="cartao painel-resultados">
-            <div className="cabecalho-envio-whatsapp"><div><span>ETAPA FINAL</span><h2>Mensagens prontas para envio</h2><p>Abra, envie no WhatsApp e volte para confirmar.</p></div><strong>{filaManual.length} pendente(s)</strong></div>
+            <div className="cabecalho-envio-whatsapp"><div><span>ETAPA FINAL</span><h2>Mensagens prontas para envio</h2><p>Abra, envie no WhatsApp e volte para confirmar.</p></div><div className="acoes-cabecalho-mensagens"><strong>{filaManual.length} pendente(s)</strong><button className="botao botao-perigo" type="button" onClick={cancelarTodasPreparadas}>Cancelar todas</button></div></div>
             {filaManual.map(function (item, indice) {
               return <article className="registro-historico cartao-envio-manual" key={item.id}><span className="numero-fila-mensagem">{indice + 1}</span><div><strong>Mensagem preparada</strong><p>{item.texto_preparado}</p><div className="acoes-filtros"><button className="botao botao-secundario" type="button" onClick={function () { copiarMensagem(item); }}>Copiar texto</button><a className="botao botao-whatsapp" href={item.linkWhatsapp} target="_blank" rel="noopener noreferrer"><span aria-hidden="true">↗</span> Abrir WhatsApp</a><button className="botao botao-confirmar-envio" type="button" onClick={function () { confirmar(item); }}>Confirmar que enviei</button><button className="botao botao-perigo" type="button" onClick={function () { cancelar(item); }}>Cancelar mensagem</button></div></div></article>;
             })}

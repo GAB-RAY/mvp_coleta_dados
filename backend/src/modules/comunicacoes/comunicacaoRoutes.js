@@ -18,6 +18,7 @@ roteador.get('/operadores', controller.listarOperadores);
 roteador.get('/contatos', controller.listarContatos);
 roteador.get('/:id/historico', controller.listarHistorico);
 roteador.post('/:id/confirmar-envio', controller.confirmarEnvio);
+roteador.delete('/preparadas', controller.cancelarPreparadas);
 roteador.delete('/:id', controller.cancelarPreparada);
 roteador.get('/', controller.listar);
 roteador.post('/preparar', controller.preparar);

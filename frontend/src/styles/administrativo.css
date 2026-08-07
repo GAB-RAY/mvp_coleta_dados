@@ -2916,3 +2916,34 @@
 .formulario-meu-perfil .botao {
   justify-self: start;
 }
+
+.acoes-cabecalho-mensagens {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.7rem;
+}
+
+.acoes-cabecalho-mensagens > strong {
+  border-radius: 999px;
+  padding: 0.55rem 0.85rem;
+  background: var(--admin-laranja-claro);
+  color: var(--admin-laranja-escuro);
+  font-size: 0.78rem;
+}
+
+@media (max-width: 760px) {
+  .acoes-cabecalho-mensagens {
+    width: 100%;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .acoes-cabecalho-mensagens > strong,
+  .acoes-cabecalho-mensagens .botao {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+}

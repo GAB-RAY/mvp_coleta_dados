@@ -156,6 +156,21 @@ async function cancelarPreparada(idRecebido, usuario) {
   }
 }
 
+async function cancelarPreparadas(usuario) {
+  if (!usuario || !usuario.id) {
+    throw criarAppError('Usu?rio autenticado n?o identificado.', 401);
+  }
+
+  const totalCancelado = await comunicacaoModel.cancelarPreparadas(
+    usuario.id,
+    usuario.perfil === 'administrador'
+  );
+
+  return {
+    totalCancelado: totalCancelado
+  };
+}
+
 function validarModelo(dados) {
   const corpo = validarTexto(dados.texto, 'Conteúdo', 5000, false);
   const expressao = /{{\s*([^}]+)\s*}}/g;
@@ -456,6 +471,7 @@ async function listarHistorico(idRecebido) {
 module.exports = {
   atualizar,
   cancelarPreparada,
+  cancelarPreparadas,
   confirmarEnvio,
   excluirNumero,
   listar,

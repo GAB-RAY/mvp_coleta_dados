@@ -411,7 +411,7 @@ preserva cada transição com usuário, data e hora.
 Uma comunicação ainda no estado `preparada` pode ser cancelada. A operação
 remove somente o preparo que não foi enviado; registros já confirmados não
 podem ser cancelados. Operadores cancelam os próprios preparos e
-administradores também podem cancelar preparos de outros usuários.
+administradores também podem cancelar preparos de outros usuários. A rota `DELETE /api/admin/comunicacoes/preparadas` cancela em lote todos os preparos pendentes permitidos para o usuário autenticado.
 
 O painel é acessado por `/admin/comunicacoes` e aparece como `Mensagens` no menu. A listagem e os detalhes de contatos abrem essa rota com `contatoId`, pré-selecionando o contato. Todo atendimento exige um texto pronto ativo; não há mensagem livre no preparo. O estado não informado da autorização não impede atendimento manual; revogações e bloqueios explícitos continuam sendo aplicados no backend. Somente administradores cadastram, editam ou excluem canais, e também gerenciam textos prontos e campanhas. Canais com histórico são desativados em vez de excluídos para preservar a auditoria.
 

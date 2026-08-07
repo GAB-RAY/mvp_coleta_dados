@@ -108,6 +108,18 @@ function confirmarEnvio(req, res, next) {
     });
   });
 }
+function cancelarPreparadas(req, res, next) {
+  return executar(next, async function responder() {
+    const resultado = await service.cancelarPreparadas(req.usuario);
+    return res.status(200).json({
+      mensagem: resultado.totalCancelado === 1
+        ? '1 mensagem preparada foi cancelada com sucesso.'
+        : resultado.totalCancelado + ' mensagens preparadas foram canceladas com sucesso.',
+      totalCancelado: resultado.totalCancelado
+    });
+  });
+}
+
 function cancelarPreparada(req, res, next) {
   return executar(next, async function responder() {
     await service.cancelarPreparada(req.params.id, req.usuario);
@@ -136,7 +148,7 @@ function atualizar(req, res, next) {
 }
 
 module.exports = {
-  atualizar, cancelarPreparada, confirmarEnvio, criarCampanha, criarModelo, criarNumero,
+  atualizar, cancelarPreparada, cancelarPreparadas, confirmarEnvio, criarCampanha, criarModelo, criarNumero,
   editarCampanha, editarModelo, editarNumero, excluirNumero, listar, listarCampanhas,
   listarContatos, listarHistorico, listarModelos, listarNumeros,
   listarOperadores, preparar
