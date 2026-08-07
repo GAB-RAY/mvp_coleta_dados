@@ -198,6 +198,7 @@ Administrativas com JWT:
 | GET | `/api/admin/comunicacoes/contatos` | operador/admin; segmentação |
 | GET | `/api/admin/comunicacoes` | operador/admin |
 | POST | `/api/admin/comunicacoes/preparar` | operador/admin |
+| POST | `/api/admin/comunicacoes/preparadas/confirmar-envio` | confirma em lote mensagens ainda preparadas |
 | POST | `/api/admin/comunicacoes/:id/confirmar-envio` | operador/admin |
 | DELETE | `/api/admin/comunicacoes/preparadas` | cancela em lote mensagens ainda preparadas |
 | DELETE | `/api/admin/comunicacoes/:id` | cancela somente mensagem ainda preparada |

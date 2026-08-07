@@ -365,18 +365,37 @@ async function confirmarEnvio(idRecebido, dadosRecebidos, usuario) {
     true
   );
   const item = await comunicacaoModel.confirmarEnvio(
-    validarId(idRecebido, 'Comunicação', false),
+    validarId(idRecebido, 'Comunica??o', false),
     observacoes,
-    usuario.id
+    usuario.id,
+    usuario.perfil === 'administrador'
   );
 
   if (!item) {
     throw criarAppError('Comunicação não encontrada.', 404);
   }
   if (item.jaConfirmada) {
-    throw criarAppError('Este envio já foi confirmado anteriormente.', 409);
+    throw criarAppError('Este envio ja foi confirmado anteriormente.', 409);
+  }
+  if (item.semPermissao) {
+    throw criarAppError('Voce nao pode confirmar uma mensagem preparada por outro usuario.', 403);
   }
   return item;
+}
+
+async function confirmarPreparadas(usuario) {
+  if (!usuario || !usuario.id) {
+    throw criarAppError('Usuario autenticado nao identificado.', 401);
+  }
+
+  const totalConfirmado = await comunicacaoModel.confirmarPreparadas(
+    usuario.id,
+    usuario.perfil === 'administrador'
+  );
+
+  return {
+    totalConfirmado: totalConfirmado
+  };
 }
 
 function validarFiltros(filtros) {
@@ -473,6 +492,7 @@ module.exports = {
   cancelarPreparada,
   cancelarPreparadas,
   confirmarEnvio,
+  confirmarPreparadas,
   excluirNumero,
   listar,
   listarCampanhas,

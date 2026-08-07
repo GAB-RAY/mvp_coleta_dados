@@ -17,6 +17,7 @@ roteador.put('/campanhas/:id', autorizarAdministrador, controller.editarCampanha
 roteador.get('/operadores', controller.listarOperadores);
 roteador.get('/contatos', controller.listarContatos);
 roteador.get('/:id/historico', controller.listarHistorico);
+roteador.post('/preparadas/confirmar-envio', controller.confirmarPreparadas);
 roteador.post('/:id/confirmar-envio', controller.confirmarEnvio);
 roteador.delete('/preparadas', controller.cancelarPreparadas);
 roteador.delete('/:id', controller.cancelarPreparada);

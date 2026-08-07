@@ -328,13 +328,39 @@ async function executar() {
       'Contato sem autorização informada não pôde receber atendimento manual.'
     );
 
+    const comunicacaoAdmin = await requisitar(
+      base,
+      '/api/admin/comunicacoes/preparar',
+      {
+        method: 'POST',
+        headers: cabecalhosAdmin,
+        body: JSON.stringify(Object.assign(dadosPreparo(contatoNaoInformado.id), { campanhaId: null }))
+      }
+    );
+    const comunicacaoAdminId = comunicacaoAdmin.corpo.comunicacoes[0].id;
+    verificar(comunicacaoAdmin.status === 201, 'Administrador nao preparou mensagem para teste de permissao.');
+    verificar(
+      (await requisitar(base, '/api/admin/comunicacoes/' + comunicacaoAdminId + '/confirmar-envio', {
+        method: 'POST',
+        headers: cabecalhosOperador,
+        body: '{}'
+      })).status === 403,
+      'Operador confirmou mensagem preparada por outro usuario.'
+    );
+    verificar(
+      (await requisitar(base, '/api/admin/comunicacoes/' + comunicacaoAdminId, {
+        method: 'DELETE', headers: cabecalhosAdmin
+      })).status === 200,
+      'Administrador nao cancelou a mensagem usada no teste de permissao.'
+    );
+
     const comunicacaoCancelada = await requisitar(
       base,
       '/api/admin/comunicacoes/preparar',
       {
         method: 'POST',
         headers: cabecalhosOperador,
-        body: JSON.stringify(dadosPreparo(contatoNaoInformado.id))
+        body: JSON.stringify(Object.assign(dadosPreparo(contatoNaoInformado.id), { campanhaId: null }))
       }
     );
     const comunicacaoCanceladaId = comunicacaoCancelada.corpo.comunicacoes[0].id;
@@ -461,6 +487,63 @@ async function executar() {
       })).status === 409,
       'Mensagem já enviada pôde ser cancelada.'
     );
+    const preparoLoteUm = await requisitar(base, '/api/admin/comunicacoes/preparar', {
+      method: 'POST',
+      headers: cabecalhosAdmin,
+      body: JSON.stringify(Object.assign(dadosPreparo(contatoNaoInformado.id), { campanhaId: null }))
+    });
+    const preparoLoteDois = await requisitar(base, '/api/admin/comunicacoes/preparar', {
+      method: 'POST',
+      headers: cabecalhosAdmin,
+      body: JSON.stringify(Object.assign(dadosPreparo(contatoNaoInformado.id), { campanhaId: null }))
+    });
+    verificar(
+      preparoLoteUm.status === 201 && preparoLoteDois.status === 201,
+      'Mensagens para confirmacao em lote nao foram preparadas.'
+    );
+    const confirmarLote = await requisitar(base, '/api/admin/comunicacoes/preparadas/confirmar-envio', {
+      method: 'POST',
+      headers: cabecalhosAdmin,
+      body: '{}'
+    });
+    verificar(
+      confirmarLote.status === 200 && confirmarLote.corpo.totalConfirmado >= 2,
+      'Confirmacao em lote nao marcou preparos como enviados.'
+    );
+    const preparadasRestantesAdmin = await banco.query(
+      `SELECT COUNT(*) AS total FROM comunicacoes
+       WHERE operador_usuario_id = (SELECT id FROM usuarios WHERE email=$1)
+         AND status = 'preparada'`,
+      [EMAIL_ADMIN]
+    );
+    verificar(
+      Number(preparadasRestantesAdmin.rows[0].total) === 0,
+      'Confirmacao em lote deixou mensagens preparadas do admin pendentes.'
+    );
+
+    const preparoCancelamentoUm = await requisitar(base, '/api/admin/comunicacoes/preparar', {
+      method: 'POST',
+      headers: cabecalhosAdmin,
+      body: JSON.stringify(Object.assign(dadosPreparo(contatoNaoInformado.id), { campanhaId: null }))
+    });
+    const preparoCancelamentoDois = await requisitar(base, '/api/admin/comunicacoes/preparar', {
+      method: 'POST',
+      headers: cabecalhosAdmin,
+      body: JSON.stringify(Object.assign(dadosPreparo(contatoNaoInformado.id), { campanhaId: null }))
+    });
+    verificar(
+      preparoCancelamentoUm.status === 201 && preparoCancelamentoDois.status === 201,
+      'Mensagens para cancelamento em lote nao foram preparadas.'
+    );
+    const cancelarLote = await requisitar(base, '/api/admin/comunicacoes/preparadas', {
+      method: 'DELETE',
+      headers: cabecalhosAdmin
+    });
+    verificar(
+      cancelarLote.status === 200 && cancelarLote.corpo.totalCancelado >= 2,
+      'Cancelamento em lote nao removeu preparos pendentes.'
+    );
+
     const contatosComMensagemEnviada = await requisitar(
       base,
       '/api/admin/contatos?statusAtendimento=enviada',

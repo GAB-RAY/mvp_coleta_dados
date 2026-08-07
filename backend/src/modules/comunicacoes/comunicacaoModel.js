@@ -226,7 +226,7 @@ async function buscarPorIdParaAtualizar(cliente, id) {
   )).rows[0] || null;
 }
 
-async function confirmarEnvio(id, observacoes, usuarioId) {
+async function confirmarEnvio(id, observacoes, usuarioId, administrador) {
   const cliente = await banco.connect();
 
   try {
@@ -240,6 +240,10 @@ async function confirmarEnvio(id, observacoes, usuarioId) {
     if (atual.enviada_em) {
       await cliente.query('ROLLBACK');
       return Object.assign({}, atual, { jaConfirmada: true });
+    }
+    if (!administrador && Number(atual.operador_usuario_id) !== Number(usuarioId)) {
+      await cliente.query('ROLLBACK');
+      return Object.assign({}, atual, { semPermissao: true });
     }
 
     const atualizado = (await cliente.query(`
@@ -258,6 +262,49 @@ async function confirmarEnvio(id, observacoes, usuarioId) {
 
     await cliente.query('COMMIT');
     return atualizado;
+  } catch (erro) {
+    await cliente.query('ROLLBACK');
+    throw erro;
+  } finally {
+    cliente.release();
+  }
+}
+
+async function confirmarPreparadas(usuarioId, administrador) {
+  const cliente = await banco.connect();
+
+  try {
+    await cliente.query('BEGIN');
+    const parametros = administrador ? ['preparada'] : ['preparada', usuarioId];
+    const filtroUsuario = administrador ? '' : ' AND operador_usuario_id=$2';
+    const resultado = await cliente.query(
+      'SELECT id FROM comunicacoes WHERE status=$1 AND enviada_em IS NULL' + filtroUsuario + ' FOR UPDATE',
+      parametros
+    );
+    const ids = resultado.rows.map(function (linha) {
+      return linha.id;
+    });
+
+    if (ids.length > 0) {
+      await cliente.query(
+        `UPDATE comunicacoes SET status='enviada',
+          enviada_em=COALESCE(enviada_em,CURRENT_TIMESTAMP),
+          confirmado_por_usuario_id=$2
+        WHERE id = ANY($1::integer[])`,
+        [ids, usuarioId]
+      );
+
+      await cliente.query(
+        `INSERT INTO historico_comunicacoes
+          (comunicacao_id,status_anterior,status_novo,usuario_id,observacoes)
+        SELECT id,'preparada','enviada',$2,NULL
+        FROM comunicacoes WHERE id = ANY($1::integer[])`,
+        [ids, usuarioId]
+      );
+    }
+
+    await cliente.query('COMMIT');
+    return ids.length;
   } catch (erro) {
     await cliente.query('ROLLBACK');
     throw erro;
@@ -470,6 +517,7 @@ module.exports = {
   cancelarPreparadas,
   contarComunicacoesDoNumero,
   confirmarEnvio,
+  confirmarPreparadas,
   excluirNumero,
   listar,
   listarCampanhas,

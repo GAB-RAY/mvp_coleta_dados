@@ -108,6 +108,18 @@ function confirmarEnvio(req, res, next) {
     });
   });
 }
+function confirmarPreparadas(req, res, next) {
+  return executar(next, async function responder() {
+    const resultado = await service.confirmarPreparadas(req.usuario);
+    return res.status(200).json({
+      mensagem: resultado.totalConfirmado === 1
+        ? '1 mensagem preparada foi confirmada como enviada.'
+        : resultado.totalConfirmado + ' mensagens preparadas foram confirmadas como enviadas.',
+      totalConfirmado: resultado.totalConfirmado
+    });
+  });
+}
+
 function cancelarPreparadas(req, res, next) {
   return executar(next, async function responder() {
     const resultado = await service.cancelarPreparadas(req.usuario);
@@ -148,7 +160,7 @@ function atualizar(req, res, next) {
 }
 
 module.exports = {
-  atualizar, cancelarPreparada, cancelarPreparadas, confirmarEnvio, criarCampanha, criarModelo, criarNumero,
+  atualizar, cancelarPreparada, cancelarPreparadas, confirmarEnvio, confirmarPreparadas, criarCampanha, criarModelo, criarNumero,
   editarCampanha, editarModelo, editarNumero, excluirNumero, listar, listarCampanhas,
   listarContatos, listarHistorico, listarModelos, listarNumeros,
   listarOperadores, preparar
