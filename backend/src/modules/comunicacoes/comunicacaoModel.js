@@ -270,6 +270,92 @@ async function confirmarEnvio(id, observacoes, usuarioId, administrador) {
   }
 }
 
+async function desfazerConfirmacao(id, usuarioId, administrador) {
+  const cliente = await banco.connect();
+
+  try {
+    await cliente.query('BEGIN');
+    const atual = await buscarPorIdParaAtualizar(cliente, id);
+
+    if (!atual) {
+      await cliente.query('ROLLBACK');
+      return null;
+    }
+    if (atual.status !== 'enviada' || !atual.enviada_em) {
+      await cliente.query('ROLLBACK');
+      return Object.assign({}, atual, { statusInvalido: true });
+    }
+    if (!administrador && Number(atual.operador_usuario_id) !== Number(usuarioId)) {
+      await cliente.query('ROLLBACK');
+      return Object.assign({}, atual, { semPermissao: true });
+    }
+
+    const atualizado = (await cliente.query(`
+      UPDATE comunicacoes SET status='preparada',
+        enviada_em=NULL,
+        confirmado_por_usuario_id=NULL,
+        respondida_em=NULL
+      WHERE id=$1 RETURNING *
+    `, [id])).rows[0];
+
+    await cliente.query(`
+      INSERT INTO historico_comunicacoes
+        (comunicacao_id,status_anterior,status_novo,usuario_id,observacoes)
+      VALUES ($1,$2,'preparada',$3,$4)
+    `, [id, atual.status, usuarioId, 'Confirmacao de envio desfeita.']);
+
+    await cliente.query('COMMIT');
+    return atualizado;
+  } catch (erro) {
+    await cliente.query('ROLLBACK');
+    throw erro;
+  } finally {
+    cliente.release();
+  }
+}
+
+async function desfazerConfirmacoes(idsRecebidos, usuarioId, administrador) {
+  const cliente = await banco.connect();
+
+  try {
+    await cliente.query('BEGIN');
+    const parametros = administrador ? [idsRecebidos] : [idsRecebidos, usuarioId];
+    const filtroUsuario = administrador ? '' : ' AND operador_usuario_id=$2';
+    const resultado = await cliente.query(
+      "SELECT id,status FROM comunicacoes WHERE id=ANY($1::integer[]) AND status='enviada' AND enviada_em IS NOT NULL" + filtroUsuario + ' FOR UPDATE',
+      parametros
+    );
+    const ids = resultado.rows.map(function (linha) {
+      return linha.id;
+    });
+
+    if (ids.length > 0) {
+      await cliente.query(`
+        UPDATE comunicacoes SET status='preparada',
+          enviada_em=NULL,
+          confirmado_por_usuario_id=NULL,
+          respondida_em=NULL
+        WHERE id=ANY($1::integer[])
+      `, [ids]);
+
+      await cliente.query(`
+        INSERT INTO historico_comunicacoes
+          (comunicacao_id,status_anterior,status_novo,usuario_id,observacoes)
+        SELECT id,'enviada','preparada',$2,'Confirmacao de envio desfeita em lote.'
+        FROM comunicacoes WHERE id=ANY($1::integer[])
+      `, [ids, usuarioId]);
+    }
+
+    await cliente.query('COMMIT');
+    return ids.length;
+  } catch (erro) {
+    await cliente.query('ROLLBACK');
+    throw erro;
+  } finally {
+    cliente.release();
+  }
+}
+
 async function confirmarPreparadas(usuarioId, administrador) {
   const cliente = await banco.connect();
 
@@ -517,6 +603,8 @@ module.exports = {
   cancelarPreparadas,
   contarComunicacoesDoNumero,
   confirmarEnvio,
+  desfazerConfirmacao,
+  desfazerConfirmacoes,
   confirmarPreparadas,
   excluirNumero,
   listar,

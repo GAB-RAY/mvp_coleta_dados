@@ -37,6 +37,8 @@ function prepararComunicacoes(dados) { return chamar('/preparar', 'POST', dados)
 function confirmarEnvio(id, dados) {
   return chamar('/' + id + '/confirmar-envio', 'POST', dados || {});
 }
+function desfazerConfirmacao(id) { return chamar('/' + id + '/desfazer-confirmacao', 'POST', {}); }
+function desfazerConfirmacoes(ids) { return chamar('/desfazer-confirmacoes', 'POST', { ids: ids }); }
 function cancelarComunicacao(id) { return chamar('/' + id, 'DELETE'); }
 function confirmarComunicacoesPreparadas() { return chamar('/preparadas/confirmar-envio', 'POST', {}); }
 function cancelarComunicacoesPreparadas() { return chamar('/preparadas', 'DELETE'); }
@@ -54,6 +56,8 @@ export {
   cancelarComunicacoesPreparadas,
   confirmarComunicacoesPreparadas,
   confirmarEnvio,
+  desfazerConfirmacao,
+  desfazerConfirmacoes,
   excluirNumero,
   listarCampanhas,
   listarComunicacoes,

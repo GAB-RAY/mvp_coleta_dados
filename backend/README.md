@@ -200,6 +200,8 @@ Administrativas com JWT:
 | POST | `/api/admin/comunicacoes/preparar` | operador/admin |
 | POST | `/api/admin/comunicacoes/preparadas/confirmar-envio` | confirma em lote mensagens ainda preparadas |
 | POST | `/api/admin/comunicacoes/:id/confirmar-envio` | operador/admin |
+| POST | `/api/admin/comunicacoes/:id/desfazer-confirmacao` | desfaz confirmacao de envio individual |
+| POST | `/api/admin/comunicacoes/desfazer-confirmacoes` | desfaz confirmacoes de envio por IDs visiveis/selecionados |
 | DELETE | `/api/admin/comunicacoes/preparadas` | cancela em lote mensagens ainda preparadas |
 | DELETE | `/api/admin/comunicacoes/:id` | cancela somente mensagem ainda preparada |
 | GET | `/api/admin/comunicacoes/:id/historico` | operador/admin |

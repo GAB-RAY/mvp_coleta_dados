@@ -108,6 +108,27 @@ function confirmarEnvio(req, res, next) {
     });
   });
 }
+function desfazerConfirmacao(req, res, next) {
+  return executar(next, async function responder() {
+    return res.status(200).json({
+      mensagem: 'Confirmacao de envio desfeita com sucesso.',
+      comunicacao: await service.desfazerConfirmacao(req.params.id, req.usuario)
+    });
+  });
+}
+
+function desfazerConfirmacoes(req, res, next) {
+  return executar(next, async function responder() {
+    const resultado = await service.desfazerConfirmacoes(req.body, req.usuario);
+    return res.status(200).json({
+      mensagem: resultado.totalDesfeito === 1
+        ? '1 confirmacao de envio foi desfeita.'
+        : resultado.totalDesfeito + ' confirmacoes de envio foram desfeitas.',
+      totalDesfeito: resultado.totalDesfeito
+    });
+  });
+}
+
 function confirmarPreparadas(req, res, next) {
   return executar(next, async function responder() {
     const resultado = await service.confirmarPreparadas(req.usuario);
@@ -160,7 +181,7 @@ function atualizar(req, res, next) {
 }
 
 module.exports = {
-  atualizar, cancelarPreparada, cancelarPreparadas, confirmarEnvio, confirmarPreparadas, criarCampanha, criarModelo, criarNumero,
+  atualizar, cancelarPreparada, cancelarPreparadas, confirmarEnvio, confirmarPreparadas, desfazerConfirmacao, desfazerConfirmacoes, criarCampanha, criarModelo, criarNumero,
   editarCampanha, editarModelo, editarNumero, excluirNumero, listar, listarCampanhas,
   listarContatos, listarHistorico, listarModelos, listarNumeros,
   listarOperadores, preparar

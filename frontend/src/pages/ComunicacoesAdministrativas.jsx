@@ -13,6 +13,8 @@ import {
   cancelarComunicacoesPreparadas,
   confirmarComunicacoesPreparadas,
   confirmarEnvio,
+  desfazerConfirmacao,
+  desfazerConfirmacoes,
   excluirNumero,
   listarCampanhas,
   listarComunicacoes,
@@ -405,6 +407,41 @@ function ComunicacoesAdministrativas() {
     }
   }
 
+  async function desfazer(item) {
+    if (!window.confirm('Desfazer esta confirmacao de envio? Use apenas quando a mensagem nao foi enviada manualmente.')) {
+      return;
+    }
+
+    try {
+      const resposta = await desfazerConfirmacao(item.id);
+      setMensagem(resposta.mensagem);
+      await carregar();
+    } catch (erro) {
+      setMensagem(erro.message);
+    }
+  }
+
+  async function desfazerEnviadasVisiveis() {
+    const ids = comunicacoes.filter(function (item) { return item.status === 'enviada'; }).map(function (item) { return item.id; });
+
+    if (ids.length === 0) {
+      setMensagem('Nao ha mensagens enviadas visiveis para desfazer.');
+      return;
+    }
+
+    if (!window.confirm('Desfazer a confirmacao das mensagens enviadas visiveis? Use apenas se elas nao foram enviadas manualmente.')) {
+      return;
+    }
+
+    try {
+      const resposta = await desfazerConfirmacoes(ids);
+      setMensagem(resposta.mensagem);
+      await carregar();
+    } catch (erro) {
+      setMensagem(erro.message);
+    }
+  }
+
   async function cancelar(item) {
     if (!window.confirm('Cancelar esta mensagem preparada?')) return;
     try {
@@ -730,7 +767,7 @@ function ComunicacoesAdministrativas() {
         )}
 
         <section className="cartao painel-resultados">
-          <div className="cabecalho-envio-whatsapp"><div><span>ACOMPANHAMENTO</span><h2>Hist&oacute;rico de comunica&ccedil;&otilde;es</h2><p>Consulte envios e atualize o andamento de cada atendimento.</p></div><div className="acoes-cabecalho-mensagens"><strong>{comunicacoes.length} registro(s)</strong>{comunicacoes.some(function (item) { return item.status === 'preparada'; }) && <><button className="botao botao-confirmar-envio" type="button" onClick={confirmarTodasPreparadas}>Confirmar preparadas</button><button className="botao botao-perigo" type="button" onClick={cancelarTodasPreparadas}>Cancelar preparadas</button></>}</div></div>
+          <div className="cabecalho-envio-whatsapp"><div><span>ACOMPANHAMENTO</span><h2>Hist&oacute;rico de comunica&ccedil;&otilde;es</h2><p>Consulte envios e atualize o andamento de cada atendimento.</p></div><div className="acoes-cabecalho-mensagens"><strong>{comunicacoes.length} registro(s)</strong>{comunicacoes.some(function (item) { return item.status === 'enviada'; }) && <button className="botao botao-secundario" type="button" onClick={desfazerEnviadasVisiveis}>Desfazer enviadas vis&iacute;veis</button>}{comunicacoes.some(function (item) { return item.status === 'preparada'; }) && <><button className="botao botao-confirmar-envio" type="button" onClick={confirmarTodasPreparadas}>Confirmar preparadas</button><button className="botao botao-perigo" type="button" onClick={cancelarTodasPreparadas}>Cancelar preparadas</button></>}</div></div>
           <details className="filtros-avancados-mensagens">
             <summary>Filtrar histórico</summary>
             <div className="grade-filtros">
@@ -748,7 +785,7 @@ function ComunicacoesAdministrativas() {
             <button className="botao botao-primario" type="button" onClick={function () { carregar(filtrosHistorico); }}>Aplicar filtros</button>
           </details>
           <div className="tabela-responsiva">
-            <table className="tabela-contatos"><thead><tr><th>Contato</th><th>Campanha / texto pronto</th><th>WhatsApp / operador</th><th>Status</th><th>Data</th></tr></thead><tbody>{comunicacoes.map(function (item) { return <tr key={item.id}><td>{item.contato_nome}<br /><small>{formatarTelefone(item.telefone)}</small></td><td>{item.campanha_nome || 'Sem campanha'}<br /><small>{item.modelo_nome || 'Texto pronto'}</small></td><td>{item.numero_nome}<br /><small>{item.operador_nome}</small></td><td>{item.status === 'preparada' ? <div className="acoes-status-preparada"><button className="botao botao-primario" type="button" onClick={function () { confirmar(item); }}>Confirmar envio</button><button className="botao botao-secundario" type="button" onClick={function () { cancelar(item); }}>Cancelar</button></div> : <select value={item.status} onChange={function (evento) { mudarStatus(item, evento.target.value); }}><option value="enviada">Mensagem enviada</option>{STATUS.filter(function (status) { return status[0] !== 'preparada' && status[0] !== 'enviada'; }).map(function (status) { return <option key={status[0]} value={status[0]}>{status[1]}</option>; })}</select>}</td><td>{new Date(item.criado_em).toLocaleString('pt-BR')}</td></tr>; })}</tbody></table>
+            <table className="tabela-contatos"><thead><tr><th>Contato</th><th>Campanha / texto pronto</th><th>WhatsApp / operador</th><th>Status</th><th>Data</th></tr></thead><tbody>{comunicacoes.map(function (item) { return <tr key={item.id}><td>{item.contato_nome}<br /><small>{formatarTelefone(item.telefone)}</small></td><td>{item.campanha_nome || 'Sem campanha'}<br /><small>{item.modelo_nome || 'Texto pronto'}</small></td><td>{item.numero_nome}<br /><small>{item.operador_nome}</small></td><td>{item.status === 'preparada' ? <div className="acoes-status-preparada"><button className="botao botao-primario" type="button" onClick={function () { confirmar(item); }}>Confirmar envio</button><button className="botao botao-secundario" type="button" onClick={function () { cancelar(item); }}>Cancelar</button></div> : <div className="acoes-status-preparada"><select value={item.status} onChange={function (evento) { mudarStatus(item, evento.target.value); }}><option value="enviada">Mensagem enviada</option>{STATUS.filter(function (status) { return status[0] !== 'preparada' && status[0] !== 'enviada'; }).map(function (status) { return <option key={status[0]} value={status[0]}>{status[1]}</option>; })}</select>{item.status === 'enviada' && <button className="botao botao-secundario" type="button" onClick={function () { desfazer(item); }}>Desfazer</button>}</div>}</td><td>{new Date(item.criado_em).toLocaleString('pt-BR')}</td></tr>; })}</tbody></table>
           </div>
         </section>
       </div>

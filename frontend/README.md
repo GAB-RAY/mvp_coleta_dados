@@ -111,7 +111,7 @@ mensagem livre nessa etapa: o conteúdo precisa ser criado previamente pelo
 administrador. O painel exibe apenas uma prévia compacta, monta o texto
 personalizado e abre uma conversa por vez em `wa.me`. Abrir a conversa não registra
 envio. O botão `Confirmar envio` é uma ação posterior e separada.
-Antes da confirmacao, a equipe pode usar `Cancelar mensagem`; tambem existem `Confirmar todas` e `Cancelar todas` para tratar os preparos pendentes de uma vez. No historico, quando houver mensagens preparadas, aparecem `Confirmar preparadas` e `Cancelar preparadas`. Uma mensagem ja confirmada como enviada nao pode ser cancelada.
+Antes da confirmacao, a equipe pode usar `Cancelar mensagem`; tambem existem `Confirmar todas` e `Cancelar todas` para tratar os preparos pendentes de uma vez. No historico, quando houver mensagens preparadas, aparecem `Confirmar preparadas` e `Cancelar preparadas`. Uma mensagem ja confirmada como enviada nao pode ser cancelada, mas pode ter a confirmacao desfeita quando foi marcada por engano. A tela tambem oferece `Desfazer enviadas visiveis`, limitado aos registros exibidos no filtro atual.
 
 Os estados aguardando resposta, respondeu, sem resposta, recusou atendimento,
 telefone inválido e concluído são informados manualmente. Filtros do histórico

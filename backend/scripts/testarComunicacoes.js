@@ -521,6 +521,57 @@ async function executar() {
       'Confirmacao em lote deixou mensagens preparadas do admin pendentes.'
     );
 
+    const idsLoteEnviado = [
+      preparoLoteUm.corpo.comunicacoes[0].id,
+      preparoLoteDois.corpo.comunicacoes[0].id
+    ];
+    verificar(
+      (await requisitar(base, '/api/admin/comunicacoes/' + idsLoteEnviado[0] + '/desfazer-confirmacao', {
+        method: 'POST',
+        headers: cabecalhosOperador,
+        body: '{}'
+      })).status === 403,
+      'Operador desfez confirmacao de mensagem de outro usuario.'
+    );
+    const desfazerLote = await requisitar(base, '/api/admin/comunicacoes/desfazer-confirmacoes', {
+      method: 'POST',
+      headers: cabecalhosAdmin,
+      body: JSON.stringify({ ids: idsLoteEnviado })
+    });
+    verificar(
+      desfazerLote.status === 200 && desfazerLote.corpo.totalDesfeito === 2,
+      'Desfazer confirmacoes em lote nao reverteu as mensagens enviadas.'
+    );
+    const loteRevertido = await banco.query(
+      `SELECT COUNT(*) AS total FROM comunicacoes
+       WHERE id=ANY($1::integer[]) AND status='preparada' AND enviada_em IS NULL`,
+      [idsLoteEnviado]
+    );
+    verificar(
+      Number(loteRevertido.rows[0].total) === 2,
+      'Mensagens com confirmacao desfeita nao voltaram para preparadas.'
+    );
+
+    const preparoDesfazerIndividual = await requisitar(base, '/api/admin/comunicacoes/preparar', {
+      method: 'POST',
+      headers: cabecalhosOperador,
+      body: JSON.stringify(Object.assign(dadosPreparo(contatoNaoInformado.id), { campanhaId: null }))
+    });
+    const comunicacaoDesfazerIndividualId = preparoDesfazerIndividual.corpo.comunicacoes[0].id;
+    await requisitar(base, '/api/admin/comunicacoes/' + comunicacaoDesfazerIndividualId + '/confirmar-envio', {
+      method: 'POST',
+      headers: cabecalhosOperador,
+      body: '{}'
+    });
+    verificar(
+      (await requisitar(base, '/api/admin/comunicacoes/' + comunicacaoDesfazerIndividualId + '/desfazer-confirmacao', {
+        method: 'POST',
+        headers: cabecalhosOperador,
+        body: '{}'
+      })).status === 200,
+      'Operador nao conseguiu desfazer a propria confirmacao de envio.'
+    );
+
     const preparoCancelamentoUm = await requisitar(base, '/api/admin/comunicacoes/preparar', {
       method: 'POST',
       headers: cabecalhosAdmin,

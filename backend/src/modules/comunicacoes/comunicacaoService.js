@@ -383,6 +383,47 @@ async function confirmarEnvio(idRecebido, dadosRecebidos, usuario) {
   return item;
 }
 
+async function desfazerConfirmacao(idRecebido, usuario) {
+  const item = await comunicacaoModel.desfazerConfirmacao(
+    validarId(idRecebido, 'Comunicacao', false),
+    usuario.id,
+    usuario.perfil === 'administrador'
+  );
+
+  if (!item) {
+    throw criarAppError('Comunicacao nao encontrada.', 404);
+  }
+  if (item.statusInvalido) {
+    throw criarAppError('Somente mensagens enviadas podem ter a confirmacao desfeita.', 409);
+  }
+  if (item.semPermissao) {
+    throw criarAppError('Voce nao pode desfazer uma confirmacao de outro usuario.', 403);
+  }
+  return item;
+}
+
+async function desfazerConfirmacoes(dadosRecebidos, usuario) {
+  const idsRecebidos = (dadosRecebidos || {}).ids;
+
+  if (!Array.isArray(idsRecebidos) || idsRecebidos.length < 1 || idsRecebidos.length > 500) {
+    throw criarAppError('Informe entre 1 e 500 mensagens para desfazer.', 400);
+  }
+
+  const ids = Array.from(new Set(idsRecebidos.map(function transformar(valor) {
+    return validarId(valor, 'Comunicacao', false);
+  })));
+
+  const totalDesfeito = await comunicacaoModel.desfazerConfirmacoes(
+    ids,
+    usuario.id,
+    usuario.perfil === 'administrador'
+  );
+
+  return {
+    totalDesfeito: totalDesfeito
+  };
+}
+
 async function confirmarPreparadas(usuario) {
   if (!usuario || !usuario.id) {
     throw criarAppError('Usuario autenticado nao identificado.', 401);
@@ -493,6 +534,8 @@ module.exports = {
   cancelarPreparadas,
   confirmarEnvio,
   confirmarPreparadas,
+  desfazerConfirmacao,
+  desfazerConfirmacoes,
   excluirNumero,
   listar,
   listarCampanhas,
