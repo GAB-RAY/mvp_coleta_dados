@@ -68,14 +68,30 @@ function CampanhasAdministrativas(){
   async function carregar(){
     setCarregando(true);
     try{
-      const respostas=await Promise.all([listarCampanhas(),listarTemplates(),obterCapacidade(),buscarOpcoesFormulario(),listarEventos()]);
-      setCampanhas(respostas[0].campanhas||[]);
-      setTemplates(respostas[1].templates||[]);
-      setCapacidade(respostas[2].capacidade);
-      setBairros(respostas[3].bairros||[]);
-      setProblemas(respostas[3].categoriasProblema||[]);
-      setEventos(respostas[4].eventos||[]);
-      return respostas[0].campanhas||[];
+      const resultados=await Promise.allSettled([listarCampanhas(),listarTemplates(),obterCapacidade(),buscarOpcoesFormulario(),listarEventos()]);
+      const falhaAutenticacao=resultados.find(function(resultado){return resultado.status==='rejected'&&resultado.reason.statusHttp===401;});
+      if(falhaAutenticacao){removerToken();navegacao('/login',{replace:true});return [];}
+
+      let campanhasAtuais=campanhas;
+      if(resultados[0].status==='fulfilled'){
+        campanhasAtuais=resultados[0].value.campanhas||[];
+        setCampanhas(campanhasAtuais);
+      }
+      if(resultados[1].status==='fulfilled')setTemplates(resultados[1].value.templates||[]);
+      if(resultados[2].status==='fulfilled')setCapacidade(resultados[2].value.capacidade);
+      if(resultados[3].status==='fulfilled'){
+        setBairros(resultados[3].value.bairros||[]);
+        setProblemas(resultados[3].value.categoriasProblema||[]);
+      }
+      if(resultados[4].status==='fulfilled')setEventos(resultados[4].value.eventos||[]);
+
+      const falhaCampanhas=resultados[0].status==='rejected';
+      const falhaTemplates=resultados[1].status==='rejected';
+      const falhaAuxiliar=resultados.slice(2).some(function(resultado){return resultado.status==='rejected';});
+      if(falhaCampanhas)setMensagem('Não foi possível carregar as campanhas. Atualize a página para tentar novamente.');
+      else if(falhaTemplates)setMensagem('Não foi possível carregar os templates. Atualize a página antes de criar uma campanha.');
+      else if(falhaAuxiliar)setMensagem('Algumas opções auxiliares não puderam ser carregadas. Atualize a página para tentar novamente.');
+      return campanhasAtuais;
     }catch(erro){
       if(erro.statusHttp===401){removerToken();navegacao('/login',{replace:true});}
       else setMensagem(erro.message);
@@ -110,6 +126,11 @@ function CampanhasAdministrativas(){
     setFormulario(Object.assign({},formulario,{[alvo.name]:alvo.type==='checkbox'?alvo.checked:alvo.value}));
     setPreviaCriacao(null);
   }
+  function limparFiltrosCriacao(){
+    setFormulario(Object.assign({},formulario,{bairro:'',problema:'',eventoId:'',autorizacaoMensagens:'',cadastroIncompleto:false}));
+    setPreviaCriacao(null);
+    setMensagem('Filtros removidos. A próxima prévia considerará todos os contatos aptos.');
+  }
 
   async function verPreviaCriacao(){
     try{
@@ -130,12 +151,11 @@ function CampanhasAdministrativas(){
         filtros:montarFiltros()
       });
       setMensagem(resposta.mensagem);
+      setCampanhas(function(atuais){return [resposta.campanha].concat(atuais.filter(function(item){return item.id!==resposta.campanha.id;}));});
       setFormulario(CAMPANHA_INICIAL);
       setPreviaCriacao(null);
       setMostrarCriacao(false);
-      const atualizadas=await carregar();
-      const item=atualizadas.find(function(campanha){return campanha.id===resposta.campanha.id;})||resposta.campanha;
-      await abrirCampanha(item,250);
+      await abrirCampanha(resposta.campanha,250);
     }catch(erro){setMensagem(erro.message);}
   }
 
@@ -260,7 +280,8 @@ function CampanhasAdministrativas(){
           <label>Consentimento<select className="campo-input" name="autorizacaoMensagens" value={formulario.autorizacaoMensagens} onChange={alterar}><option value="">Todos</option><option value="nao_informado">Não informado</option><option value="autorizado">Autorizado</option><option value="recusado">Recusado</option><option value="revogado">Revogado</option></select></label>
           <label className="opcao-cadastro-incompleto"><input type="checkbox" name="cadastroIncompleto" checked={formulario.cadastroIncompleto} onChange={alterar}/> Somente cadastros incompletos</label>
         </fieldset>
-        <div className="acoes-fluxo-campanha"><button className="botao botao-secundario" type="button" onClick={verPreviaCriacao}>Ver prévia do público</button>{previaCriacao&&<button className="botao botao-primario" type="submit">Criar campanha</button>}</div>
+        <p className="aviso-combinacao-filtros">Os filtros selecionados são combinados. Um contato precisa atender a todos eles para aparecer na prévia.</p>
+        <div className="acoes-fluxo-campanha"><button className="botao botao-secundario" type="button" onClick={limparFiltrosCriacao}>Limpar filtros</button><button className="botao botao-secundario" type="button" onClick={verPreviaCriacao}>Ver prévia do público</button>{previaCriacao&&<button className="botao botao-primario" type="submit">Criar campanha</button>}</div>
       </form>
       {previaCriacao&&<div className="bloco-previa-campanha"><div className="metricas-previa-campanha"><article><span>Encontrado</span><strong>{previaCriacao.publicoEncontrado}</strong></article><article><span>Apto</span><strong>{previaCriacao.publicoApto}</strong></article><article><span>Não apto</span><strong>{previaCriacao.publicoNaoApto}</strong></article></div><div className="cabecalho-lista-previa"><div><h3>Quem pode entrar na campanha</h3><p>Telefones protegidos; mostramos somente os últimos dígitos.</p></div><span>{previaCriacao.contatos.length} exibidos</span></div><ListaContatosCampanha contatos={previaCriacao.contatos}/>{previaCriacao.listaLimitada&&<p className="aviso-lista-limitada">A lista é uma amostra. O total completo será considerado na reserva.</p>}</div>}
     </section>}

@@ -3505,3 +3505,9 @@
     text-align: center;
   }
 }
+.aviso-combinacao-filtros {
+  margin: 0.75rem 0 0;
+  color: #5f6875;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}

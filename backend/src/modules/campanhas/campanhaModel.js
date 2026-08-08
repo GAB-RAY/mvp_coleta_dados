@@ -78,14 +78,56 @@ async function buscarPorId(id, clienteRecebido) {
 }
 
 async function criar(dados, usuarioId) {
-  const resultado = await banco.query(`
-    INSERT INTO campanhas (
-      nome, descricao, finalidade, modelo_id, filtros_snapshot, status, ativo,
-      responsavel_usuario_id, criado_por_usuario_id, atualizado_por_usuario_id
-    ) VALUES ($1, $2, $2, $3, $4::jsonb, 'rascunho', TRUE, $5, $5, $5)
-    RETURNING id
-  `, [dados.nome, dados.finalidade, dados.modeloId, JSON.stringify(dados.filtros), usuarioId]);
-  return buscarPorId(resultado.rows[0].id);
+  const cliente = await banco.connect();
+
+  try {
+    await cliente.query('BEGIN');
+
+    const referencias = await cliente.query(`
+      SELECT
+        EXISTS (
+          SELECT 1 FROM modelos_mensagem
+          WHERE id = $1 AND ativo IS TRUE
+        ) AS template_valido,
+        EXISTS (
+          SELECT 1 FROM usuarios
+          WHERE id = $2 AND ativo IS TRUE
+        ) AS usuario_valido
+    `, [dados.modeloId, usuarioId]);
+
+    if (!referencias.rows[0].template_valido) {
+      const erro = new Error('O template selecionado não existe ou está inativo.');
+      erro.codigo = 'TEMPLATE_INVALIDO';
+      throw erro;
+    }
+
+    if (!referencias.rows[0].usuario_valido) {
+      const erro = new Error('O usuário responsável não existe ou está inativo.');
+      erro.codigo = 'USUARIO_INVALIDO';
+      throw erro;
+    }
+
+    const resultado = await cliente.query(`
+      INSERT INTO campanhas (
+        nome, descricao, finalidade, modelo_id, filtros_snapshot, status, ativo,
+        responsavel_usuario_id, criado_por_usuario_id, atualizado_por_usuario_id
+      ) VALUES ($1, $2, $2, $3, $4::jsonb, 'rascunho', TRUE, $5, $5, $5)
+      RETURNING id
+    `, [dados.nome, dados.finalidade, dados.modeloId, JSON.stringify(dados.filtros), usuarioId]);
+    const campanha = await buscarPorId(resultado.rows[0].id, cliente);
+
+    if (!campanha) {
+      throw new Error('A campanha foi gravada, mas não pôde ser confirmada.');
+    }
+
+    await cliente.query('COMMIT');
+    return campanha;
+  } catch (erro) {
+    await cliente.query('ROLLBACK');
+    throw erro;
+  } finally {
+    cliente.release();
+  }
 }
 
 async function atualizar(id, dados, usuarioId) {

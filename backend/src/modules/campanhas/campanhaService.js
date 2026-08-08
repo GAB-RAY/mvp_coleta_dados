@@ -60,7 +60,19 @@ async function listar() {
 }
 
 async function criar(dados, usuario) {
-  return campanhaModel.criar(prepararDados(dados || {}), usuario.id);
+  try {
+    return await campanhaModel.criar(prepararDados(dados || {}), usuario.id);
+  } catch (erro) {
+    if (erro.codigo === 'TEMPLATE_INVALIDO' || erro.codigo === 'USUARIO_INVALIDO') {
+      throw criarAppError(erro.message, 409);
+    }
+
+    if (erro.code === '23503') {
+      throw criarAppError('O template ou o responsável selecionado não está mais disponível.', 409);
+    }
+
+    throw erro;
+  }
 }
 
 async function atualizar(idRecebido, dados, usuario) {
