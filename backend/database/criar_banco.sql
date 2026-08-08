@@ -38,6 +38,13 @@ BEGIN
       'campanhas',
       'comunicacoes',
       'historico_comunicacoes',
+      'campanha_lotes',
+      'campanha_participacoes',
+      'campanha_tentativas',
+      'historico_status_mensageria',
+      'configuracoes_sistema',
+      'historico_configuracoes_sistema',
+      'eventos_webhook_mensageria',
       'origens',
       'schema_migrations',
       'eventos',
@@ -440,12 +447,23 @@ CREATE TABLE public.campanhas (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   nome VARCHAR(150) NOT NULL,
   descricao TEXT,
+  finalidade TEXT NOT NULL,
+  modelo_id BIGINT,
+  filtros_snapshot JSONB NOT NULL DEFAULT '{}'::jsonb,
+  status VARCHAR(20) NOT NULL DEFAULT 'rascunho',
+  responsavel_usuario_id BIGINT NOT NULL,
+  pronta_em TIMESTAMPTZ,
+  ativada_em TIMESTAMPTZ,
+  pausada_em TIMESTAMPTZ,
+  concluida_em TIMESTAMPTZ,
+  cancelada_em TIMESTAMPTZ,
   ativo BOOLEAN NOT NULL DEFAULT TRUE,
   criado_por_usuario_id BIGINT NOT NULL,
   atualizado_por_usuario_id BIGINT NOT NULL,
   criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   atualizado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT campanhas_nome_valido CHECK (LENGTH(TRIM(nome)) >= 2)
+  CONSTRAINT campanhas_nome_valido CHECK (LENGTH(TRIM(nome)) >= 2),
+  CONSTRAINT campanhas_status_novo_valido CHECK (status IN ('rascunho','pronta','ativa','pausada','concluida','cancelada'))
 );
 
 CREATE TABLE public.comunicacoes (
@@ -486,6 +504,89 @@ CREATE TABLE public.historico_comunicacoes (
   usuario_id BIGINT NOT NULL,
   observacoes TEXT,
   criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE public.campanha_lotes (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  campanha_id BIGINT NOT NULL REFERENCES public.campanhas(id),
+  tamanho_solicitado INTEGER NOT NULL,
+  tamanho_efetivo INTEGER NOT NULL,
+  ordem INTEGER NOT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'reservado',
+  chave_idempotencia VARCHAR(100) NOT NULL,
+  criado_por_usuario_id BIGINT NOT NULL REFERENCES public.usuarios(id),
+  criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  atualizado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT campanha_lotes_tamanhos_validos CHECK (tamanho_solicitado BETWEEN 1 AND 10000 AND tamanho_efetivo BETWEEN 1 AND tamanho_solicitado),
+  CONSTRAINT campanha_lotes_status_valido CHECK (status IN ('reservado','processando','processado','cancelado')),
+  CONSTRAINT campanha_lotes_ordem_unica UNIQUE (campanha_id, ordem),
+  CONSTRAINT campanha_lotes_idempotencia_unica UNIQUE (campanha_id, chave_idempotencia)
+);
+
+CREATE TABLE public.campanha_participacoes (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  campanha_id BIGINT NOT NULL REFERENCES public.campanhas(id),
+  contato_id BIGINT NOT NULL REFERENCES public.contatos(id),
+  lote_original_id BIGINT NOT NULL REFERENCES public.campanha_lotes(id),
+  status VARCHAR(20) NOT NULL DEFAULT 'pendente',
+  reservado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  atualizado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT campanha_participacoes_status_valido CHECK (status IN ('pendente','enviando','enviada','entregue','lida','falhou')),
+  CONSTRAINT campanha_participacao_unica UNIQUE (campanha_id, contato_id)
+);
+
+CREATE TABLE public.campanha_tentativas (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  participacao_id BIGINT NOT NULL REFERENCES public.campanha_participacoes(id),
+  numero_tentativa INTEGER NOT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'pendente',
+  identificador_externo VARCHAR(255),
+  codigo_erro_externo VARCHAR(80),
+  titulo_erro VARCHAR(200),
+  descricao_erro TEXT,
+  categoria_erro VARCHAR(100),
+  permite_nova_tentativa BOOLEAN NOT NULL DEFAULT FALSE,
+  iniciada_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  finalizada_em TIMESTAMPTZ,
+  criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT campanha_tentativas_numero_valido CHECK (numero_tentativa > 0),
+  CONSTRAINT campanha_tentativas_status_valido CHECK (status IN ('pendente','enviando','enviada','entregue','lida','falhou')),
+  CONSTRAINT campanha_tentativas_numero_unico UNIQUE (participacao_id, numero_tentativa),
+  CONSTRAINT campanha_tentativas_externo_unico UNIQUE (identificador_externo)
+);
+
+CREATE TABLE public.historico_status_mensageria (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  participacao_id BIGINT NOT NULL REFERENCES public.campanha_participacoes(id),
+  tentativa_id BIGINT REFERENCES public.campanha_tentativas(id),
+  status_anterior VARCHAR(20), status_novo VARCHAR(20) NOT NULL,
+  origem VARCHAR(30) NOT NULL,
+  codigo_erro_sanitizado VARCHAR(80), descricao_erro_sanitizada TEXT,
+  criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT historico_status_mensageria_status_valido CHECK (status_novo IN ('pendente','enviando','enviada','entregue','lida','falhou') AND (status_anterior IS NULL OR status_anterior IN ('pendente','enviando','enviada','entregue','lida','falhou'))),
+  CONSTRAINT historico_status_mensageria_origem_valida CHECK (origem IN ('reserva','processamento','webhook','reprocessamento','administrativo'))
+);
+
+CREATE TABLE public.configuracoes_sistema (
+  chave VARCHAR(100) PRIMARY KEY,
+  valor_inteiro INTEGER NOT NULL CHECK (valor_inteiro > 0),
+  atualizado_por_usuario_id BIGINT REFERENCES public.usuarios(id),
+  atualizado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE public.historico_configuracoes_sistema (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  chave VARCHAR(100) NOT NULL, valor_anterior INTEGER NOT NULL, valor_novo INTEGER NOT NULL,
+  motivo TEXT NOT NULL CHECK (LENGTH(BTRIM(motivo)) >= 3),
+  usuario_id BIGINT NOT NULL REFERENCES public.usuarios(id),
+  criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE public.eventos_webhook_mensageria (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  identificador_externo VARCHAR(255) NOT NULL UNIQUE,
+  tipo_evento VARCHAR(80) NOT NULL,
+  processado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE public.tentativas_login (
@@ -685,6 +786,13 @@ CREATE INDEX comunicacoes_modelo_indice ON public.comunicacoes (modelo_id, criad
 CREATE INDEX comunicacoes_numero_indice ON public.comunicacoes (numero_whatsapp_id, criado_em DESC);
 CREATE INDEX comunicacoes_operador_indice ON public.comunicacoes (operador_usuario_id, criado_em DESC);
 CREATE INDEX historico_comunicacoes_comunicacao_indice ON public.historico_comunicacoes (comunicacao_id, criado_em DESC);
+CREATE INDEX campanhas_status_indice ON public.campanhas (status, criado_em DESC);
+CREATE INDEX campanha_lotes_campanha_indice ON public.campanha_lotes (campanha_id, criado_em DESC);
+CREATE INDEX campanha_participacoes_lote_indice ON public.campanha_participacoes (lote_original_id, id);
+CREATE INDEX campanha_participacoes_status_indice ON public.campanha_participacoes (campanha_id, status);
+CREATE INDEX campanha_participacoes_reserva_indice ON public.campanha_participacoes (reservado_em);
+CREATE INDEX campanha_tentativas_status_indice ON public.campanha_tentativas (status, criado_em);
+CREATE INDEX historico_status_participacao_indice ON public.historico_status_mensageria (participacao_id, criado_em DESC);
 
 CREATE INDEX tentativas_login_email_data_indice
   ON public.tentativas_login (LOWER(email_informado), criado_em DESC);
@@ -743,6 +851,10 @@ FOR EACH ROW EXECUTE FUNCTION public.atualizar_data_modificacao();
 CREATE TRIGGER campanhas_atualizar_data BEFORE UPDATE ON public.campanhas
 FOR EACH ROW EXECUTE FUNCTION public.atualizar_data_modificacao();
 CREATE TRIGGER comunicacoes_atualizar_data BEFORE UPDATE ON public.comunicacoes
+FOR EACH ROW EXECUTE FUNCTION public.atualizar_data_modificacao();
+CREATE TRIGGER campanha_lotes_atualizar_data BEFORE UPDATE ON public.campanha_lotes
+FOR EACH ROW EXECUTE FUNCTION public.atualizar_data_modificacao();
+CREATE TRIGGER campanha_participacoes_atualizar_data BEFORE UPDATE ON public.campanha_participacoes
 FOR EACH ROW EXECUTE FUNCTION public.atualizar_data_modificacao();
 
 ALTER TABLE public.contatos
@@ -855,7 +967,11 @@ ALTER TABLE public.campanhas
   ADD CONSTRAINT campanhas_criador_fkey
     FOREIGN KEY (criado_por_usuario_id) REFERENCES public.usuarios(id),
   ADD CONSTRAINT campanhas_atualizador_fkey
-    FOREIGN KEY (atualizado_por_usuario_id) REFERENCES public.usuarios(id);
+    FOREIGN KEY (atualizado_por_usuario_id) REFERENCES public.usuarios(id),
+  ADD CONSTRAINT campanhas_modelo_novo_fkey
+    FOREIGN KEY (modelo_id) REFERENCES public.modelos_mensagem(id),
+  ADD CONSTRAINT campanhas_responsavel_novo_fkey
+    FOREIGN KEY (responsavel_usuario_id) REFERENCES public.usuarios(id);
 
 ALTER TABLE public.historico_comunicacoes
   ADD CONSTRAINT historico_comunicacoes_comunicacao_fkey
@@ -1095,6 +1211,9 @@ VALUES
   ('Formulário público', 'formulario-publico', 'formulario', TRUE),
   ('Cadastro manual', 'cadastro-manual', 'manual', TRUE);
 
+INSERT INTO public.configuracoes_sistema (chave, valor_inteiro)
+VALUES ('limite_mensagens_24h', 250);
+
 INSERT INTO public.textos_formulario (tipo, versao, texto)
 VALUES
   (
@@ -1122,6 +1241,8 @@ INSERT INTO public.schema_migrations (
   ('002', '002_normalizar_nomes_importados.sql', 'a62f33a5a53c6d931f9f58e3aff2864170669f0f750fb8084dd9a7ba5ba680eb'),
   ('003', '003_garantir_eventos_participantes.sql', '266712d2a762b159ce4805495825b6e39ca51d727ef3ceccf3054433dd97d8a6'),
   ('004', '004_permitir_varios_eventos_ativos.sql', '7bea0fb8ad8385e6167543846991cba81d508c9f6c8de053d774c0fdb3a3dc35'),
-  ('005', '005_padronizar_telefones_contatos.sql', 'e4a97142a38ba42b5de283a9aeb0e72ca0107acc2d3e394cba083b0a72b12977');
+  ('005', '005_padronizar_telefones_contatos.sql', 'e4a97142a38ba42b5de283a9aeb0e72ca0107acc2d3e394cba083b0a72b12977'),
+  ('006', '006_criar_campanhas_lotes_mensageria.sql', '1f05f7e554233eadf8efebce26e89476392dc33440e001ce24379a31f1fc40a1'),
+  ('007', '007_adicionar_triggers_campanhas.sql', 'aa26f0557f23ec757577e38e6a79c3ad6ed0071143b67fd8d3b4deb35336e2b6');
 
 COMMIT;

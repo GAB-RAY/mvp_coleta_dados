@@ -37,7 +37,7 @@ Substitua o endereço de exemplo pelo e-mail oficial criado para o projeto.
 | `/admin/contatos/:id` | operador/admin | Dados, eventos, histórico, revogações e pedido de exclusão. |
 | `/admin/contatos/novo` | operador/admin | Cadastro e edição manual. |
 | `/admin/importacoes` | operador/admin | Pré-visualização e confirmação CSV/XLSX. |
-| `/admin/comunicacoes` | operador/admin | Segmentação, preparo, abertura manual, confirmação, status e histórico; cadastros somente para admin. |
+| `/admin/campanhas` | operador/admin | Campanhas, segmentação, prévia, lotes, métricas e capacidade; escrita administrativa protegida. |
 | `/admin/relatorios` | operador/admin | Indicadores e gráficos; CSV e Excel aparecem somente para admin. |
 | `/admin/backups` | admin | Geração, download e histórico auditado de backups do PostgreSQL. |
 | `/admin/eventos` | operador/admin | Operador consulta eventos e participantes; administrador também cria, edita, ativa e encerra. |
@@ -95,38 +95,19 @@ inscrições quando o evento é encerrado ou sai do período. O endereço normal
 O administrador também pode excluir um evento. Ele desaparece do painel e deixa
 de aceitar inscrições, enquanto participantes e históricos permanecem preservados.
 
-## Comunicação manual
+## Campanhas e lotes
 
-O administrador cadastra WhatsApps da equipe, textos prontos e campanhas. Cada linha
-ou ficha de contato possui o atalho `Enviar mensagem`. Operadores e
-administradores podem segmentar por situação, cadastro incompleto, consentimento,
-bairro, problema, evento e campanha ainda não recebida.
+O menu `Campanhas` substitui a antiga tela manual. O administrador cria e edita
+templates, define nome, finalidade e os filtros da campanha. Bairro, problema,
+evento, cadastro incompleto e consentimento usam a mesma semântica dos filtros de
+contatos. A tela mostra público encontrado, apto, não apto, capacidade móvel de
+24 horas, reservas, lotes e estados técnicos.
 
-Os números aparecem em uma lista com ações explícitas de editar e excluir. Um
-número com histórico não pode ser excluído; nesse caso, deve ser desativado. O
-seletor `Número remetente` mostra somente canais ativos com número e responsável.
-
-Depois da seleção, escolhem canal, texto pronto, campanha e evento. Não existe
-mensagem livre nessa etapa: o conteúdo precisa ser criado previamente pelo
-administrador. O painel exibe apenas uma prévia compacta, monta o texto
-personalizado e abre uma conversa por vez em `wa.me`. Abrir a conversa não registra
-envio. O botão `Confirmar envio` é uma ação posterior e separada.
-Antes da confirmacao, a equipe pode usar `Cancelar mensagem`; tambem existem `Confirmar todas` e `Cancelar todas` para tratar os preparos pendentes de uma vez. No historico, quando houver mensagens preparadas, aparecem `Confirmar preparadas` e `Cancelar preparadas`. Uma mensagem ja confirmada como enviada nao pode ser cancelada, mas pode ter a confirmacao desfeita quando foi marcada por engano. A tela tambem oferece `Desfazer enviadas visiveis`, limitado aos registros exibidos no filtro atual.
-
-Os estados aguardando resposta, respondeu, sem resposta, recusou atendimento,
-telefone inválido e concluído são informados manualmente. Filtros do histórico
-incluem campanha, template, operador, WhatsApp usado, bairro, problema, evento e
-período do último contato.
-
-Na tela de contatos, os filtros categóricos são dropdowns. O andamento permite
-localizar quem nunca recebeu mensagem, recebeu, respondeu, não respondeu,
-aguarda resposta, recusou, possui telefone inválido ou concluiu o atendimento.
-
-Quando o contato já recebeu a mesma campanha, o painel exige confirmação e
-motivo antes de preparar um reenvio. O envio, a confirmação e a atualização do
-andamento são realizados manualmente pela equipe.
-
-A lista de contatos da tela de mensagens e paginada, busca nome/telefone em toda a base e preserva a selecao ao trocar de pagina. Cada preparo manual aceita no maximo 500 contatos.
+Campanhas seguem `rascunho`, `pronta`, `ativa`, `pausada`, `concluida` ou
+`cancelada`. Uma campanha pronta ou ativa pode receber lotes. Se houver menos
+contatos aptos que o tamanho solicitado, a interface informa o tamanho efetivo.
+O mesmo contato pode participar de campanhas diferentes, mas nunca duas vezes da
+mesma campanha. Esta etapa não envia mensagens nem abre WhatsApp.
 
 ## Painel e permissões
 

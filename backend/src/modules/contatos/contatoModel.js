@@ -1105,6 +1105,15 @@ function construirFiltros(filtros) {
     condicoes.push('contato.idade >= $' + valores.length);
   }
 
+  if (filtros.cadastroIncompleto) {
+    condicoes.push(`(
+      NULLIF(BTRIM(contato.nome), '') IS NULL
+      OR NULLIF(BTRIM(contato.bairro), '') IS NULL
+      OR NULLIF(BTRIM(contato.problema), '') IS NULL
+      OR contato.idade IS NULL
+    )`);
+  }
+
   if (!filtros.idadeNaoInformada && filtros.idadeMaxima !== null) {
     valores.push(filtros.idadeMaxima);
     condicoes.push('contato.idade <= $' + valores.length);
@@ -1429,6 +1438,7 @@ module.exports = {
   revogarConsentimentos,
   listar,
   contar,
+  construirFiltros,
   buscarDetalhes,
   verificarContatoParaEvento
 };

@@ -131,12 +131,6 @@ function TabelaContatos(propriedades) {
                     <Link className="link-detalhes" to={'/admin/contatos/' + contato.id}>
                       Ver detalhes
                     </Link>
-                    <Link
-                      className="link-mensagem-contato"
-                      to={'/admin/comunicacoes?contatoId=' + contato.id}
-                    >
-                      Enviar mensagem
-                    </Link>
                   </div>
                 </td>
               </tr>

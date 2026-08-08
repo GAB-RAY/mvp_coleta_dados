@@ -41,15 +41,22 @@ async function validarCatalogo(cliente) {
     'aceites_privacidade',
     'backups_banco',
     'bairros',
+    'campanha_lotes',
+    'campanha_participacoes',
+    'campanha_tentativas',
     'campanhas',
     'comunicacoes',
+    'configuracoes_sistema',
     'consentimentos',
     'contato_eventos',
     'contatos',
     'eventos',
+    'eventos_webhook_mensageria',
     'historico_comunicacoes',
+    'historico_configuracoes_sistema',
     'historico_contatos',
     'historico_eventos',
+    'historico_status_mensageria',
     'importacao_linhas',
     'importacoes',
     'modelos_mensagem',
@@ -176,7 +183,7 @@ async function validarCatalogo(cliente) {
     return linha.tgname;
   });
 
-  verificar(nomesGatilhos.length === 10, 'A quantidade de triggers é diferente da esperada.');
+  verificar(nomesGatilhos.length === 12, 'A quantidade de triggers é diferente da esperada.');
   verificar(
     nomesGatilhos.includes('bairros_atualizar_data'),
     'O trigger de atualização do catálogo de bairros não existe.'
@@ -213,7 +220,9 @@ async function validarCatalogo(cliente) {
             '002_normalizar_nomes_importados.sql',
             '003_garantir_eventos_participantes.sql',
             '004_permitir_varios_eventos_ativos.sql',
-            '005_padronizar_telefones_contatos.sql'
+            '005_padronizar_telefones_contatos.sql',
+            '006_criar_campanhas_lotes_mensageria.sql',
+            '007_adicionar_triggers_campanhas.sql'
           )
         ) AS migrations_atuais
     `
@@ -226,8 +235,8 @@ async function validarCatalogo(cliente) {
   );
   verificar(configuracoes.rows[0].textos === 3, 'Os três textos ativos não existem.');
   verificar(
-    configuracoes.rows[0].migrations_atuais === 5,
-    'O ledger deve registrar as cinco migrations atuais.'
+    configuracoes.rows[0].migrations_atuais === 7,
+    'O ledger deve registrar as sete migrations atuais.'
   );
 
   const relacionamentoBairro = await cliente.query(

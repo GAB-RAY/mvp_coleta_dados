@@ -2933,6 +2933,564 @@
   font-size: 0.78rem;
 }
 
+/* Campanhas: fluxo simples de criação, prévia e lotes */
+.campanhas-pagina {
+  --campanha-fundo-suave: #fff8f3;
+  --campanha-borda: #f1ded2;
+}
+
+.resumo-capacidade-campanha {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid var(--campanha-borda);
+  border-left: 4px solid var(--admin-laranja);
+  border-radius: 12px;
+  margin-bottom: 1rem;
+  padding: 0.9rem 1rem;
+  gap: 1rem;
+  background: var(--campanha-fundo-suave);
+}
+
+.resumo-capacidade-campanha div {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.resumo-capacidade-campanha span,
+.resumo-capacidade-campanha small {
+  color: var(--admin-texto-suave);
+  font-size: 0.75rem;
+}
+
+.resumo-capacidade-campanha strong {
+  color: var(--admin-texto);
+  font-size: 1.15rem;
+}
+
+.campanhas-listagem,
+.campanha-criacao,
+.campanha-detalhes {
+  margin-bottom: 1rem;
+  padding: clamp(1rem, 2.2vw, 1.55rem);
+}
+
+.grade-campanhas {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.cartao-campanha-resumo {
+  display: flex;
+  min-width: 0;
+  min-height: 10.5rem;
+  flex-direction: column;
+  justify-content: space-between;
+  border: 1px solid var(--admin-borda);
+  border-radius: 12px;
+  padding: 1rem;
+  gap: 1rem;
+  background: #fff;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.cartao-campanha-resumo.ativo,
+.cartao-campanha-resumo:hover {
+  border-color: #ffb082;
+  box-shadow: 0 8px 22px rgba(129, 61, 20, 0.08);
+}
+
+.cartao-campanha-resumo h3 {
+  margin: 0.65rem 0 0.25rem;
+  color: var(--admin-texto);
+  font-size: 1rem;
+}
+
+.cartao-campanha-resumo p,
+.cabecalho-lista-previa p,
+.cabecalho-campanha-aberta p,
+.bloco-proximo-lote p {
+  margin: 0;
+  color: var(--admin-texto-suave);
+  font-size: 0.78rem;
+}
+
+.status-campanha {
+  display: inline-flex;
+  border-radius: 999px;
+  padding: 0.3rem 0.58rem;
+  background: #eef1f3;
+  color: #4f5963;
+  font-size: 0.68rem;
+  font-weight: 750;
+  text-transform: capitalize;
+}
+
+.status-ativa,
+.status-pronta {
+  background: #e8f6ee;
+  color: #217044;
+}
+
+.status-pausada {
+  background: #fff4dc;
+  color: #8a5b00;
+}
+
+.status-concluida {
+  background: #eaf2ff;
+  color: #315f9f;
+}
+
+.status-cancelada {
+  background: #fff0f0;
+  color: #9c3838;
+}
+
+.rodape-cartao-campanha {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.rodape-cartao-campanha > span {
+  color: var(--admin-texto-suave);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.grade-criacao-campanha {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border: 0;
+  margin: 0;
+  padding: 0;
+  gap: 0.85rem;
+}
+
+.grade-criacao-campanha label,
+.controle-tamanho-lote label {
+  display: grid;
+  align-content: start;
+  gap: 0.4rem;
+  color: var(--admin-texto);
+  font-size: 0.78rem;
+  font-weight: 720;
+}
+
+.opcao-cadastro-incompleto {
+  display: flex !important;
+  align-items: center;
+  align-self: end;
+  min-height: 46px;
+  grid-auto-flow: column;
+  justify-content: start;
+}
+
+.acoes-fluxo-campanha,
+.acoes-status-campanha {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+  gap: 0.65rem;
+}
+
+.bloco-previa-campanha,
+.bloco-proximo-lote,
+.secao-lotes-campanha {
+  border-top: 1px solid var(--admin-borda);
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+}
+
+.metricas-previa-campanha,
+.metricas-campanha {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 1rem;
+  gap: 0.65rem;
+}
+
+.metricas-campanha {
+  grid-template-columns: repeat(7, minmax(90px, 1fr));
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+  scrollbar-width: thin;
+}
+
+.metricas-previa-campanha article,
+.metricas-campanha article {
+  display: grid;
+  border: 1px solid var(--campanha-borda);
+  border-radius: 10px;
+  padding: 0.85rem;
+  gap: 0.25rem;
+  background: var(--campanha-fundo-suave);
+}
+
+.metricas-previa-campanha span,
+.metricas-campanha span {
+  color: var(--admin-texto-suave);
+  font-size: 0.7rem;
+}
+
+.metricas-previa-campanha strong,
+.metricas-campanha strong {
+  color: var(--admin-texto);
+  font-size: 1.25rem;
+}
+
+.cabecalho-lista-previa,
+.cabecalho-campanha-aberta,
+.controle-tamanho-lote {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 0.85rem;
+  gap: 1rem;
+}
+
+.cabecalho-lista-previa h3,
+.cabecalho-campanha-aberta h2,
+.bloco-proximo-lote h3,
+.secao-lotes-campanha h3 {
+  margin: 0.2rem 0;
+  color: var(--admin-texto);
+}
+
+.cabecalho-lista-previa > span {
+  flex: 0 0 auto;
+  color: var(--admin-texto-suave);
+  font-size: 0.72rem;
+}
+
+.lista-contatos-campanha {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-height: 28rem;
+  overflow-y: auto;
+  padding: 0.15rem 0.35rem 0.15rem 0;
+  gap: 0.65rem;
+  scrollbar-color: #ffc29e transparent;
+  scrollbar-width: thin;
+}
+
+.contato-previa-campanha {
+  border: 1px solid var(--admin-borda);
+  border-radius: 10px;
+  padding: 0.85rem;
+  background: #fff;
+}
+
+.contato-previa-campanha > div {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.contato-previa-campanha strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--admin-texto);
+  font-size: 0.82rem;
+}
+
+.contato-previa-campanha > div span {
+  flex: 0 0 auto;
+  color: var(--admin-texto-suave);
+  font-family: Consolas, monospace;
+  font-size: 0.72rem;
+}
+
+.contato-previa-campanha dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0.75rem 0 0;
+  gap: 0.5rem;
+}
+
+.contato-previa-campanha dl div {
+  min-width: 0;
+}
+
+.contato-previa-campanha dt {
+  color: #8a9299;
+  font-size: 0.62rem;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.contato-previa-campanha dd {
+  margin: 0.15rem 0 0;
+  overflow-wrap: anywhere;
+  color: #4f5963;
+  font-size: 0.72rem;
+}
+
+.aviso-lista-limitada,
+.resumo-proximo-lote {
+  border-left: 3px solid var(--admin-laranja);
+  margin: 0.85rem 0;
+  padding: 0.55rem 0.75rem;
+  background: var(--campanha-fundo-suave);
+  color: var(--admin-texto-suave);
+  font-size: 0.75rem;
+}
+
+.resumo-proximo-lote {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.resumo-proximo-lote strong {
+  color: var(--admin-texto);
+  font-size: 0.85rem;
+}
+
+.controle-tamanho-lote {
+  justify-content: flex-start;
+}
+
+.controle-tamanho-lote label {
+  width: min(100%, 20rem);
+}
+
+.botao-criar-lote {
+  min-width: min(100%, 20rem);
+}
+
+.grade-lotes-campanha {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.cartao-lote-campanha {
+  display: grid;
+  border: 1px solid var(--admin-borda);
+  border-radius: 11px;
+  padding: 0.9rem;
+  gap: 0.8rem;
+  background: #fff;
+}
+
+.cartao-lote-campanha > div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.cartao-lote-campanha > div span,
+.cartao-lote-campanha dt {
+  color: var(--admin-texto-suave);
+  font-size: 0.68rem;
+}
+
+.cartao-lote-campanha > div strong {
+  color: var(--admin-texto);
+  font-size: 1rem;
+}
+
+.cartao-lote-campanha dl {
+  display: grid;
+  margin: 0;
+  gap: 0.35rem;
+}
+
+.cartao-lote-campanha dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.cartao-lote-campanha dd {
+  margin: 0;
+  color: #4f5963;
+  font-size: 0.7rem;
+  text-align: right;
+}
+
+.estado-vazio-campanha {
+  display: grid;
+  place-items: center;
+  min-height: 8rem;
+  border: 1px dashed var(--admin-borda);
+  border-radius: 10px;
+  padding: 1rem;
+  gap: 0.3rem;
+  color: var(--admin-texto-suave);
+  text-align: center;
+}
+
+.estado-vazio-campanha strong {
+  color: var(--admin-texto);
+  font-size: 0.85rem;
+}
+
+.secao-secundaria-campanha {
+  border: 1px solid var(--admin-borda);
+  border-radius: 11px;
+  margin-top: 1rem;
+  background: #fff;
+}
+
+.secao-secundaria-campanha > summary {
+  padding: 1rem;
+  color: var(--admin-texto);
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+
+.gerenciar-templates-campanha {
+  padding: 0;
+}
+
+.conteudo-templates-campanha {
+  border-top: 1px solid var(--admin-borda);
+  padding: 1rem;
+}
+
+.campo-template-conteudo {
+  grid-column: span 2;
+}
+
+.campo-template-conteudo textarea {
+  min-height: 8rem;
+  resize: vertical;
+}
+
+.lista-templates-campanha,
+.lista-falhas-campanha {
+  display: grid;
+  margin-top: 1rem;
+  gap: 0.5rem;
+}
+
+.lista-templates-campanha article,
+.lista-falhas-campanha article {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid var(--admin-borda);
+  padding: 0.75rem 0;
+  gap: 0.75rem;
+}
+
+.lista-templates-campanha article div,
+.lista-falhas-campanha article div {
+  display: grid;
+  min-width: 0;
+  gap: 0.15rem;
+}
+
+.lista-templates-campanha span,
+.lista-falhas-campanha span,
+.lista-falhas-campanha small {
+  color: var(--admin-texto-suave);
+  font-size: 0.7rem;
+}
+
+.sobreposicao-campanha {
+  position: fixed;
+  z-index: 1000;
+  display: grid;
+  inset: 0;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(20, 25, 28, 0.55);
+}
+
+.painel-contatos-lote {
+  width: min(64rem, 100%);
+  max-height: min(88vh, 52rem);
+  overflow: hidden;
+  border-radius: 14px;
+  padding: clamp(1rem, 2.5vw, 1.5rem);
+  background: #fff;
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.22);
+}
+
+.painel-contatos-lote .lista-contatos-campanha {
+  max-height: calc(88vh - 9rem);
+}
+
+@media (max-width: 1180px) {
+  .grade-campanhas,
+  .grade-lotes-campanha {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .grade-criacao-campanha {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .resumo-capacidade-campanha,
+  .cabecalho-campanha-aberta,
+  .cabecalho-lista-previa,
+  .controle-tamanho-lote {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .grade-campanhas,
+  .grade-lotes-campanha,
+  .lista-contatos-campanha,
+  .metricas-previa-campanha {
+    grid-template-columns: 1fr;
+  }
+
+  .rodape-cartao-campanha {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .rodape-cartao-campanha .botao,
+  .controle-tamanho-lote .botao,
+  .acoes-fluxo-campanha .botao,
+  .acoes-status-campanha .botao {
+    width: 100%;
+  }
+
+  .painel-contatos-lote {
+    max-height: 94vh;
+    border-radius: 10px;
+  }
+
+  .painel-contatos-lote .lista-contatos-campanha {
+    max-height: calc(94vh - 11rem);
+  }
+}
+
+@media (max-width: 560px) {
+  .grade-criacao-campanha {
+    grid-template-columns: 1fr;
+  }
+
+  .campo-template-conteudo {
+    grid-column: auto;
+  }
+
+  .contato-previa-campanha > div,
+  .lista-templates-campanha article,
+  .lista-falhas-campanha article {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .contato-previa-campanha dl {
+    grid-template-columns: 1fr;
+  }
+
+  .sobreposicao-campanha {
+    padding: 0.45rem;
+  }
+}
+
 @media (max-width: 760px) {
   .acoes-cabecalho-mensagens {
     width: 100%;

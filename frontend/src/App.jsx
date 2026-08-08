@@ -7,7 +7,7 @@ import Login from './pages/Login';
 import ContatosAdministrativos from './pages/ContatosAdministrativos';
 import DetalhesContato from './pages/DetalhesContato';
 import CadastroManual from './pages/CadastroManual';
-import ComunicacoesAdministrativas from './pages/ComunicacoesAdministrativas';
+import CampanhasAdministrativas from './pages/CampanhasAdministrativas';
 import ImportacaoContatos from './pages/ImportacaoContatos';
 import Relatorios from './pages/Relatorios';
 import DashboardAdministrativo from './pages/DashboardAdministrativo';
@@ -72,7 +72,7 @@ function App() {
           <Route path="/admin/contatos" element={<ContatosAdministrativos />} />
           <Route path="/admin/contatos/:id" element={<DetalhesContato />} />
           <Route path="/admin/contatos/novo" element={<CadastroManual />} />
-          <Route path="/admin/comunicacoes" element={<ComunicacoesAdministrativas />} />
+          <Route path="/admin/campanhas" element={<CampanhasAdministrativas />} />
           <Route path="/admin/importacoes" element={<ImportacaoContatos />} />
           <Route path="/admin/relatorios" element={<Relatorios />} />
           <Route path="/admin/eventos" element={<EventosAdministrativos />} />

@@ -156,6 +156,8 @@ BACKUP_CONEXAO_TEMPO_LIMITE_SEGUNDOS=10
 BACKUP_MAX_FILA_BANCO=2
 BACKUP_BANCO_TAMANHO_MAXIMO_BYTES=2147483648
 RELATORIO_LIMITE_REGISTROS=50000
+WHATSAPP_WEBHOOK_VERIFY_TOKEN=
+META_APP_SECRET=
 ```
 
 `DATABASE_URL` substitui as variáveis `BANCO_*` em ambientes gerenciados. Credenciais e segredos devem existir somente no `.env` local ou no painel seguro da hospedagem.
@@ -194,6 +196,8 @@ RELATORIO_LIMITE_REGISTROS=50000
 | `POST` | `/api/publico/contatos/inscrever-evento` | Vincula ao evento informado um contato existente já identificado. |
 | `POST` | `/api/publico/contatos` | Registra ou complementa um contato pelo telefone. |
 | `POST` | `/api/autenticacao/login` | Valida credenciais e retorna JWT e usuário. |
+| `GET` | `/api/webhooks/whatsapp` | Valida token e devolve o challenge oficial. |
+| `POST` | `/api/webhooks/whatsapp` | Valida HMAC do corpo bruto e normaliza eventos. |
 
 O cadastro público recebe:
 
@@ -274,6 +278,16 @@ Todas exigem JWT.
 | `POST` | `/api/admin/usuarios` | admin |
 | `PATCH` | `/api/admin/usuarios/meu-perfil` | admin |
 | `PATCH` | `/api/admin/usuarios/:id/senha` | admin, alvo operador |
+| `GET/POST` | `/api/admin/campanhas` | leitura operador/admin; criação admin |
+| `PUT` | `/api/admin/campanhas/:id` | admin, antes de reservas |
+| `POST` | `/api/admin/campanhas/:id/status` | admin |
+| `GET` | `/api/admin/campanhas/:id/publico` | operador/admin |
+| `GET/POST` | `/api/admin/campanhas/:id/lotes` | operador/admin |
+| `GET` | `/api/admin/campanhas/:id/falhas` | operador/admin; falhas atuais aptas a reprocessamento |
+| `GET/POST/PUT` | `/api/admin/campanhas/templates` | leitura operador/admin; escrita admin |
+| `GET` | `/api/admin/campanhas/configuracao/limite` | operador/admin |
+| `PUT` | `/api/admin/campanhas/configuracao/limite` | admin, com motivo |
+| `POST` | `/api/admin/mensageria/tentativas/:id/reprocessar` | operador/admin |
 
 A listagem de contatos usa paginação padrão de 20, máximo de 100, e aceita:
 
@@ -299,6 +313,8 @@ Nome e telefone podem ser combinados com `eventoId`. O botão `Ver participantes
 | Solicitar exclusão | Sim | Sim |
 | Visualizar eventos | Sim | Sim |
 | Criar, editar, ativar ou encerrar eventos | Não | Sim |
+| Consultar campanhas e criar lotes | Sim | Sim |
+| Criar campanha, template ou alterar limite | Não | Sim |
 | Aprovar ou rejeitar exclusão | Não | Sim |
 | Exportar CSV/Excel | Não | Sim |
 | Gerar backup | Não | Sim |
@@ -400,33 +416,31 @@ Não existe endpoint de exclusão direta de contato, revogação ou histórico.
 - o backend valida o identificador do QR e retorna `410` quando o evento foi encerrado ou saiu do período;
 - listagem e relatórios podem filtrar pelo evento ou por ausência de evento.
 
-### 3.12 Comunicação manual
+### 3.12 Campanhas, lotes e mensageria
 
-`numeros_whatsapp` identifica os canais da equipe. `modelos_mensagem` guarda
-textos prontos editáveis. `campanhas` identifica cada ação de comunicação.
-`comunicacoes` registra contato, evento, template, campanha, canal, operador,
-texto, confirmação, status e motivo de reenvio. `historico_comunicacoes`
-preserva cada transição com usuário, data e hora.
+`modelos_mensagem` guarda templates. `campanhas` registra nome, finalidade,
+template, responsável, status e snapshot imutável dos filtros depois da primeira
+reserva. A segmentação reutiliza a função canônica dos contatos, inclusive bairro,
+problema, evento, cadastro incompleto e consentimentos.
 
-Uma comunicação ainda no estado `preparada` pode ser cancelada. A operação
-remove somente o preparo que não foi enviado; registros já confirmados não
-podem ser cancelados. Operadores cancelam os próprios preparos e
-administradores tambem podem cancelar ou confirmar preparos de outros usuarios. A rota `DELETE /api/admin/comunicacoes/preparadas` cancela em lote todos os preparos pendentes permitidos para o usuario autenticado. A rota `POST /api/admin/comunicacoes/preparadas/confirmar-envio` confirma em lote como enviadas as mensagens ainda preparadas permitidas para o usuario autenticado. As rotas `POST /api/admin/comunicacoes/:id/desfazer-confirmacao` e `POST /api/admin/comunicacoes/desfazer-confirmacoes` desfazem confirmacoes de envio feitas por engano, retornando os registros para `preparada` e registrando historico.
+`campanha_lotes` registra tamanho solicitado e efetivo, ordem e chave de
+idempotência. A reserva usa transação, advisory lock e `FOR UPDATE SKIP LOCKED`.
+`campanha_participacoes` possui `UNIQUE (campanha_id, contato_id)`: o contato pode
+participar de campanhas distintas, mas não é repetido dentro da mesma campanha.
 
-O painel é acessado por `/admin/comunicacoes` e aparece como `Mensagens` no menu. A listagem e os detalhes de contatos abrem essa rota com `contatoId`, pré-selecionando o contato. Todo atendimento exige um texto pronto ativo; não há mensagem livre no preparo. O estado não informado da autorização não impede atendimento manual; revogações e bloqueios explícitos continuam sendo aplicados no backend. Somente administradores cadastram, editam ou excluem canais, e também gerenciam textos prontos e campanhas. Canais com histórico são desativados em vez de excluídos para preservar a auditoria.
+Cada participação mantém o lote original. `campanha_tentativas` preserva cada
+processamento e permite reprocessar falhas sem recriar a participação. O histórico
+imutável aceita `pendente`, `enviando`, `enviada`, `entregue`, `lida` e `falhou`,
+ignora repetição e evento atrasado e rejeita regressão de estado.
 
-A listagem administrativa de contatos separa status cadastral de andamento do
-atendimento e usa o último registro de `comunicacoes`. O filtro consolidado
-`nao_respondeu` abrange os estados `enviada`, `aguardando_resposta` e
-`sem_resposta`.
+O limite móvel começa em 250 reservas por 24 horas e fica em
+`configuracoes_sistema`. Somente administrador altera o valor, sempre com motivo;
+valor anterior, novo valor, usuário e data ficam no histórico.
 
-O sistema apenas abre `wa.me`; preparar ou abrir a conversa não registra envio.
-Depois do envio real, o operador usa a confirmação específica. Respostas e
-andamento também são manuais. A mesma campanha para o mesmo contato exige
-confirmação e motivo de reenvio. Nenhuma mensagem é enviada pelo servidor. A equipe abre a conversa em
-`wa.me` e confirma o envio manualmente.
-
-A selecao de contatos na tela de mensagens consulta o banco com paginacao, busca por nome/telefone em toda a base, filtros combinados e limite maximo de 100 contatos por pagina. A preparacao continua limitada a 500 contatos por vez para manter o envio manual controlado.
+O webhook público fica em `/api/webhooks/whatsapp`. O GET valida o token e devolve
+o challenge. O POST calcula HMAC SHA-256 sobre os bytes exatos do corpo bruto,
+usa comparação segura, limita o corpo, não armazena payload bruto e encaminha
+eventos normalizados à mensageria. Não existe chamada à Graph API nem envio real.
 
 ### 3.13 Relatórios, exportação e backup
 
@@ -453,7 +467,7 @@ Backup:
 
 ### 3.14 Banco de dados
 
-O schema possui 22 tabelas:
+O schema possui 29 tabelas:
 
 | Grupo | Tabelas |
 |---|---|
@@ -461,7 +475,8 @@ O schema possui 22 tabelas:
 | Privacidade e auditoria | `consentimentos`, `aceites_privacidade`, `historico_contatos`, `solicitacoes_exclusao`, `tentativas_login`, `backups_banco` |
 | Eventos | `eventos`, `historico_eventos`, `contato_eventos` |
 | Importação e conteúdo | `importacoes`, `importacao_linhas`, `textos_formulario` |
-| Comunicação manual | `numeros_whatsapp`, `modelos_mensagem`, `campanhas`, `comunicacoes`, `historico_comunicacoes` |
+| Histórico legado | `numeros_whatsapp`, `comunicacoes`, `historico_comunicacoes` |
+| Campanhas e mensageria | `modelos_mensagem`, `campanhas`, `campanha_lotes`, `campanha_participacoes`, `campanha_tentativas`, `historico_status_mensageria`, `configuracoes_sistema`, `historico_configuracoes_sistema`, `eventos_webhook_mensageria` |
 | Evolução estrutural | `schema_migrations` |
 
 Proteções relevantes:
@@ -475,7 +490,7 @@ Proteções relevantes:
 - índices de busca, filtros e datas;
 - triggers de atualização de data.
 
-As campanhas existentes são agrupadores internos de segmentação e auditoria.
+As tabelas manuais antigas permanecem apenas para consulta do histórico existente.
 
 Para criar um banco novo e vazio:
 
@@ -517,6 +532,7 @@ Os componentes, o layout responsivo e os gráficos são implementados no própri
 | `/admin/importacoes` | CSV/XLSX | operador/admin |
 | `/admin/relatorios` | Indicadores, gráficos e exportação | operador/admin |
 | `/admin/eventos` | Consulta para operador; gestão para administrador | operador/admin |
+| `/admin/campanhas` | Campanhas, templates, público, lotes e métricas | operador/admin |
 | `/admin/solicitacoes-exclusao` | Fila de análise | admin |
 | `/admin/backups` | Backup e histórico | admin |
 | `/admin/usuarios` | Usuários e senhas de operadores | admin |

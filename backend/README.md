@@ -49,7 +49,12 @@ BACKUP_CONEXAO_TEMPO_LIMITE_SEGUNDOS=10
 BACKUP_MAX_FILA_BANCO=2
 BACKUP_BANCO_TAMANHO_MAXIMO_BYTES=2147483648
 RELATORIO_LIMITE_REGISTROS=50000
+WHATSAPP_WEBHOOK_VERIFY_TOKEN=
+META_APP_SECRET=
 ```
+
+As duas variáveis do webhook são placeholders para a futura configuração
+oficial. Não há credencial Meta configurada nem chamada à Graph API nesta etapa.
 
 Também é possível usar `DATABASE_URL`. O `.env` não deve ser versionado.
 
@@ -89,6 +94,9 @@ npm run banco:migrar
 
 O runner cria e consulta `schema_migrations`, verifica o checksum de cada arquivo, serializa execuções concorrentes com advisory lock e aplica cada migration em transação própria. Nunca edite uma migration já registrada; crie a próxima versão.
 
+As migrations desta etapa são `006_criar_campanhas_lotes_mensageria.sql` e
+`007_adicionar_triggers_campanhas.sql`.
+
 O `database/criar_banco.sql` continua exclusivo para banco vazio e já registra as migrations incorporadas. Nunca execute o schema completo em banco com estrutura ou dados.
 
 Para aplicar a identidade pública e os textos atuais de consentimento em um banco
@@ -102,17 +110,20 @@ O comando é idempotente. Ele mantém uma versão ativa de cada tipo, preserva a
 versões anteriores e não altera consentimentos já registrados. As versões ativas
 são `aviso_privacidade_v3`, `mensagens_whatsapp_v3` e `ligacoes_v3`.
 
-O schema atual tem 22 tabelas:
+O schema atual tem 29 tabelas:
 
 - cadastros: `bairros`, `origens`, `usuarios`, `contatos`;
 - privacidade: `consentimentos`, `aceites_privacidade`, `historico_contatos`, `solicitacoes_exclusao`;
 - eventos: `eventos`, `historico_eventos`, `contato_eventos`;
 - operação: `importacoes`, `importacao_linhas`, `tentativas_login`, `textos_formulario`, `backups_banco`, `schema_migrations`;
-- comunicação manual: `numeros_whatsapp`, `modelos_mensagem`, `campanhas`,
-  `comunicacoes`, `historico_comunicacoes`.
+- histórico legado: `numeros_whatsapp`, `comunicacoes`, `historico_comunicacoes`;
+- campanhas: `modelos_mensagem`, `campanhas`, `campanha_lotes`,
+  `campanha_participacoes`, `campanha_tentativas`,
+  `historico_status_mensageria`, `configuracoes_sistema`,
+  `historico_configuracoes_sistema`, `eventos_webhook_mensageria`.
 
-As tabelas de comunicação organizam o atendimento manual. As autorizações
-registradas servem para controle de privacidade e contato realizado pela equipe.
+As tabelas manuais antigas permanecem somente para preservar histórico. Novos
+registros usam campanhas, lotes, participações únicas e tentativas.
 
 As colunas anteriores de compatibilidade em `contatos` foram mantidas apenas quando ainda participam das interfaces de importação e resposta da API. Os antigos marcadores de exclusão lógica foram removidos. O fluxo oficial usa `solicitacoes_exclusao`.
 
@@ -150,16 +161,17 @@ As colunas anteriores de compatibilidade em `contatos` foram mantidas apenas qua
   distribuição das categorias para cada bairro.
 - A quantidade máxima de registros carregados por uma exportação é configurada em `RELATORIO_LIMITE_REGISTROS`, evitando consumo de memória sem limite.
 - O backup pelo painel exige perfil `administrador`, impede execuções simultâneas, usa `pg_dump` sem shell, gera SHA-256 e registra sucesso ou falha em `backups_banco`.
-- Comunicações são exclusivamente manuais. O estado de autorização não esconde o contato nem o botão de atendimento; bloqueios e revogações explícitas continuam impedindo a preparação da mensagem.
-- Abrir `wa.me` não altera o status. Somente `confirmar-envio` registra data,
-  hora e usuário da confirmação.
-- O operador atualiza manualmente: aguardando resposta, respondeu, sem resposta,
-  recusou atendimento, telefone inválido ou concluído.
-- Uma campanha já confirmada para o mesmo contato gera alerta. O reenvio exige
-  confirmação explícita e motivo, preservado no registro.
-- Campanhas são agrupadores de segmentação e histórico do atendimento manual.
-
-- A rota de contatos para comunicacao usa paginacao, busca por nome/telefone, filtros combinados e limite maximo de 100 itens por pagina. O preparo aceita ate 500 contatos por operacao.
+- Campanhas preservam o snapshot dos filtros e bloqueiam mudança de segmentação
+  depois da primeira reserva.
+- `UNIQUE (campanha_id, contato_id)` impede duplicidade na mesma campanha e
+  permite o mesmo contato em campanhas diferentes.
+- Lotes usam transação, advisory lock, `FOR UPDATE SKIP LOCKED` e chave de
+  idempotência. Uma falha desfaz integralmente lote e reservas.
+- O limite móvel inicial é 250 em 24 horas. Alterações exigem administrador,
+  motivo e histórico com valor anterior e novo.
+- Cada participação possui lote original e tentativas independentes. Reprocessar
+  preserva a falha e cria nova tentativa na mesma participação.
+- Esta etapa não chama Graph API e não envia mensagens reais.
 
 ## Rotas
 
@@ -191,21 +203,17 @@ Administrativas com JWT:
 | DELETE | `/api/admin/eventos/:id` | admin; exclusão lógica com histórico preservado |
 | GET | `/api/admin/eventos/:id/participantes` | operador/admin |
 | PATCH | `/api/admin/eventos/:id/participantes/:contatoId` | operador/admin |
-| GET/POST/PUT/DELETE | `/api/admin/comunicacoes/numeros` | leitura operador/admin; escrita admin; exclusão somente sem histórico |
-| GET/POST/PUT | `/api/admin/comunicacoes/modelos` | leitura operador/admin; escrita admin |
-| GET/POST/PUT | `/api/admin/comunicacoes/campanhas` | leitura operador/admin; escrita admin |
-| GET | `/api/admin/comunicacoes/operadores` | operador/admin |
-| GET | `/api/admin/comunicacoes/contatos` | operador/admin; segmentação |
-| GET | `/api/admin/comunicacoes` | operador/admin |
-| POST | `/api/admin/comunicacoes/preparar` | operador/admin |
-| POST | `/api/admin/comunicacoes/preparadas/confirmar-envio` | confirma em lote mensagens ainda preparadas |
-| POST | `/api/admin/comunicacoes/:id/confirmar-envio` | operador/admin |
-| POST | `/api/admin/comunicacoes/:id/desfazer-confirmacao` | desfaz confirmacao de envio individual |
-| POST | `/api/admin/comunicacoes/desfazer-confirmacoes` | desfaz confirmacoes de envio por IDs visiveis/selecionados |
-| DELETE | `/api/admin/comunicacoes/preparadas` | cancela em lote mensagens ainda preparadas |
-| DELETE | `/api/admin/comunicacoes/:id` | cancela somente mensagem ainda preparada |
-| GET | `/api/admin/comunicacoes/:id/historico` | operador/admin |
-| PATCH | `/api/admin/comunicacoes/:id` | operador/admin |
+| GET/POST | `/api/admin/campanhas` | leitura operador/admin; criação admin |
+| PUT | `/api/admin/campanhas/:id` | admin; bloqueada após reservas |
+| POST | `/api/admin/campanhas/:id/status` | admin |
+| GET | `/api/admin/campanhas/:id/publico` | operador/admin |
+| GET/POST | `/api/admin/campanhas/:id/lotes` | operador/admin; reserva atômica |
+| GET | `/api/admin/campanhas/:id/falhas` | operador/admin; falhas atuais aptas a reprocessamento |
+| GET/POST/PUT | `/api/admin/campanhas/templates` | leitura operador/admin; escrita admin |
+| GET | `/api/admin/campanhas/configuracao/limite` | operador/admin |
+| PUT | `/api/admin/campanhas/configuracao/limite` | admin; exige motivo |
+| POST | `/api/admin/mensageria/tentativas/:id/reprocessar` | operador/admin |
+| GET/POST | `/api/webhooks/whatsapp` | público; verificação e eventos assinados |
 | GET | `/api/admin/solicitacoes-exclusao` | admin |
 | POST | `/api/admin/solicitacoes-exclusao/:id/aprovar` | admin |
 | POST | `/api/admin/solicitacoes-exclusao/:id/rejeitar` | admin |
@@ -285,11 +293,13 @@ Resultado de 02/08/2026: 392 verificações aprovadas.
 - segurança e usuários: 54;
 - privacidade e bloqueio durante pedido de exclusão: 16;
 - eventos, QR exclusivo, identificação por nome e telefone, contato novo, reinscrição idempotente, atualização auditada, busca de participantes, permissões, exclusão lógica de eventos e exclusão física aprovada de contatos: 54;
-- comunicação manual, CRUD seguro de números, textos prontos obrigatórios, campanhas, permissões, confirmação explícita, cancelamento de preparo, reenvio justificado, auditoria e filtros: 35;
+- campanhas, lotes, limite móvel, filtros, concorrência, duplicidade,
+  tentativas, reprocessamento e auditoria: `npm run testar:campanhas`;
+- verificação e assinatura do webhook: `npm run testar:webhook`;
 - backups, permissões, integridade e auditoria: 18.
 - resiliência, rate limit, concorrência, saúde, pool e configuração: 22.
 
-O teste de schema cria um banco temporário vazio, aplica `database/criar_banco.sql`, valida 22 tabelas, duas migrations registradas e 166 bairros e remove o banco temporário ao final.
+O teste de schema cria um banco temporário vazio, aplica `database/criar_banco.sql`, valida 29 tabelas, sete migrations registradas e 166 bairros e remove o banco temporário ao final.
 
 O teste de carga de importação gera 15.000 contatos temporários, percorre pré-visualização, confirmação e persistência, valida a rejeição de 20.001 linhas, remove todos os dados de teste e ressincroniza as sequências utilizadas. Ele recusa execução quando `NODE_ENV=production`.
 

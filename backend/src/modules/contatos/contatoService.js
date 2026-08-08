@@ -635,6 +635,11 @@ function prepararFiltros(parametrosRecebidos) {
     'idadeNaoInformada',
     ['true']
   ) === 'true';
+  const cadastroIncompleto = tratarOpcaoFiltro(
+    parametrosRecebidos.cadastroIncompleto,
+    'cadastroIncompleto',
+    ['true']
+  ) === 'true';
   const autorizacaoMensagens = tratarOpcaoFiltro(
     parametrosRecebidos.autorizacaoMensagens,
     'autorizacaoMensagens',
@@ -704,6 +709,7 @@ function prepararFiltros(parametrosRecebidos) {
     idadeMinima,
     idadeMaxima,
     idadeNaoInformada,
+    cadastroIncompleto,
     autorizacaoMensagens,
     autorizacaoLigacoes,
     dataInicial,
@@ -889,5 +895,6 @@ module.exports = {
   solicitarExclusao,
   cadastrarContatoManual,
   listarContatosParaRelatorio,
-  verificarContatoEvento
+  verificarContatoEvento,
+  prepararFiltros
 };

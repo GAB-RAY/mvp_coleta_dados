@@ -180,12 +180,6 @@ function DetalhesContato() {
                 <div className="acoes-filtros">
                   <Link
                     className="botao botao-secundario"
-                    to={'/admin/comunicacoes?contatoId=' + dados.contato.id}
-                  >
-                    Enviar mensagem
-                  </Link>
-                  <Link
-                    className="botao botao-secundario"
                     to={'/admin/contatos/novo?contatoId=' + dados.contato.id}
                   >
                     Editar contato

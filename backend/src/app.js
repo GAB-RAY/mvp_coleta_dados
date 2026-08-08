@@ -7,7 +7,9 @@ const contatoPublicoRoutes = require('./modules/contatos/contatoPublicoRoutes');
 const contatoAdminRoutes = require('./modules/contatos/contatoAdminRoutes');
 const autenticacaoRoutes = require('./modules/autenticacao/autenticacaoRoutes');
 const origemRoutes = require('./modules/origens/origemRoutes');
-const comunicacaoRoutes = require('./modules/comunicacoes/comunicacaoRoutes');
+const campanhaRoutes = require('./modules/campanhas/campanhaRoutes');
+const mensageriaRoutes = require('./modules/mensageria/mensageriaRoutes');
+const webhookRoutes = require('./modules/mensageria/webhookRoutes');
 const importacaoRoutes = require('./modules/importacoes/importacaoRoutes');
 const relatorioRoutes = require('./modules/relatorios/relatorioRoutes');
 const usuarioRoutes = require('./modules/usuarios/usuarioRoutes');
@@ -38,6 +40,7 @@ aplicacao.use(identificarRequisicao);
 aplicacao.use(compression({ threshold: 1024 }));
 aplicacao.use(limitadores.criarLimitadorGlobal());
 aplicacao.use(criarLimitadorConcorrencia());
+aplicacao.use('/api/webhooks/whatsapp', webhookRoutes);
 aplicacao.use(express.json({ limit: '32kb', strict: true }));
 aplicacao.post(
   [
@@ -53,7 +56,8 @@ aplicacao.use('/api/autenticacao', autenticacaoRoutes);
 aplicacao.use('/api/admin', autenticarUsuario);
 aplicacao.use('/api/admin/contatos', contatoAdminRoutes);
 aplicacao.use('/api/admin/origens', origemRoutes);
-aplicacao.use('/api/admin/comunicacoes', comunicacaoRoutes);
+aplicacao.use('/api/admin/campanhas', campanhaRoutes);
+aplicacao.use('/api/admin/mensageria', mensageriaRoutes);
 aplicacao.use('/api/admin/importacoes', importacaoRoutes);
 aplicacao.use('/api/admin/relatorios', relatorioRoutes);
 aplicacao.use('/api/admin/usuarios', usuarioRoutes);

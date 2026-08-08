@@ -59,7 +59,7 @@ Considere este cenário somente quando não houver implementação aproveitável
 #### Estado de referência deste documento
 
 Na atualização de 31/07/2026, o repositório já possuía backend, frontend e
-schema completo implementados. O schema atual possui 22 tabelas e 166 bairros.
+schema completo implementados. O schema atual possui 29 tabelas e 166 bairros.
 A suíte do backend concluiu 392 verificações e o build do frontend transformou
 69 módulos. Esses resultados servem como referência de regressão, não como
 substitutos para uma nova execução dos testes no ambiente recebido.
@@ -358,21 +358,20 @@ Regras:
 - validar o identificador no backend e recusar o QR com `410` quando o evento
   estiver encerrado ou fora do período, sem criar nova tabela para a imagem;
 
-### 8.1 Comunicação manual
+### 8.1 Campanhas, lotes e mensageria
 
-- manter a importação CSV/XLSX;
-- manter mensagens e campanhas no fluxo manual por `wa.me`;
-- permitir que somente o administrador cadastre, edite e exclua números da equipe; números com histórico devem ser desativados;
-- cadastrar textos prontos editáveis somente por administrador e exigir um texto pronto ativo em todo atendimento;
-- permitir que operador e administrador preparem mensagens para contatos não bloqueados e abram `wa.me` manualmente;
-- abrir o WhatsApp nunca registra envio;
-- permitir cancelar somente uma mensagem ainda preparada; envio confirmado não pode ser cancelado;
-- registrar manualmente andamento, envio, resposta e responsável;
-- preservar histórico por contato e evento e alertar repetição da mesma campanha;
-- usar somente `{{nome}}`, `{{evento}}`, `{{data}}`, `{{horario}}`, `{{local}}` e `{{link}}` como campos substituíveis.
-
-- listar contatos para atendimento com paginacao no banco, busca por nome/telefone em toda a base, filtros combinados e limite maximo de 100 por pagina;
-- limitar cada preparo manual a 500 contatos;
+- campanhas são livres, possuem template e snapshot dos filtros canônicos de contatos;
+- estados de campanha: `rascunho`, `pronta`, `ativa`, `pausada`, `concluida` e `cancelada`;
+- segmentação não pode ser alterada depois de existirem reservas;
+- lotes registram tamanho solicitado e efetivo, ordem, status e chave de idempotência;
+- reserva é transacional e respeita limite móvel configurável de 24 horas;
+- o mesmo contato pode participar de campanhas diferentes, mas somente uma vez da mesma campanha;
+- participação preserva o lote original e possui várias tentativas quando houver reprocessamento;
+- estados técnicos: `pendente`, `enviando`, `enviada`, `entregue`, `lida` e `falhou`;
+- preservar histórico imutável de transições e erro externo sanitizado;
+- preparar webhook oficial com HMAC sobre corpo bruto e idempotência;
+- não chamar Graph API, não enviar mensagem real e não configurar credenciais Meta nesta etapa;
+- tabelas e rotas manuais antigas permanecem apenas como histórico, sem menu ou endpoint operacional.
 
 ### 9. Autenticação e usuários
 
@@ -632,6 +631,13 @@ Tabelas obrigatórias:
 20. `campanhas`;
 21. `historico_comunicacoes`;
 22. `schema_migrations`.
+23. `campanha_lotes`;
+24. `campanha_participacoes`;
+25. `campanha_tentativas`;
+26. `historico_status_mensageria`;
+27. `configuracoes_sistema`;
+28. `historico_configuracoes_sistema`;
+29. `eventos_webhook_mensageria`.
 
 Implementar chaves estrangeiras, checks, índices e triggers para:
 
@@ -645,9 +651,8 @@ Implementar chaves estrangeiras, checks, índices e triggers para:
 - somente um consentimento ativo do mesmo tipo por contato;
 - auditoria e datas de atualização.
 
-As tabelas de comunicação existem somente para organizar o trabalho manual. As
-autorizações de WhatsApp e ligações existem para controle de privacidade e
-contato realizado pela equipe.
+As tabelas manuais antigas permanecem somente como histórico. Novas campanhas
+usam lotes, participações únicas, tentativas e histórico técnico de mensageria.
 
 Banco novo:
 
@@ -670,6 +675,8 @@ Públicos:
 - `POST /api/publico/contatos/inscrever-evento`;
 - `POST /api/publico/contatos`;
 - `POST /api/autenticacao/login`.
+- `GET /api/webhooks/whatsapp`;
+- `POST /api/webhooks/whatsapp`.
 
 Com JWT:
 
@@ -698,6 +705,20 @@ Com JWT:
 - `POST /api/admin/usuarios`, somente admin;
 - `PATCH /api/admin/usuarios/meu-perfil`, somente admin;
 - `PATCH /api/admin/usuarios/:id/senha`, somente admin e somente alvo operador.
+- `GET /api/admin/campanhas`;
+- `POST /api/admin/campanhas`, somente admin;
+- `PUT /api/admin/campanhas/:id`, somente admin e sem reservas;
+- `POST /api/admin/campanhas/:id/status`, somente admin;
+- `GET /api/admin/campanhas/:id/publico`;
+- `GET /api/admin/campanhas/:id/lotes`;
+- `POST /api/admin/campanhas/:id/lotes`;
+- `GET /api/admin/campanhas/:id/falhas`;
+- `GET /api/admin/campanhas/templates`;
+- `POST /api/admin/campanhas/templates`, somente admin;
+- `PUT /api/admin/campanhas/templates/:id`, somente admin;
+- `GET /api/admin/campanhas/configuracao/limite`;
+- `PUT /api/admin/campanhas/configuracao/limite`, somente admin;
+- `POST /api/admin/mensageria/tentativas/:id/reprocessar`.
 
 Usar um formato uniforme de erro:
 
@@ -874,7 +895,7 @@ Criar README técnico fiel ao código, contendo:
 - publicação;
 - pendências reais.
 
-Preservar o fluxo manual de mensagens. Não afirmar que uma funcionalidade
+Preservar o histórico legado de mensagens. Não afirmar que uma funcionalidade
 está pronta sem teste ou evidência no código.
 
 Ao terminar:
