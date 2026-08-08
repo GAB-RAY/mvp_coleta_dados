@@ -308,7 +308,7 @@ Nome e telefone podem ser combinados com `eventoId`. O botão `Ver participantes
 |---|---:|---:|
 | Consultar, cadastrar e atualizar contatos | Sim | Sim |
 | Importar CSV/XLSX | Sim | Sim |
-| Excluir registro de importação | Não | Sim |
+| Excluir importação e contatos criados por ela | Não | Sim |
 | Revogar mensagens ou ligações | Sim | Sim |
 | Solicitar exclusão | Sim | Sim |
 | Visualizar eventos | Sim | Sim |
@@ -345,7 +345,7 @@ Um administrador não pode alterar a conta nem a senha de outro administrador.
 - dados já preenchidos não são silenciosamente substituídos;
 - as origens de importação existentes podem ser reutilizadas e novas origens podem ser cadastradas durante a pré-visualização;
 - a tela lista os metadados dos lotes sem expor os dados importados;
-- somente o administrador exclui um lote, e essa exclusão preserva os contatos e a origem associada;
+- somente o administrador exclui uma importação; a operação remove os contatos criados por ela e suas dependências, preservando a origem e os contatos preexistentes apenas complementados ou ignorados;
 - complementos efetivos geram histórico;
 - a importação não cria consentimentos automaticamente;
 - nomes exclusivamente numéricos são tratados como ausentes; registros antigos são normalizados com o valor anterior preservado no histórico.
@@ -457,13 +457,15 @@ Exportações:
 Backup:
 
 - executa `pg_dump` sem shell;
-- formato custom restaurável pelo PostgreSQL;
+- formato SQL em texto legível e restaurável pelo PostgreSQL;
+- usa `--format=plain --data-only` para incluir todos os registros sem copiar a estrutura;
+- exige um banco com estrutura compatível para restauração;
 - exclusivo para administrador;
 - impede duas execuções simultâneas;
 - calcula SHA-256;
 - registra responsável, estado, nome, tamanho, hash e eventual erro;
 - remove o arquivo temporário do servidor depois do download;
-- nome no formato `acorda-rj-backup-completo-postgresql-AAAA-MM-DD_HH-mm-ss.backup`.
+- nome no formato `acorda-rj-dados-AAAA-MM-DD_HH-mm-ss.sql`.
 
 ### 3.14 Banco de dados
 

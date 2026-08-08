@@ -45,10 +45,11 @@ async function confirmar(requisicao, resposta, proximo) {
 
 async function excluir(requisicao, resposta, proximo) {
   try {
-    await importacaoService.excluir(requisicao.params.id);
+    const resultado = await importacaoService.excluir(requisicao.params.id);
 
     return resposta.status(200).json({
-      mensagem: 'Importação excluída com sucesso. Os contatos importados foram preservados.'
+      mensagem: 'Importação e contatos criados por ela excluídos com sucesso.',
+      totalContatosExcluidos: resultado.totalContatosExcluidos
     });
   } catch (erro) {
     return proximo(erro);

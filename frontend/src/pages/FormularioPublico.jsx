@@ -95,9 +95,13 @@ function FormularioPublico() {
   const [parametrosBusca] = useSearchParams();
   const eventoQr = parametrosBusca.get('evento') || '';
   const numeroWhatsapp = String(import.meta.env.VITE_WHATSAPP_NUMERO || '').replace(/\D/g, '');
+  const emailPrivacidade = String(import.meta.env.VITE_PRIVACIDADE_EMAIL || '').trim();
   const linkWhatsapp = numeroWhatsapp.length >= 10 && numeroWhatsapp.length <= 15
     ? 'https://wa.me/' + numeroWhatsapp
     : '';
+  const whatsappFormatado = numeroWhatsapp.length === 13 && numeroWhatsapp.startsWith('55')
+    ? '(' + numeroWhatsapp.slice(2, 4) + ') ' + numeroWhatsapp.slice(4, 9) + '-' + numeroWhatsapp.slice(9)
+    : numeroWhatsapp;
   const [dadosFormulario, setDadosFormulario] = useState(FORMULARIO_INICIAL);
   const [enviando, setEnviando] = useState(false);
   const [mensagem, setMensagem] = useState('');
@@ -629,6 +633,24 @@ function FormularioPublico() {
 
             <p className="legenda-obrigatorios">* Campos obrigatórios</p>
 
+            {(linkWhatsapp || emailPrivacidade) && (
+              <aside className="atendimento-formulario-publico" aria-label="Canais de atendimento">
+                <strong>Canais oficiais</strong>
+                <div>
+                  {linkWhatsapp && (
+                    <a href={linkWhatsapp} rel="noopener noreferrer" target="_blank">
+                      WhatsApp: {whatsappFormatado}
+                    </a>
+                  )}
+                  {emailPrivacidade && (
+                    <a href={'mailto:' + emailPrivacidade}>
+                      E-mail: {emailPrivacidade}
+                    </a>
+                  )}
+                </div>
+              </aside>
+            )}
+
             <div className="acoes-formulario-publico">
               <button
                 className="botao botao-primario botao-enviar"
@@ -685,6 +707,7 @@ function FormularioPublico() {
           <Link to="/termos">Termos</Link>
           <Link to="/excluir-dados">Excluir dados</Link>
         </nav>
+
       </section>
 
       <footer className="rodape-publico">

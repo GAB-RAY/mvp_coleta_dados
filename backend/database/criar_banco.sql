@@ -614,7 +614,7 @@ CREATE TABLE public.backups_banco (
   usuario_id BIGINT,
   status VARCHAR(20) NOT NULL DEFAULT 'processando',
   nome_arquivo VARCHAR(255),
-  formato VARCHAR(20) NOT NULL DEFAULT 'custom',
+  formato VARCHAR(20) NOT NULL DEFAULT 'sql_dados',
   tamanho_bytes BIGINT,
   sha256 CHAR(64),
   mensagem_erro VARCHAR(1000),
@@ -624,7 +624,7 @@ CREATE TABLE public.backups_banco (
   CONSTRAINT backups_banco_status_valido CHECK (
     status IN ('processando', 'concluido', 'falhou')
   ),
-  CONSTRAINT backups_banco_formato_valido CHECK (formato = 'custom'),
+  CONSTRAINT backups_banco_formato_valido CHECK (formato IN ('custom', 'sql_dados')),
   CONSTRAINT backups_banco_tamanho_valido CHECK (
     tamanho_bytes IS NULL OR tamanho_bytes >= 0
   ),
@@ -1243,6 +1243,7 @@ INSERT INTO public.schema_migrations (
   ('004', '004_permitir_varios_eventos_ativos.sql', '7bea0fb8ad8385e6167543846991cba81d508c9f6c8de053d774c0fdb3a3dc35'),
   ('005', '005_padronizar_telefones_contatos.sql', 'e4a97142a38ba42b5de283a9aeb0e72ca0107acc2d3e394cba083b0a72b12977'),
   ('006', '006_criar_campanhas_lotes_mensageria.sql', '1f05f7e554233eadf8efebce26e89476392dc33440e001ce24379a31f1fc40a1'),
-  ('007', '007_adicionar_triggers_campanhas.sql', 'aa26f0557f23ec757577e38e6a79c3ad6ed0071143b67fd8d3b4deb35336e2b6');
+  ('007', '007_adicionar_triggers_campanhas.sql', 'aa26f0557f23ec757577e38e6a79c3ad6ed0071143b67fd8d3b4deb35336e2b6'),
+  ('008', '008_permitir_backup_sql_dados.sql', '0adcd0770538a7ce9a90edf3e9d325b9eb7a6d4faf9058c94eb02c6fd07be51d');
 
 COMMIT;

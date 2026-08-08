@@ -14,6 +14,13 @@ async function listar() {
       importacao.total_recebido,
       importacao.criado_em,
       importacao.confirmado_em,
+      (
+        SELECT COUNT(*)::integer
+        FROM importacao_linhas AS linha
+        WHERE linha.importacao_id = importacao.id
+          AND linha.resultado = 'criado'
+          AND linha.contato_id IS NOT NULL
+      ) AS total_contatos_criados,
       origem.id AS origem_id,
       origem.nome AS origem_nome,
       usuario.nome AS usuario_nome
@@ -48,10 +55,102 @@ async function excluir(importacaoId) {
       throw erro;
     }
 
+    const contatosImportados = await cliente.query(
+      `
+        SELECT contato.id
+        FROM contatos AS contato
+        WHERE EXISTS (
+          SELECT 1
+          FROM importacao_linhas AS linha
+          WHERE linha.importacao_id = $1
+            AND linha.resultado = 'criado'
+            AND linha.contato_id = contato.id
+        )
+        FOR UPDATE
+      `,
+      [importacaoId]
+    );
+    const contatosIds = contatosImportados.rows.map(function (contato) {
+      return contato.id;
+    });
+
+    if (contatosIds.length > 0) {
+      const participacoes = await cliente.query(
+        `
+          SELECT id, lote_original_id
+          FROM campanha_participacoes
+          WHERE contato_id = ANY($1::bigint[])
+          FOR UPDATE
+        `,
+        [contatosIds]
+      );
+      const participacoesIds = participacoes.rows.map(function (participacao) {
+        return participacao.id;
+      });
+      const lotesIds = Array.from(new Set(participacoes.rows.map(function (participacao) {
+        return participacao.lote_original_id;
+      })));
+
+      if (participacoesIds.length > 0) {
+        await cliente.query(
+          'DELETE FROM historico_status_mensageria WHERE participacao_id = ANY($1::bigint[])',
+          [participacoesIds]
+        );
+        await cliente.query(
+          'DELETE FROM campanha_tentativas WHERE participacao_id = ANY($1::bigint[])',
+          [participacoesIds]
+        );
+        await cliente.query(
+          'DELETE FROM campanha_participacoes WHERE id = ANY($1::bigint[])',
+          [participacoesIds]
+        );
+      }
+
+      if (lotesIds.length > 0) {
+        await cliente.query(
+          `
+            UPDATE campanha_lotes AS lote
+            SET tamanho_efetivo = (
+              SELECT COUNT(*)::integer
+              FROM campanha_participacoes AS participacao
+              WHERE participacao.lote_original_id = lote.id
+            )
+            WHERE lote.id = ANY($1::bigint[])
+              AND EXISTS (
+                SELECT 1
+                FROM campanha_participacoes AS participacao
+                WHERE participacao.lote_original_id = lote.id
+              )
+          `,
+          [lotesIds]
+        );
+        await cliente.query(
+          `
+            DELETE FROM campanha_lotes AS lote
+            WHERE lote.id = ANY($1::bigint[])
+              AND NOT EXISTS (
+                SELECT 1
+                FROM campanha_participacoes AS participacao
+                WHERE participacao.lote_original_id = lote.id
+              )
+          `,
+          [lotesIds]
+        );
+      }
+
+      await cliente.query(
+        'DELETE FROM contatos WHERE id = ANY($1::bigint[])',
+        [contatosIds]
+      );
+    }
+
     await cliente.query('DELETE FROM importacoes WHERE id = $1', [importacaoId]);
     await cliente.query('COMMIT');
 
-    return true;
+    return {
+      importacaoId,
+      totalContatosExcluidos: contatosIds.length
+    };
   } catch (erro) {
     await cliente.query('ROLLBACK');
     throw erro;

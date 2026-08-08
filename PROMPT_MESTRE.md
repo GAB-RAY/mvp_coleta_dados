@@ -503,6 +503,10 @@ Revogação:
 - se o contato existir, complementar apenas campos vazios;
 - não substituir dados preenchidos;
 - gerar histórico somente quando houver complemento.
+- listar o histórico das importações para operador e administrador;
+- permitir somente ao administrador excluir uma importação;
+- ao excluir, remover os contatos criados por aquela importação e preservar contatos preexistentes que foram apenas complementados ou ignorados;
+- executar a exclusão e a limpeza de dependências em uma única transação.
 
 Aliases aceitos:
 
@@ -583,23 +587,25 @@ Exportação:
 
 Criar no painel uma área exclusiva de administrador para:
 
-- gerar e baixar backup completo do PostgreSQL;
+- gerar e baixar backup de todos os dados do PostgreSQL, sem copiar a estrutura;
 - listar últimas operações;
 - informar responsável, data, estado, tamanho e SHA-256.
 
 Regras:
 
 - usar `pg_dump` sem executar shell montado por concatenação;
-- formato custom restaurável;
+- formato SQL em texto legível e restaurável;
+- usar `--format=plain --data-only` para incluir todos os registros sem copiar a estrutura;
+- restaurar somente sobre uma estrutura compatível já criada;
 - não incluir credenciais no arquivo ou na resposta;
 - impedir execuções simultâneas;
 - aplicar tempo limite configurável;
 - registrar sucesso e falha;
 - remover o arquivo temporário depois do download;
 - permitir configurar o caminho de `pg_dump`;
-- nome `acorda-rj-backup-completo-postgresql-AAAA-MM-DD_HH-mm-ss.backup`.
+- nome `acorda-rj-dados-AAAA-MM-DD_HH-mm-ss.sql`.
 
-Backup técnico não é CSV nem Excel. CSV e Excel são exportações de contatos.
+O backup de dados é SQL legível e restaurável. CSV e Excel continuam sendo exportações de contatos para uso operacional.
 
 ### 17. Banco PostgreSQL
 
@@ -688,6 +694,8 @@ Com JWT:
 - `GET /api/admin/origens`;
 - `POST /api/admin/importacoes/pre-visualizar`;
 - `POST /api/admin/importacoes/:id/confirmar`;
+- `GET /api/admin/importacoes`;
+- `DELETE /api/admin/importacoes/:id`, somente admin;
 - `GET /api/admin/relatorios/resumo`;
 - `GET /api/admin/relatorios/exportar.csv`, somente admin;
 - `GET /api/admin/relatorios/exportar.xlsx`, somente admin;

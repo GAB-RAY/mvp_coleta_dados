@@ -15,7 +15,8 @@ async function gerar(requisicao, resposta, proximo) {
   try {
     const backup = await backupService.gerar(requisicao.usuario);
     resposta.setHeader('X-Backup-SHA256', backup.sha256);
-    resposta.setHeader('Content-Type', 'application/octet-stream');
+    resposta.setHeader('Content-Type', 'application/sql; charset=utf-8');
+    resposta.setHeader('Cache-Control', 'private, no-store');
 
     return resposta.download(
       backup.caminhoArquivo,

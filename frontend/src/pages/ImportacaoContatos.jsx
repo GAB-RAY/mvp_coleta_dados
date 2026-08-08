@@ -120,8 +120,10 @@ function ImportacaoContatos() {
 
   async function excluir(item) {
     const confirmado = window.confirm(
-      'Excluir o registro da importação "' + item.origem.nome + '"? ' +
-      'Os contatos já importados serão preservados.'
+      'Excluir permanentemente a importação "' + item.origem.nome + '" e os ' +
+      item.totalContatosCriados + ' contato(s) criados por ela?\n\n' +
+      'Contatos que já existiam antes dessa importação serão preservados. ' +
+      'Esta ação não pode ser desfeita.'
     );
 
     if (!confirmado) {
@@ -275,6 +277,7 @@ function ImportacaoContatos() {
                     <th>Arquivo</th>
                     <th>Status</th>
                     <th>Linhas</th>
+                    <th>Contatos criados</th>
                     <th>Responsável</th>
                     <th>Data</th>
                     {usuarioAdministrador && <th>Ações</th>}
@@ -288,6 +291,7 @@ function ImportacaoContatos() {
                         <td>{item.nomeArquivo}</td>
                         <td>{ROTULOS_STATUS[item.status] || item.status}</td>
                         <td>{item.totalRecebido}</td>
+                        <td>{item.totalContatosCriados}</td>
                         <td>{item.responsavel}</td>
                         <td>{formatarData(item.confirmadoEm || item.criadoEm)}</td>
                         {usuarioAdministrador && (

@@ -403,6 +403,41 @@
   font-size: 0.82rem;
 }
 
+.atendimento-formulario-publico {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.55rem 0.85rem;
+  border: 1px solid #f0dace;
+  border-radius: 8px;
+  padding: 0.72rem 0.85rem;
+  background: #fff9f5;
+}
+
+.atendimento-formulario-publico strong {
+  color: #623b2d;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.atendimento-formulario-publico div {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.8rem;
+}
+
+.atendimento-formulario-publico a {
+  color: #7a2b00;
+  font-size: 0.82rem;
+  font-weight: 750;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
 .aviso-direitos {
   margin: -0.2rem 0 0;
   border-left: 3px solid var(--cor-primaria);
@@ -542,6 +577,7 @@
   white-space: nowrap;
 }
 
+
 .rodape-publico {
   display: flex;
   width: min(100%, 560px);
@@ -657,6 +693,16 @@
   .botao-whatsapp-publico {
     width: 100%;
     align-self: stretch;
+  }
+
+  .atendimento-formulario-publico {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .atendimento-formulario-publico div {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .resumo-privacidade-publico {

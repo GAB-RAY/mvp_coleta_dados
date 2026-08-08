@@ -45,7 +45,7 @@ function localizarPgDump() {
 
 function criarNomeArquivo() {
   const data = new Date().toISOString().slice(0, 19).replace('T', '_').replace(/:/g, '-');
-  return 'acorda-rj-backup-completo-postgresql-' + data + '.backup';
+  return 'acorda-rj-dados-' + data + '.sql';
 }
 
 function lerInteiro(nome, valorPadrao, minimo, maximo) {
@@ -156,7 +156,7 @@ async function gerar(usuario) {
   let diretorio;
 
   try {
-    registroId = await backupModel.iniciar(usuario.id);
+    registroId = await backupModel.iniciar(usuario.id, 'sql_dados');
     const limiteTamanhoBanco = lerInteiro(
       'BACKUP_BANCO_TAMANHO_MAXIMO_BYTES',
       2147483648,
@@ -184,10 +184,12 @@ async function gerar(usuario) {
     const nomeArquivo = criarNomeArquivo();
     const caminhoArquivo = path.join(diretorio, nomeArquivo);
     const argumentos = [
-      '--format=custom',
+      '--format=plain',
+      '--data-only',
       '--blobs',
       '--no-owner',
       '--no-password',
+      '--encoding=UTF8',
       '--host=' + configuracao.host,
       '--port=' + configuracao.porta,
       '--username=' + configuracao.usuario,

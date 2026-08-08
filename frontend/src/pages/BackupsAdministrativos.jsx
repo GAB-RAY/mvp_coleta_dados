@@ -58,7 +58,7 @@ function BackupsAdministrativos() {
   }, []);
 
   async function baixarBackup() {
-    if (!window.confirm('Gerar e baixar agora um backup completo do PostgreSQL?')) {
+    if (!window.confirm('Gerar e baixar agora um backup dos dados do sistema?')) {
       return;
     }
 
@@ -102,19 +102,19 @@ function BackupsAdministrativos() {
         <CabecalhoAdministrativo
           aoSair={sair}
           titulo="Backups"
-          subtitulo="Gere uma cópia completa e restaurável do PostgreSQL."
+          subtitulo="Baixe uma cópia de todos os registros armazenados no sistema."
         />
 
         <section className="cartao painel-filtros">
           <div className="cabecalho-secao">
             <div>
               <span className="etiqueta-pagina">Proteção dos dados</span>
-              <h2>Backup completo</h2>
+              <h2>Backup dos dados</h2>
             </div>
-            <p>O arquivo é gerado temporariamente, baixado e removido do servidor.</p>
+            <p>Baixa um arquivo SQL legível com contatos, usuários, eventos, campanhas, importações e históricos, sem criar banco ou tabelas.</p>
           </div>
           <button className="botao botao-primario" type="button" disabled={gerando} onClick={baixarBackup}>
-            {gerando ? 'Gerando backup...' : 'Gerar e baixar backup'}
+            {gerando ? 'Gerando backup dos dados...' : 'Gerar e baixar dados'}
           </button>
         </section>
 

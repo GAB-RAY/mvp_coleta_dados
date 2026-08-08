@@ -12,6 +12,7 @@ const PREFIXO = '21999985';
 const ORIGENS = ['Importação CSV Teste', 'Importação XLSX Teste'];
 const EMAIL_TESTE = 'importacoes.teste@invalid.local';
 const EMAIL_ADMIN_TESTE = 'importacoes.admin.teste@invalid.local';
+const CAMPANHA_TESTE = 'Campanha teste exclusão de importação';
 
 async function requisitar(baseUrl, caminho, opcoes) {
   const resposta = await fetch(baseUrl + caminho, opcoes || {});
@@ -28,6 +29,26 @@ function criarFormulario(conteudo, nomeArquivo, origem, tipo) {
 }
 
 async function limpar() {
+  const campanhas = await banco.query(
+    'SELECT id FROM campanhas WHERE nome = $1',
+    [CAMPANHA_TESTE]
+  );
+  const campanhasIds = campanhas.rows.map(function (campanha) { return campanha.id; });
+
+  if (campanhasIds.length > 0) {
+    await banco.query(
+      'DELETE FROM historico_status_mensageria WHERE participacao_id IN (SELECT id FROM campanha_participacoes WHERE campanha_id = ANY($1::bigint[]))',
+      [campanhasIds]
+    );
+    await banco.query(
+      'DELETE FROM campanha_tentativas WHERE participacao_id IN (SELECT id FROM campanha_participacoes WHERE campanha_id = ANY($1::bigint[]))',
+      [campanhasIds]
+    );
+    await banco.query('DELETE FROM campanha_participacoes WHERE campanha_id = ANY($1::bigint[])', [campanhasIds]);
+    await banco.query('DELETE FROM campanha_lotes WHERE campanha_id = ANY($1::bigint[])', [campanhasIds]);
+    await banco.query('DELETE FROM campanhas WHERE id = ANY($1::bigint[])', [campanhasIds]);
+  }
+
   const origens = await banco.query(
     'SELECT id FROM origens WHERE nome = ANY($1::text[])',
     [ORIGENS]
@@ -280,8 +301,68 @@ async function executar() {
     assert.ok(listagem.corpo.importacoes.some(function (item) {
       return item.id === visualizacao.corpo.importacao.importacaoId &&
         item.origem.nome === ORIGENS[0] &&
-        item.nomeArquivo === 'contatos.csv';
+        item.nomeArquivo === 'contatos.csv' &&
+        item.totalContatosCriados === 2;
     }));
+
+    const contatosCampanha = await banco.query(
+      'SELECT id, telefone_normalizado FROM contatos WHERE telefone_normalizado = ANY($1::text[])',
+      [[PREFIXO + '001', PREFIXO + '003']]
+    );
+    const contatoImportadoId = contatosCampanha.rows.find(function (contato) {
+      return contato.telefone_normalizado === PREFIXO + '001';
+    }).id;
+    const contatoPreexistenteId = contatosCampanha.rows.find(function (contato) {
+      return contato.telefone_normalizado === PREFIXO + '003';
+    }).id;
+    const campanha = await banco.query(
+      `
+        INSERT INTO campanhas (
+          nome, finalidade, status, responsavel_usuario_id,
+          criado_por_usuario_id, atualizado_por_usuario_id
+        ) VALUES ($1, 'Teste automatizado', 'ativa', $2, $2, $2)
+        RETURNING id
+      `,
+      [CAMPANHA_TESTE, administrador.rows[0].id]
+    );
+    const loteCampanha = await banco.query(
+      `
+        INSERT INTO campanha_lotes (
+          campanha_id, tamanho_solicitado, tamanho_efetivo, ordem,
+          chave_idempotencia, criado_por_usuario_id
+        ) VALUES ($1, 2, 2, 1, 'teste-exclusao-importacao', $2)
+        RETURNING id
+      `,
+      [campanha.rows[0].id, administrador.rows[0].id]
+    );
+    const participacoesCampanha = await banco.query(
+      `
+        INSERT INTO campanha_participacoes (campanha_id, contato_id, lote_original_id)
+        SELECT $1, contato_id, $2
+        FROM UNNEST($3::bigint[]) AS contato_id
+        RETURNING id, contato_id
+      `,
+      [campanha.rows[0].id, loteCampanha.rows[0].id, [contatoImportadoId, contatoPreexistenteId]]
+    );
+    const participacaoImportada = participacoesCampanha.rows.find(function (participacao) {
+      return String(participacao.contato_id) === String(contatoImportadoId);
+    });
+    const tentativaCampanha = await banco.query(
+      `
+        INSERT INTO campanha_tentativas (participacao_id, numero_tentativa)
+        VALUES ($1, 1)
+        RETURNING id
+      `,
+      [participacaoImportada.id]
+    );
+    await banco.query(
+      `
+        INSERT INTO historico_status_mensageria (
+          participacao_id, tentativa_id, status_novo, origem
+        ) VALUES ($1, $2, 'pendente', 'reserva')
+      `,
+      [participacaoImportada.id, tentativaCampanha.rows[0].id]
+    );
 
     const exclusaoOperador = await requisitar(
       baseUrl,
@@ -296,6 +377,7 @@ async function executar() {
       { method: 'DELETE', headers: cabecalhosAdministrador }
     );
     assert.strictEqual(exclusaoAdministrador.status, 200);
+    assert.strictEqual(exclusaoAdministrador.corpo.totalContatosExcluidos, 2);
 
     const importacaoExcluida = await banco.query(
       'SELECT id FROM importacoes WHERE id = $1',
@@ -303,14 +385,38 @@ async function executar() {
     );
     assert.strictEqual(importacaoExcluida.rowCount, 0);
 
-    const contatoPreservado = await banco.query(
+    const contatoCriadoExcluido = await banco.query(
       'SELECT id FROM contatos WHERE telefone_normalizado = $1',
       [PREFIXO + '001']
     );
-    assert.strictEqual(contatoPreservado.rowCount, 1);
+    assert.strictEqual(contatoCriadoExcluido.rowCount, 0);
 
-    console.log('Importações: 30 verificações aprovadas.');
-    console.log('CSV, XLSX, listagem, permissões, exclusão segura e preservação de contatos aprovados.');
+    const contatoComplementadoPreservado = await banco.query(
+      'SELECT id FROM contatos WHERE telefone_normalizado = $1',
+      [PREFIXO + '003']
+    );
+    assert.strictEqual(contatoComplementadoPreservado.rowCount, 1);
+
+    const contatoOutraImportacaoPreservado = await banco.query(
+      'SELECT id FROM contatos WHERE telefone_normalizado = $1',
+      [PREFIXO + '004']
+    );
+    assert.strictEqual(contatoOutraImportacaoPreservado.rowCount, 1);
+
+    const loteAjustado = await banco.query(
+      'SELECT tamanho_efetivo FROM campanha_lotes WHERE id = $1',
+      [loteCampanha.rows[0].id]
+    );
+    assert.strictEqual(loteAjustado.rows[0].tamanho_efetivo, 1);
+    const participacaoPreservada = await banco.query(
+      'SELECT contato_id FROM campanha_participacoes WHERE lote_original_id = $1',
+      [loteCampanha.rows[0].id]
+    );
+    assert.strictEqual(participacaoPreservada.rowCount, 1);
+    assert.strictEqual(String(participacaoPreservada.rows[0].contato_id), String(contatoPreexistenteId));
+
+    console.log('Fluxo de importações aprovado.');
+    console.log('Exclusão administrativa remove apenas os contatos criados pela importação selecionada.');
   } finally {
     if (servidor) {
       await new Promise(function (resolver) { servidor.close(resolver); });

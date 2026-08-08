@@ -22,6 +22,7 @@ async function listar() {
       totalRecebido: importacao.total_recebido,
       criadoEm: importacao.criado_em,
       confirmadoEm: importacao.confirmado_em,
+      totalContatosCriados: Number(importacao.total_contatos_criados || 0),
       origem: {
         id: importacao.origem_id,
         nome: importacao.origem_nome
@@ -39,7 +40,7 @@ async function excluir(importacaoIdRecebido) {
   }
 
   try {
-    await importacaoModel.excluir(importacaoId);
+    return await importacaoModel.excluir(importacaoId);
   } catch (erro) {
     if (erro.codigoAplicacao === 'IMPORTACAO_NAO_ENCONTRADA') {
       throw criarAppError('Importação não encontrada.', 404);

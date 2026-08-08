@@ -160,7 +160,7 @@ As colunas anteriores de compatibilidade em `contatos` foram mantidas apenas qua
 - O resumo de relatórios também devolve `problemasPorBairro`, com total e
   distribuição das categorias para cada bairro.
 - A quantidade máxima de registros carregados por uma exportação é configurada em `RELATORIO_LIMITE_REGISTROS`, evitando consumo de memória sem limite.
-- O backup pelo painel exige perfil `administrador`, impede execuções simultâneas, usa `pg_dump` sem shell, gera SHA-256 e registra sucesso ou falha em `backups_banco`.
+- O backup pelo painel exige perfil `administrador`, inclui todos os dados existentes no momento da geração sem copiar a estrutura do banco, impede execuções simultâneas, usa `pg_dump --format=plain --data-only` sem shell, gera SHA-256 e registra sucesso ou falha em `backups_banco`.
 - Campanhas preservam o snapshot dos filtros e bloqueiam mudança de segmentação
   depois da primeira reserva.
 - `UNIQUE (campanha_id, contato_id)` impede duplicidade na mesma campanha e
@@ -232,7 +232,7 @@ Administrativas com JWT:
 
 A listagem e os relatórios aceitam `eventoId=<id>` ou `eventoId=sem_evento`, além dos filtros documentados no frontend. Os filtros `bairro`, `problema` e `origem` aceitam `nao_informado`; para idade ausente, use `idadeNaoInformada=true`. Na tela de eventos, `Ver participantes` abre a listagem já filtrada; nome completo e telefone formatado podem ser pesquisados junto com o evento.
 
-A listagem de importações retorna apenas metadados do lote, sem os dados dos contatos. A exclusão é restrita ao administrador, não pode ocorrer enquanto o lote está sendo processado e preserva os contatos que já foram importados. As linhas técnicas da importação são removidas em cascata. Nomes exclusivamente numéricos são tratados como ausentes; códigos antigos são preservados em `historico_contatos` antes da normalização.
+A listagem de importações retorna apenas metadados do lote, sem os dados dos contatos. A exclusão é restrita ao administrador e não pode ocorrer enquanto o lote está sendo processado. Ao excluir uma importação, o backend remove transacionalmente os contatos que foram criados por aquele lote e suas dependências; contatos que já existiam e foram apenas complementados ou ignorados são preservados. As linhas técnicas da importação são removidas em cascata. Nomes exclusivamente numéricos são tratados como ausentes; códigos antigos são preservados em `historico_contatos` antes da normalização.
 
 ## Administradores
 
@@ -268,7 +268,7 @@ No painel, um administrador também pode gerar e baixar um backup em `/admin/bac
 
 Na DigitalOcean App Platform, o arquivo `Aptfile` instala o cliente oficial do PostgreSQL 18 durante a compilação. O script `heroku-postbuild` valida a presença do `pg_dump` e interrompe a implantação caso o executável não esteja disponível, evitando publicar o recurso de backup sem sua dependência de sistema.
 
-O backup técnico usa o nome `acorda-rj-backup-completo-postgresql-AAAA-MM-DD_HH-mm-ss.backup`. Ele é restaurável pelo PostgreSQL e não deve ser confundido com as exportações de contatos, baixadas como `acorda-rj-contatos-AAAA-MM-DD_HH-mm-ss.xlsx` ou `.csv`.
+O backup de dados usa o nome `acorda-rj-dados-AAAA-MM-DD_HH-mm-ss.sql`. É um arquivo de texto legível que inclui contatos, usuários, eventos, campanhas, importações, históricos e valores das sequências, sem comandos `CREATE DATABASE`, `CREATE TABLE` ou criação de índices. Deve ser restaurado em um banco vazio que já possua uma estrutura compatível e não deve ser confundido com as exportações de contatos, baixadas como `acorda-rj-contatos-AAAA-MM-DD_HH-mm-ss.xlsx` ou `.csv`.
 
 Para não afetar o formulário durante picos, o painel recusa iniciar backup quando a fila do banco já está acima do limite configurado. Também há limite preventivo de tamanho para o arquivo temporário. Em produção, o mecanismo principal deve ser o backup/PITR do PostgreSQL gerenciado; o backup do painel deve ser executado em horário de menor movimento, baixado e armazenado fora da App Platform.
 
@@ -296,10 +296,10 @@ Resultado de 02/08/2026: 392 verificações aprovadas.
 - campanhas, lotes, limite móvel, filtros, concorrência, duplicidade,
   tentativas, reprocessamento e auditoria: `npm run testar:campanhas`;
 - verificação e assinatura do webhook: `npm run testar:webhook`;
-- backups, permissões, integridade e auditoria: 18.
+- backups, permissões, conteúdo de dados, ausência de estrutura, integridade e auditoria: 22.
 - resiliência, rate limit, concorrência, saúde, pool e configuração: 22.
 
-O teste de schema cria um banco temporário vazio, aplica `database/criar_banco.sql`, valida 29 tabelas, sete migrations registradas e 166 bairros e remove o banco temporário ao final.
+O teste de schema cria um banco temporário vazio, aplica `database/criar_banco.sql`, valida 29 tabelas, oito migrations registradas e 166 bairros e remove o banco temporário ao final.
 
 O teste de carga de importação gera 15.000 contatos temporários, percorre pré-visualização, confirmação e persistência, valida a rejeição de 20.001 linhas, remove todos os dados de teste e ressincroniza as sequências utilizadas. Ele recusa execução quando `NODE_ENV=production`.
 

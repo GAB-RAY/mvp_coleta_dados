@@ -39,7 +39,7 @@ Substitua o endereço de exemplo pelo e-mail oficial criado para o projeto.
 | `/admin/importacoes` | operador/admin | Pré-visualização e confirmação CSV/XLSX. |
 | `/admin/campanhas` | operador/admin | Campanhas, segmentação, prévia, lotes, métricas e capacidade; escrita administrativa protegida. |
 | `/admin/relatorios` | operador/admin | Indicadores e gráficos; CSV e Excel aparecem somente para admin. |
-| `/admin/backups` | admin | Geração, download e histórico auditado de backups do PostgreSQL. |
+| `/admin/backups` | admin | Geração, download e histórico auditado de arquivos SQL legíveis somente com os dados do PostgreSQL. |
 | `/admin/eventos` | operador/admin | Operador consulta eventos e participantes; administrador também cria, edita, ativa e encerra. |
 | `/admin/solicitacoes-exclusao` | admin | Aprovar com exclusão física ou rejeitar pedidos. |
 | `/admin/usuarios` | admin | Definir o próprio nome, criar operadores/administradores e redefinir senhas de operadores. |
@@ -132,11 +132,11 @@ A importação aceita um único arquivo CSV ou XLSX com até 5 MB e 20.000 linha
 O seletor de arquivo usa um botão próprio, mostra o nome escolhido e continua
 compatível com teclado e leitores de tela.
 
-A própria página apresenta o histórico resumido dos lotes, com origem, arquivo, status, quantidade, responsável e data, sem mostrar dados dos contatos. Operadores apenas consultam; administradores podem excluir o registro do lote após confirmação explícita. A exclusão preserva todos os contatos já importados.
+A própria página apresenta o histórico resumido dos lotes, com origem, arquivo, status, quantidade, contatos criados, responsável e data, sem mostrar dados pessoais. Operadores apenas consultam; administradores podem excluir a importação após confirmação explícita. A exclusão remove os contatos criados por aquele lote e preserva contatos que já existiam antes e foram somente complementados ou ignorados.
 
 Ao gerar um backup, o frontend baixa o arquivo retornado pelo backend e exibe o hash SHA-256. O histórico informa responsável, data, estado, tamanho e hash, sem expor credenciais do banco.
 
-Os arquivos possuem nomes distintos: o backup restaurável usa `acorda-rj-backup-completo-postgresql-AAAA-MM-DD_HH-mm-ss.backup`; as planilhas usam `acorda-rj-contatos-AAAA-MM-DD_HH-mm-ss.xlsx` ou `.csv`.
+Os arquivos possuem nomes distintos: o backup dos dados usa `acorda-rj-dados-AAAA-MM-DD_HH-mm-ss.sql`; as planilhas usam `acorda-rj-contatos-AAAA-MM-DD_HH-mm-ss.xlsx` ou `.csv`.
 
 Sessões expiradas removem o token local e redirecionam ao login. O frontend esconde ações sem permissão, mas a autorização definitiva é sempre conferida pelo backend.
 

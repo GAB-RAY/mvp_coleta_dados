@@ -1,11 +1,11 @@
 const banco = require('../../config/banco');
 
-async function iniciar(usuarioId) {
+async function iniciar(usuarioId, formato) {
   const resultado = await banco.query(
-    `INSERT INTO backups_banco (usuario_id)
-     VALUES ($1)
+    `INSERT INTO backups_banco (usuario_id, formato)
+     VALUES ($1, $2)
      RETURNING id`,
-    [usuarioId]
+    [usuarioId, formato]
   );
   return resultado.rows[0].id;
 }

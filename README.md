@@ -37,7 +37,7 @@ Sistema real de coleta e gestão de contatos comunitários. O projeto possui for
 - lista própria de participantes por evento, com busca, status de inscrição e andamento da comunicação;
 - relatórios clicáveis por bairro, categoria e evento, incluindo necessidades por bairro;
 - exportação de contatos em CSV e Excel exclusiva para administradores;
-- backup completo do PostgreSQL pelo painel, exclusivo para administradores e com auditoria SHA-256;
+- backup de todos os dados em SQL legível, sem estrutura, exclusivo para administradores e com auditoria SHA-256;
 - proteção do formulário público com limite por IP/telefone, cache e controle de concorrência;
 - pool PostgreSQL limitado, tempos máximos, recuperação de conexões e desligamento gracioso;
 - endpoints separados de vida e prontidão para monitoramento em produção;
