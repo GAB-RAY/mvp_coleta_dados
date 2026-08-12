@@ -396,6 +396,7 @@ Administrador pode:
 - criar operador;
 - criar administrador;
 - atualizar o próprio nome;
+- alterar a própria senha após confirmar a senha atual;
 - redefinir a senha de operador.
 
 Administrador não pode alterar dados nem senha de outro administrador. Operador não acessa gestão de usuários.

@@ -66,7 +66,7 @@ Sistema real de coleta e gestão de contatos comunitários. O projeto possui for
 
 Não existem rotas para apagar diretamente contatos, revogações ou históricos. Ao aprovar um pedido, o administrador confirma uma exclusão física. O registro do pedido e os registros de consentimento/revogação permanecem sem os dados pessoais do contato.
 
-Administradores podem definir o próprio nome, criar operadores e outros administradores e redefinir senhas de operadores. Contas de outros administradores são protegidas contra alterações.
+Administradores podem definir o próprio nome, alterar a própria senha após confirmar a senha atual, criar operadores e outros administradores e redefinir senhas de operadores. Contas de outros administradores são protegidas contra alterações.
 
 ## Banco de dados
 

@@ -148,6 +148,51 @@ async function redefinirSenha(idRecebido, dadosRecebidos, usuarioResponsavel) {
   return transformarUsuario(usuario);
 }
 
+async function alterarPropriaSenha(dadosRecebidos, usuarioResponsavel) {
+  if (!usuarioResponsavel || usuarioResponsavel.perfil !== 'administrador') {
+    throw criarAppError('Acesso permitido somente para administradores.', 403);
+  }
+
+  if (!dadosRecebidos || typeof dadosRecebidos !== 'object' || Array.isArray(dadosRecebidos)) {
+    throw criarAppError('A senha atual e a nova senha são obrigatórias.', 400);
+  }
+
+  if (typeof dadosRecebidos.senhaAtual !== 'string' || !dadosRecebidos.senhaAtual) {
+    throw criarAppError('A senha atual é obrigatória.', 400);
+  }
+
+  const novaSenha = validarSenha(dadosRecebidos.novaSenha);
+  const usuarioExistente = await usuarioModel.buscarCredenciaisPorId(usuarioResponsavel.id);
+
+  if (!usuarioExistente || !usuarioExistente.ativo) {
+    throw criarAppError('Usuário não encontrado ou inativo.', 404);
+  }
+
+  const senhaAtualCorreta = await bcrypt.compare(
+    dadosRecebidos.senhaAtual,
+    usuarioExistente.senha_hash
+  );
+
+  if (!senhaAtualCorreta) {
+    throw criarAppError('A senha atual está incorreta.', 400);
+  }
+
+  const senhaRepetida = await bcrypt.compare(novaSenha, usuarioExistente.senha_hash);
+
+  if (senhaRepetida) {
+    throw criarAppError('A nova senha deve ser diferente da senha atual.', 400);
+  }
+
+  const senhaHash = await bcrypt.hash(novaSenha, 12);
+  const usuario = await usuarioModel.redefinirSenha(usuarioResponsavel.id, senhaHash);
+
+  if (!usuario) {
+    throw criarAppError('Usuário não encontrado.', 404);
+  }
+
+  return transformarUsuario(usuario);
+}
+
 async function atualizarProprioNome(dadosRecebidos, usuarioResponsavel) {
   if (!usuarioResponsavel || usuarioResponsavel.perfil !== 'administrador') {
     throw criarAppError('Acesso permitido somente para administradores.', 403);
@@ -168,6 +213,7 @@ async function atualizarProprioNome(dadosRecebidos, usuarioResponsavel) {
 }
 
 module.exports = {
+  alterarPropriaSenha,
   atualizarProprioNome,
   criarUsuario,
   listarUsuarios,

@@ -32,7 +32,16 @@ async function redefinirSenhaUsuario(usuarioId, novaSenha) {
   });
 }
 
+async function alterarPropriaSenha(senhaAtual, novaSenha) {
+  return requisitar('/api/admin/usuarios/meu-perfil/senha', {
+    method: 'PATCH',
+    autenticado: true,
+    body: JSON.stringify({ senhaAtual, novaSenha })
+  });
+}
+
 export {
+  alterarPropriaSenha,
   atualizarProprioNome,
   criarUsuario,
   listarUsuarios,

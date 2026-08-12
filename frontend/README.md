@@ -42,7 +42,7 @@ Substitua o endereço de exemplo pelo e-mail oficial criado para o projeto.
 | `/admin/backups` | admin | Geração, download e histórico auditado de arquivos SQL legíveis somente com os dados do PostgreSQL. |
 | `/admin/eventos` | operador/admin | Operador consulta eventos e participantes; administrador também cria, edita, ativa e encerra. |
 | `/admin/solicitacoes-exclusao` | admin | Aprovar com exclusão física ou rejeitar pedidos. |
-| `/admin/usuarios` | admin | Definir o próprio nome, criar operadores/administradores e redefinir senhas de operadores. |
+| `/admin/usuarios` | admin | Definir o próprio nome e senha, criar operadores/administradores e redefinir senhas de operadores. |
 
 ## Formulário público
 
@@ -126,7 +126,7 @@ e legendas com quantidade e percentual para facilitar a leitura em diferentes te
 Ao selecionar `Não informado` em bairro, categoria, origem, idade ou consentimento,
 a listagem mostra somente os contatos que realmente não possuem aquele dado.
 
-Na gestão de usuários, o administrador pode atualizar o próprio nome e criar contas com perfil de operador ou administrador. Outros administradores aparecem protegidos e não podem ter seus dados ou senha alterados; a redefinição administrativa de senha fica disponível somente para operadores.
+Na gestão de usuários, o administrador pode atualizar o próprio nome, alterar a própria senha informando a senha atual e criar contas com perfil de operador ou administrador. Outros administradores aparecem protegidos e não podem ter seus dados ou senha alterados; a redefinição administrativa de senha fica disponível somente para operadores.
 
 Contatos importados somente com telefone mantêm nome, bairro, idade e categoria como `NULL` no banco. Nomes exclusivamente numéricos também são tratados como ausentes, evitando exibir códigos de planilha como nomes de pessoas. Na listagem, nos detalhes e na pré-visualização da importação, esses valores aparecem visualmente como “Não informado”.
 

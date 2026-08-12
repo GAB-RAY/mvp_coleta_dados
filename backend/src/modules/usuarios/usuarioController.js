@@ -59,7 +59,24 @@ async function atualizarProprioNome(requisicao, resposta, proximo) {
   }
 }
 
+async function alterarPropriaSenha(requisicao, resposta, proximo) {
+  try {
+    const usuario = await usuarioService.alterarPropriaSenha(
+      requisicao.body,
+      requisicao.usuario
+    );
+
+    return resposta.status(200).json({
+      mensagem: 'Sua senha foi alterada com sucesso.',
+      usuario
+    });
+  } catch (erro) {
+    return proximo(erro);
+  }
+}
+
 module.exports = {
+  alterarPropriaSenha,
   atualizarProprioNome,
   criar,
   listar,

@@ -94,7 +94,7 @@ Módulos atuais:
 | Módulo | Responsabilidade |
 |---|---|
 | `autenticacao` | Login, bloqueio por tentativas e emissão do JWT. |
-| `usuarios` | Listagem e criação de usuários, nome próprio e senha de operador. |
+| `usuarios` | Listagem e criação de usuários, nome e senha próprios e senha de operador. |
 | `contatos` | Cadastro público/manual, listagem, detalhes, consentimentos e histórico. |
 | `bairros` | Catálogo dos 166 bairros ativos. |
 | `origens` | Origens do cadastro manual e das importações. |
@@ -283,6 +283,7 @@ Todas exigem JWT.
 | `GET` | `/api/admin/usuarios` | admin |
 | `POST` | `/api/admin/usuarios` | admin |
 | `PATCH` | `/api/admin/usuarios/meu-perfil` | admin |
+| `PATCH` | `/api/admin/usuarios/meu-perfil/senha` | admin, exige senha atual |
 | `PATCH` | `/api/admin/usuarios/:id/senha` | admin, alvo operador |
 | `GET/POST` | `/api/admin/campanhas` | leitura operador/admin; criação admin |
 | `PUT` | `/api/admin/campanhas/:id` | admin, antes de reservas |
@@ -327,10 +328,12 @@ Nome e telefone podem ser combinados com `eventoId`. O botão `Ver participantes
 | Gerar backup | Não | Sim |
 | Criar usuários | Não | Sim |
 | Redefinir senha de operador | Não | Sim |
+| Alterar a própria senha | Não | Sim |
 
 Um administrador pode:
 
 - atualizar o próprio nome;
+- alterar a própria senha confirmando a senha atual;
 - criar operador ou administrador;
 - redefinir a senha de um operador.
 

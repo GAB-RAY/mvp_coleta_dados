@@ -287,6 +287,48 @@ async function executar() {
       200
     );
 
+    assert.strictEqual((await requisitar(baseUrl, '/api/admin/usuarios/meu-perfil/senha', {
+      method: 'PATCH',
+      body: JSON.stringify({ senhaAtual: SENHA, novaSenha: NOVA_SENHA_ADMIN })
+    })).status, 401);
+    assert.strictEqual((await requisitar(baseUrl, '/api/admin/usuarios/meu-perfil/senha', {
+      method: 'PATCH',
+      headers: cabecalhosOperador,
+      body: JSON.stringify({ senhaAtual: SENHA, novaSenha: NOVA_SENHA_ADMIN })
+    })).status, 403);
+    assert.strictEqual((await requisitar(baseUrl, '/api/admin/usuarios/meu-perfil/senha', {
+      method: 'PATCH',
+      headers: cabecalhosAdmin,
+      body: JSON.stringify({ senhaAtual: 'SenhaAtualIncorreta!', novaSenha: NOVA_SENHA_ADMIN })
+    })).status, 400);
+    assert.strictEqual((await requisitar(baseUrl, '/api/admin/usuarios/meu-perfil/senha', {
+      method: 'PATCH',
+      headers: cabecalhosAdmin,
+      body: JSON.stringify({ senhaAtual: SENHA, novaSenha: 'curta' })
+    })).status, 400);
+    assert.strictEqual((await requisitar(baseUrl, '/api/admin/usuarios/meu-perfil/senha', {
+      method: 'PATCH',
+      headers: cabecalhosAdmin,
+      body: JSON.stringify({ senhaAtual: SENHA, novaSenha: SENHA })
+    })).status, 400);
+
+    const alteracaoPropriaSenha = await requisitar(
+      baseUrl,
+      '/api/admin/usuarios/meu-perfil/senha',
+      {
+        method: 'PATCH',
+        headers: cabecalhosAdmin,
+        body: JSON.stringify({ senhaAtual: SENHA, novaSenha: NOVA_SENHA_ADMIN })
+      }
+    );
+    assert.strictEqual(alteracaoPropriaSenha.status, 200);
+    assert.strictEqual(
+      Object.prototype.hasOwnProperty.call(alteracaoPropriaSenha.corpo.usuario, 'senhaHash'),
+      false
+    );
+    assert.strictEqual((await login(baseUrl, EMAIL_ADMIN, SENHA)).status, 401);
+    assert.strictEqual((await login(baseUrl, EMAIL_ADMIN, NOVA_SENHA_ADMIN)).status, 200);
+
     let indice;
     for (indice = 0; indice < 5; indice += 1) {
       assert.strictEqual((await login(baseUrl, EMAIL_OPERADOR, 'SenhaIncorreta!')).status, 401);
@@ -338,8 +380,8 @@ async function executar() {
     }
     assert.strictEqual((await login(baseUrl, EMAIL_DESCONHECIDO, 'SenhaIncorreta!')).status, 429);
 
-    console.log('Segurança e usuários: 54 verificações aprovadas.');
-    console.log('Perfis, redefinição de senha, permissões, auditoria e bloqueio aprovados.');
+    console.log('Segurança e usuários aprovados.');
+    console.log('Perfis, senha própria do administrador, redefinição de operador, permissões, auditoria e bloqueio aprovados.');
   } finally {
     if (servidor) {
       await new Promise(function (resolver) {

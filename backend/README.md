@@ -234,6 +234,7 @@ Administrativas com JWT:
 | POST | `/api/admin/backups/banco` | admin |
 | GET/POST | `/api/admin/usuarios` | admin |
 | PATCH | `/api/admin/usuarios/meu-perfil` | admin, somente o próprio nome |
+| PATCH | `/api/admin/usuarios/meu-perfil/senha` | admin, própria senha e confirmação da senha atual |
 | PATCH | `/api/admin/usuarios/:id/senha` | admin, somente senha de operador |
 | GET | `/api/admin/importacoes` | operador/admin |
 | POST | `/api/admin/importacoes/pre-visualizar` | operador/admin |
@@ -254,7 +255,7 @@ Para criar o primeiro administrador em banco sem usuário:
 npm run criar-admin -- "Nome" "email@dominio.com" "SenhaForte123!"
 ```
 
-Depois, somente um administrador autenticado cria operadores ou outros administradores. Cada administrador pode atualizar o próprio nome e redefinir senhas de operadores, mas não pode alterar a conta de outro administrador.
+Depois, somente um administrador autenticado cria operadores ou outros administradores. Cada administrador pode atualizar o próprio nome, alterar a própria senha mediante confirmação da senha atual e redefinir senhas de operadores, mas não pode alterar a conta de outro administrador.
 
 ## Operação do banco
 

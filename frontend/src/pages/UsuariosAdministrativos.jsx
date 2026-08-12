@@ -6,6 +6,7 @@ import CampoSelecao from '../components/CampoSelecao';
 import Carregando from '../components/Carregando';
 import MensagemRetorno from '../components/MensagemRetorno';
 import {
+  alterarPropriaSenha,
   atualizarProprioNome,
   criarUsuario,
   listarUsuarios,
@@ -48,6 +49,12 @@ function UsuariosAdministrativos() {
   const [salvandoNome, setSalvandoNome] = useState(false);
   const [mensagemNome, setMensagemNome] = useState('');
   const [tipoMensagemNome, setTipoMensagemNome] = useState('informacao');
+  const [senhaAtual, setSenhaAtual] = useState('');
+  const [novaSenhaPropria, setNovaSenhaPropria] = useState('');
+  const [confirmacaoSenhaPropria, setConfirmacaoSenhaPropria] = useState('');
+  const [alterandoSenhaPropria, setAlterandoSenhaPropria] = useState(false);
+  const [mensagemSenhaPropria, setMensagemSenhaPropria] = useState('');
+  const [tipoMensagemSenhaPropria, setTipoMensagemSenhaPropria] = useState('informacao');
   const [dados, setDados] = useState(DADOS_INICIAIS);
   const [usuarios, setUsuarios] = useState([]);
   const [carregando, setCarregando] = useState(true);
@@ -169,6 +176,45 @@ function UsuariosAdministrativos() {
     }
   }
 
+  async function enviarAlteracaoSenhaPropria(evento) {
+    evento.preventDefault();
+    setMensagemSenhaPropria('');
+
+    if (novaSenhaPropria.length < 12) {
+      setTipoMensagemSenhaPropria('erro');
+      setMensagemSenhaPropria('A nova senha deve ter pelo menos 12 caracteres.');
+      return;
+    }
+
+    if (novaSenhaPropria !== confirmacaoSenhaPropria) {
+      setTipoMensagemSenhaPropria('erro');
+      setMensagemSenhaPropria('A confirmação da senha não corresponde à nova senha.');
+      return;
+    }
+
+    setAlterandoSenhaPropria(true);
+
+    try {
+      const resposta = await alterarPropriaSenha(senhaAtual, novaSenhaPropria);
+      setSenhaAtual('');
+      setNovaSenhaPropria('');
+      setConfirmacaoSenhaPropria('');
+      setTipoMensagemSenhaPropria('sucesso');
+      setMensagemSenhaPropria(resposta.mensagem);
+    } catch (erro) {
+      if (erro.statusHttp === 401) {
+        removerToken();
+        navegacao('/login', { replace: true });
+        return;
+      }
+
+      setTipoMensagemSenhaPropria('erro');
+      setMensagemSenhaPropria(erro.message);
+    } finally {
+      setAlterandoSenhaPropria(false);
+    }
+  }
+
   function abrirRedefinicaoSenha(usuario) {
     setUsuarioSelecionado(usuario);
     setNovaSenha('');
@@ -266,6 +312,57 @@ function UsuariosAdministrativos() {
               />
               <button className="botao botao-secundario" type="submit" disabled={salvandoNome}>
                 {salvandoNome ? 'Salvando...' : 'Salvar meu nome'}
+              </button>
+            </form>
+
+            <div className="cabecalho-secao cabecalho-alterar-senha-propria">
+              <div>
+                <span className="etiqueta-pagina">Segurança</span>
+                <h2>Alterar minha senha</h2>
+              </div>
+            </div>
+
+            <MensagemRetorno mensagem={mensagemSenhaPropria} tipo={tipoMensagemSenhaPropria} />
+
+            <form className="formulario-filtros" onSubmit={enviarAlteracaoSenhaPropria}>
+              <CampoFormulario
+                id="senhaAtual"
+                rotulo="Senha atual"
+                tipo="password"
+                valor={senhaAtual}
+                aoAlterar={function (evento) { setSenhaAtual(evento.target.value); }}
+                obrigatorio
+                desabilitado={alterandoSenhaPropria}
+                tamanhoMaximo={72}
+                autoComplete="current-password"
+              />
+              <CampoFormulario
+                id="novaSenhaPropria"
+                rotulo="Nova senha"
+                tipo="password"
+                valor={novaSenhaPropria}
+                aoAlterar={function (evento) { setNovaSenhaPropria(evento.target.value); }}
+                obrigatorio
+                desabilitado={alterandoSenhaPropria}
+                tamanhoMinimo={12}
+                tamanhoMaximo={72}
+                autoComplete="new-password"
+                ajuda="Use pelo menos 12 caracteres."
+              />
+              <CampoFormulario
+                id="confirmacaoSenhaPropria"
+                rotulo="Confirmar nova senha"
+                tipo="password"
+                valor={confirmacaoSenhaPropria}
+                aoAlterar={function (evento) { setConfirmacaoSenhaPropria(evento.target.value); }}
+                obrigatorio
+                desabilitado={alterandoSenhaPropria}
+                tamanhoMinimo={12}
+                tamanhoMaximo={72}
+                autoComplete="new-password"
+              />
+              <button className="botao botao-secundario" type="submit" disabled={alterandoSenhaPropria}>
+                {alterandoSenhaPropria ? 'Alterando...' : 'Alterar minha senha'}
               </button>
             </form>
 

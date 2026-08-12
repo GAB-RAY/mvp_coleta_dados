@@ -45,6 +45,20 @@ async function buscarPorId(id) {
   return resultado.rows[0] || null;
 }
 
+async function buscarCredenciaisPorId(id) {
+  const resultado = await banco.query(
+    `
+      SELECT id, nome, email, senha_hash, perfil, ativo
+      FROM usuarios
+      WHERE id = $1
+      LIMIT 1
+    `,
+    [id]
+  );
+
+  return resultado.rows[0] || null;
+}
+
 async function criar(dadosDoUsuario) {
   const consulta = `
     INSERT INTO usuarios (nome, email, senha_hash, perfil)
@@ -82,7 +96,8 @@ async function redefinirSenha(usuarioId, senhaHash) {
       UPDATE usuarios
       SET senha_hash = $2,
           tentativas_login_falhas = 0,
-          bloqueado_ate = NULL
+          bloqueado_ate = NULL,
+          atualizado_em = CURRENT_TIMESTAMP
       WHERE id = $1
       RETURNING ${CAMPOS_PUBLICOS}
     `,
@@ -219,6 +234,7 @@ async function registrarLoginBemSucedido(usuarioId) {
 }
 
 module.exports = {
+  buscarCredenciaisPorId,
   atualizarNome,
   buscarPorEmail,
   buscarPorId,

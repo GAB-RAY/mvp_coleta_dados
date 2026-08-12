@@ -12,6 +12,11 @@ roteador.patch(
   usuarioController.atualizarProprioNome
 );
 roteador.patch(
+  '/meu-perfil/senha',
+  autorizarAdministrador,
+  usuarioController.alterarPropriaSenha
+);
+roteador.patch(
   '/:id/senha',
   autorizarAdministrador,
   usuarioController.redefinirSenha
