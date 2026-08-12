@@ -388,7 +388,7 @@ CREATE TABLE public.importacoes (
   criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   confirmado_em TIMESTAMPTZ,
   CONSTRAINT importacoes_pkey PRIMARY KEY (id),
-  CONSTRAINT importacoes_formato_valido CHECK (formato IN ('csv', 'xlsx')),
+  CONSTRAINT importacoes_formato_valido CHECK (formato IN ('csv', 'xlsx', 'vcf')),
   CONSTRAINT importacoes_status_valido CHECK (
     status IN ('pre_visualizada', 'processando', 'concluida', 'falhou')
   )
@@ -436,11 +436,18 @@ CREATE TABLE public.modelos_mensagem (
   ativo BOOLEAN NOT NULL DEFAULT TRUE,
   criado_por_usuario_id BIGINT NOT NULL,
   atualizado_por_usuario_id BIGINT NOT NULL,
+  meta_nome VARCHAR(512),
+  meta_idioma VARCHAR(35),
+  meta_categoria VARCHAR(50),
+  meta_status VARCHAR(20) NOT NULL DEFAULT 'rascunho',
   criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   atualizado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT modelos_mensagem_nome_valido CHECK (LENGTH(TRIM(nome)) >= 2),
   CONSTRAINT modelos_mensagem_categoria_valida CHECK (LENGTH(TRIM(categoria)) >= 2),
-  CONSTRAINT modelos_mensagem_texto_valido CHECK (LENGTH(TRIM(texto)) >= 2)
+  CONSTRAINT modelos_mensagem_texto_valido CHECK (LENGTH(TRIM(texto)) >= 2),
+  CONSTRAINT modelos_mensagem_meta_status_valido CHECK (
+    meta_status IN ('rascunho', 'em_analise', 'aprovado', 'rejeitado')
+  )
 );
 
 CREATE TABLE public.campanhas (
@@ -777,6 +784,7 @@ CREATE INDEX importacoes_criado_em_indice ON public.importacoes (criado_em DESC)
 CREATE INDEX importacao_linhas_importacao_id_indice ON public.importacao_linhas (importacao_id);
 CREATE INDEX importacao_linhas_contato_id_indice ON public.importacao_linhas (contato_id);
 CREATE INDEX modelos_mensagem_evento_indice ON public.modelos_mensagem (evento_id, ativo);
+CREATE INDEX modelos_mensagem_meta_status_indice ON public.modelos_mensagem (meta_status, ativo);
 CREATE INDEX campanhas_ativo_nome_indice ON public.campanhas (ativo DESC, nome);
 CREATE INDEX comunicacoes_contato_indice ON public.comunicacoes (contato_id, criado_em DESC);
 CREATE INDEX comunicacoes_evento_indice ON public.comunicacoes (evento_id, criado_em DESC);
@@ -1244,6 +1252,8 @@ INSERT INTO public.schema_migrations (
   ('005', '005_padronizar_telefones_contatos.sql', 'e4a97142a38ba42b5de283a9aeb0e72ca0107acc2d3e394cba083b0a72b12977'),
   ('006', '006_criar_campanhas_lotes_mensageria.sql', '1f05f7e554233eadf8efebce26e89476392dc33440e001ce24379a31f1fc40a1'),
   ('007', '007_adicionar_triggers_campanhas.sql', 'aa26f0557f23ec757577e38e6a79c3ad6ed0071143b67fd8d3b4deb35336e2b6'),
-  ('008', '008_permitir_backup_sql_dados.sql', '0adcd0770538a7ce9a90edf3e9d325b9eb7a6d4faf9058c94eb02c6fd07be51d');
+  ('008', '008_permitir_backup_sql_dados.sql', '0adcd0770538a7ce9a90edf3e9d325b9eb7a6d4faf9058c94eb02c6fd07be51d'),
+  ('009', '009_integrar_meta_cloud_api.sql', '8187b63d67bfcd575e3c62c2feb5ee144a585118ba450b961312176e4d520fa5'),
+  ('010', '010_permitir_importacao_vcf.sql', '7f5d4dff3bf9f62d55868e12a436f350b9a2c1d073a7e8c64c48fe01d6657c5c');
 
 COMMIT;

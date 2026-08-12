@@ -98,7 +98,7 @@ Módulos atuais:
 | `contatos` | Cadastro público/manual, listagem, detalhes, consentimentos e histórico. |
 | `bairros` | Catálogo dos 166 bairros ativos. |
 | `origens` | Origens do cadastro manual e das importações. |
-| `importacoes` | Pré-visualização e confirmação de CSV/XLSX. |
+| `importacoes` | Pré-visualização e confirmação de VCF, CSV e XLSX. |
 | `relatorios` | Resumo, gráficos e exportações CSV/Excel. |
 | `eventos` | Criação, edição, ativação, encerramento e auditoria. |
 | `exclusoes` | Solicitação, aprovação ou rejeição de exclusão. |
@@ -158,6 +158,12 @@ BACKUP_BANCO_TAMANHO_MAXIMO_BYTES=2147483648
 RELATORIO_LIMITE_REGISTROS=50000
 WHATSAPP_WEBHOOK_VERIFY_TOKEN=
 META_APP_SECRET=
+WHATSAPP_ACCESS_TOKEN=
+WHATSAPP_PHONE_NUMBER_ID=
+WHATSAPP_BUSINESS_ACCOUNT_ID=
+META_GRAPH_API_VERSION=
+META_REQUISICAO_TIMEOUT_MS=10000
+WHATSAPP_OPTOUT_BUTTON_ID=nao_quero_mais_receber
 ```
 
 `DATABASE_URL` substitui as variáveis `BANCO_*` em ambientes gerenciados. Credenciais e segredos devem existir somente no `.env` local ou no painel seguro da hospedagem.
@@ -288,6 +294,7 @@ Todas exigem JWT.
 | `GET` | `/api/admin/campanhas/configuracao/limite` | operador/admin |
 | `PUT` | `/api/admin/campanhas/configuracao/limite` | admin, com motivo |
 | `POST` | `/api/admin/mensageria/tentativas/:id/reprocessar` | operador/admin |
+| `POST` | `/api/admin/mensageria/tentativas/:id/enviar` | operador/admin |
 
 A listagem de contatos usa paginação padrão de 20, máximo de 100, e aceita:
 
@@ -307,7 +314,7 @@ Nome e telefone podem ser combinados com `eventoId`. O botão `Ver participantes
 | Ação | Operador | Administrador |
 |---|---:|---:|
 | Consultar, cadastrar e atualizar contatos | Sim | Sim |
-| Importar CSV/XLSX | Sim | Sim |
+| Importar VCF/CSV/XLSX | Sim | Sim |
 | Excluir importação e contatos criados por ela | Não | Sim |
 | Revogar mensagens ou ligações | Sim | Sim |
 | Solicitar exclusão | Sim | Sim |
@@ -331,7 +338,10 @@ Um administrador não pode alterar a conta nem a senha de outro administrador.
 
 ### 3.8 Importação
 
-- formatos: CSV e XLSX;
+- formatos: VCF exportado pelo celular, CSV e XLSX;
+- o seletor é único e o backend identifica o formato pelo conteúdo e pela extensão;
+- no VCF, o nome é lido de `FN` ou `N` e cada telefone encontrado gera uma linha de pré-visualização;
+- números brasileiros com ou sem `+55` compartilham a mesma normalização contra duplicidade;
 - tamanho máximo: 5 MB, preservado para evitar pressão excessiva de memória na instância de 512 MiB;
 - máximo: 20.000 linhas;
 - processamento em duas etapas: pré-visualizar e confirmar;
@@ -440,7 +450,9 @@ valor anterior, novo valor, usuário e data ficam no histórico.
 O webhook público fica em `/api/webhooks/whatsapp`. O GET valida o token e devolve
 o challenge. O POST calcula HMAC SHA-256 sobre os bytes exatos do corpo bruto,
 usa comparação segura, limita o corpo, não armazena payload bruto e encaminha
-eventos normalizados à mensageria. Não existe chamada à Graph API nem envio real.
+eventos normalizados à mensageria. O envio de templates aprovados usa a WhatsApp Cloud API oficial,
+com credenciais exclusivas do backend, timeout, idempotência por tentativa e erros sanitizados.
+O opt-out oficial recebido pelo webhook revoga mensagens e mantém o contato globalmente bloqueado.
 
 ### 3.13 Relatórios, exportação e backup
 
@@ -531,7 +543,7 @@ Os componentes, o layout responsivo e os gráficos são implementados no própri
 | `/admin/contatos` | Listagem, filtros e paginação | operador/admin |
 | `/admin/contatos/:id` | Detalhes, histórico e privacidade | operador/admin |
 | `/admin/contatos/novo` | Cadastro/atualização interna | operador/admin |
-| `/admin/importacoes` | CSV/XLSX | operador/admin |
+| `/admin/importacoes` | VCF/CSV/XLSX | operador/admin |
 | `/admin/relatorios` | Indicadores, gráficos e exportação | operador/admin |
 | `/admin/eventos` | Consulta para operador; gestão para administrador | operador/admin |
 | `/admin/campanhas` | Campanhas, templates, público, lotes e métricas | operador/admin |

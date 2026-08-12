@@ -9,7 +9,7 @@ const banco = require('../src/config/banco');
 const configuracaoImportacao = require('../src/config/importacao');
 
 const PREFIXO = '21999985';
-const ORIGENS = ['Importação CSV Teste', 'Importação XLSX Teste'];
+const ORIGENS = ['Importação CSV Teste', 'Importação XLSX Teste', 'Importação iPhone Teste'];
 const EMAIL_TESTE = 'importacoes.teste@invalid.local';
 const EMAIL_ADMIN_TESTE = 'importacoes.admin.teste@invalid.local';
 const CAMPANHA_TESTE = 'Campanha teste exclusão de importação';
@@ -260,6 +260,55 @@ async function executar() {
     );
     assert.strictEqual(confirmacaoXlsx.status, 200);
     assert.strictEqual(confirmacaoXlsx.corpo.relatorio.criados, 1);
+
+    const vcf = [
+      'BEGIN:VCARD',
+      'VERSION:3.0',
+      'FN;CHARSET=UTF-8;ENCODING=QUOTED-PRINTABLE:Jos=C3=A9 da Silva',
+      'item1.TEL;TYPE=CELL:+55 ' + PREFIXO + '006',
+      'item2.TEL;TYPE=VOICE:' + PREFIXO + '006',
+      'END:VCARD',
+      'BEGIN:VCARD',
+      'VERSION:3.0',
+      'N:Souza;Maria;;;',
+      'TEL;TYPE=CELL:tel:' + PREFIXO + '007',
+      'END:VCARD',
+      'BEGIN:VCARD',
+      'VERSION:3.0',
+      'FN:Contato sem telefone',
+      'END:VCARD'
+    ].join('\r\n');
+    const visualizacaoVcf = await requisitar(baseUrl, '/api/admin/importacoes/pre-visualizar', {
+      method: 'POST',
+      headers: cabecalhos,
+      body: criarFormulario(vcf, 'contatos-iphone.vcf', ORIGENS[2], 'text/vcard')
+    });
+    assert.strictEqual(visualizacaoVcf.status, 201);
+    assert.strictEqual(visualizacaoVcf.corpo.importacao.totalRecebido, 4);
+    assert.strictEqual(visualizacaoVcf.corpo.importacao.validos, 2);
+    assert.strictEqual(visualizacaoVcf.corpo.importacao.invalidos, 2);
+    assert.ok(visualizacaoVcf.corpo.importacao.linhas.some(function (linha) {
+      return linha.dados.nome === 'José da Silva' &&
+        linha.dados.telefoneNormalizado === PREFIXO + '006';
+    }));
+    assert.ok(visualizacaoVcf.corpo.importacao.linhas.some(function (linha) {
+      return linha.dados.nome === 'Maria Souza';
+    }));
+    const confirmacaoVcf = await requisitar(
+      baseUrl,
+      '/api/admin/importacoes/' + visualizacaoVcf.corpo.importacao.importacaoId + '/confirmar',
+      { method: 'POST', headers: cabecalhos }
+    );
+    assert.strictEqual(confirmacaoVcf.status, 200);
+    assert.strictEqual(confirmacaoVcf.corpo.relatorio.criados, 2);
+    assert.strictEqual(confirmacaoVcf.corpo.relatorio.duplicados, 1);
+    assert.strictEqual(confirmacaoVcf.corpo.relatorio.invalidos, 1);
+
+    const importacaoVcfPersistida = await banco.query(
+      'SELECT formato FROM importacoes WHERE id = $1',
+      [visualizacaoVcf.corpo.importacao.importacaoId]
+    );
+    assert.strictEqual(importacaoVcfPersistida.rows[0].formato, 'vcf');
 
     const xlsxInvalido = await requisitar(baseUrl, '/api/admin/importacoes/pre-visualizar', {
       method: 'POST',

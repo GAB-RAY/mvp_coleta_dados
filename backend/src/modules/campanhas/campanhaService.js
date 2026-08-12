@@ -43,7 +43,9 @@ function apresentarContatos(contatos) {
       telefoneMascarado: contato.telefone_mascarado,
       bairro: contato.bairro || 'Nao informado',
       problema: contato.problema || 'Nao informado',
-      status: contato.status || undefined
+      status: contato.status || undefined,
+      tentativaId: contato.tentativa_id ? Number(contato.tentativa_id) : undefined,
+      tentativaStatus: contato.tentativa_status || undefined
     };
   });
 }
@@ -191,11 +193,24 @@ async function listarTemplates() { return campanhaModel.listarTemplates(); }
 
 async function salvarTemplate(idRecebido, dados, usuario) {
   const id = idRecebido ? validarId(idRecebido, 'Template') : null;
+  const statusPermitidos = ['rascunho','em_analise','aprovado','rejeitado'];
+  const metaStatus = typeof dados.metaStatus === 'string' ? dados.metaStatus.trim() : 'rascunho';
+  if (!statusPermitidos.includes(metaStatus)) throw criarAppError('Status do template na Meta invalido.', 400);
+  const metaNome = typeof dados.metaNome === 'string' ? dados.metaNome.trim() : '';
+  const metaIdioma = typeof dados.metaIdioma === 'string' ? dados.metaIdioma.trim() : '';
+  const metaCategoria = typeof dados.metaCategoria === 'string' ? dados.metaCategoria.trim() : '';
+  if (metaStatus === 'aprovado' && (!metaNome || !metaIdioma)) {
+    throw criarAppError('Template aprovado exige nome oficial e idioma da Meta.', 400);
+  }
   const preparado = {
     nome: validarTexto(dados.nome, 'Nome', 150),
     categoria: validarTexto(dados.categoria, 'Categoria', 100),
     conteudo: validarTexto(dados.conteudo, 'Conteudo', 10000),
-    ativo: dados.ativo !== false
+    ativo: dados.ativo !== false,
+    metaNome: metaNome ? validarTexto(metaNome, 'Nome oficial da Meta', 512) : null,
+    metaIdioma: metaIdioma ? validarTexto(metaIdioma, 'Idioma da Meta', 35) : null,
+    metaCategoria: metaCategoria ? validarTexto(metaCategoria, 'Categoria da Meta', 50) : null,
+    metaStatus
   };
   const template = await campanhaModel.salvarTemplate(id, preparado, usuario.id);
   if (!template) throw criarAppError('Template nao encontrado.', 404);

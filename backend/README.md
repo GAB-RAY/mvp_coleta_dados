@@ -51,10 +51,16 @@ BACKUP_BANCO_TAMANHO_MAXIMO_BYTES=2147483648
 RELATORIO_LIMITE_REGISTROS=50000
 WHATSAPP_WEBHOOK_VERIFY_TOKEN=
 META_APP_SECRET=
+WHATSAPP_ACCESS_TOKEN=
+WHATSAPP_PHONE_NUMBER_ID=
+WHATSAPP_BUSINESS_ACCOUNT_ID=
+META_GRAPH_API_VERSION=
+META_REQUISICAO_TIMEOUT_MS=10000
+WHATSAPP_OPTOUT_BUTTON_ID=nao_quero_mais_receber
 ```
 
 As duas variáveis do webhook são placeholders para a futura configuração
-oficial. Não há credencial Meta configurada nem chamada à Graph API nesta etapa.
+oficial. As credenciais Meta ficam somente no ambiente do backend e nunca no frontend.
 
 Também é possível usar `DATABASE_URL`. O `.env` não deve ser versionado.
 
@@ -94,8 +100,8 @@ npm run banco:migrar
 
 O runner cria e consulta `schema_migrations`, verifica o checksum de cada arquivo, serializa execuções concorrentes com advisory lock e aplica cada migration em transação própria. Nunca edite uma migration já registrada; crie a próxima versão.
 
-As migrations desta etapa são `006_criar_campanhas_lotes_mensageria.sql` e
-`007_adicionar_triggers_campanhas.sql`.
+As migrations de campanhas/mensageria são `006_criar_campanhas_lotes_mensageria.sql`,
+`007_adicionar_triggers_campanhas.sql` e `009_integrar_meta_cloud_api.sql`. O suporte ao arquivo de contatos do iPhone foi incorporado por `010_permitir_importacao_vcf.sql`.
 
 O `database/criar_banco.sql` continua exclusivo para banco vazio e já registra as migrations incorporadas. Nunca execute o schema completo em banco com estrutura ou dados.
 
@@ -171,7 +177,10 @@ As colunas anteriores de compatibilidade em `contatos` foram mantidas apenas qua
   motivo e histórico com valor anterior e novo.
 - Cada participação possui lote original e tentativas independentes. Reprocessar
   preserva a falha e cria nova tentativa na mesma participação.
-- Esta etapa não chama Graph API e não envia mensagens reais.
+- O envio usa exclusivamente a WhatsApp Cloud API oficial, por template aprovado.
+- O provider possui timeout, erros sanitizados e trava contra envio duplicado da mesma tentativa.
+- O quick reply com identificador `WHATSAPP_OPTOUT_BUTTON_ID` registra revogação global e bloqueia campanhas futuras.
+- O limite continua sendo a configuração interna auditada; não há aumento ou sincronização automática de tier da Meta.
 
 ## Rotas
 
@@ -213,6 +222,7 @@ Administrativas com JWT:
 | GET | `/api/admin/campanhas/configuracao/limite` | operador/admin |
 | PUT | `/api/admin/campanhas/configuracao/limite` | admin; exige motivo |
 | POST | `/api/admin/mensageria/tentativas/:id/reprocessar` | operador/admin |
+| POST | `/api/admin/mensageria/tentativas/:id/enviar` | operador/admin; exige campanha ativa e template Meta aprovado |
 | GET/POST | `/api/webhooks/whatsapp` | público; verificação e eventos assinados |
 | GET | `/api/admin/solicitacoes-exclusao` | admin |
 | POST | `/api/admin/solicitacoes-exclusao/:id/aprovar` | admin |
@@ -233,6 +243,8 @@ Administrativas com JWT:
 A listagem e os relatórios aceitam `eventoId=<id>` ou `eventoId=sem_evento`, além dos filtros documentados no frontend. Os filtros `bairro`, `problema` e `origem` aceitam `nao_informado`; para idade ausente, use `idadeNaoInformada=true`. Na tela de eventos, `Ver participantes` abre a listagem já filtrada; nome completo e telefone formatado podem ser pesquisados junto com o evento.
 
 A listagem de importações retorna apenas metadados do lote, sem os dados dos contatos. A exclusão é restrita ao administrador e não pode ocorrer enquanto o lote está sendo processado. Ao excluir uma importação, o backend remove transacionalmente os contatos que foram criados por aquele lote e suas dependências; contatos que já existiam e foram apenas complementados ou ignorados são preservados. As linhas técnicas da importação são removidas em cascata. Nomes exclusivamente numéricos são tratados como ausentes; códigos antigos são preservados em `historico_contatos` antes da normalização.
+
+O mesmo endpoint de pré-visualização reconhece automaticamente CSV, XLSX e VCF. Arquivos VCF exportados pelo iPhone podem conter vários contatos e mais de um telefone por contato; cada telefone vira uma linha da pré-visualização, o nome é lido de `FN` ou `N`, e contatos sem telefone são sinalizados como inválidos. Números brasileiros com `+55`, espaços, parênteses ou hífens usam a mesma forma normalizada para impedir duplicidades.
 
 ## Administradores
 
@@ -299,11 +311,11 @@ Resultado de 02/08/2026: 392 verificações aprovadas.
 - backups, permissões, conteúdo de dados, ausência de estrutura, integridade e auditoria: 22.
 - resiliência, rate limit, concorrência, saúde, pool e configuração: 22.
 
-O teste de schema cria um banco temporário vazio, aplica `database/criar_banco.sql`, valida 29 tabelas, oito migrations registradas e 166 bairros e remove o banco temporário ao final.
+O teste de schema cria um banco temporário vazio, aplica `database/criar_banco.sql`, valida 29 tabelas, dez migrations registradas e 166 bairros e remove o banco temporário ao final.
 
 O teste de carga de importação gera 15.000 contatos temporários, percorre pré-visualização, confirmação e persistência, valida a rejeição de 20.001 linhas, remove todos os dados de teste e ressincroniza as sequências utilizadas. Ele recusa execução quando `NODE_ENV=production`.
 
-CSV e XLSX aceitam até 5 MB e 20.000 linhas. O limite de arquivo permanece conservador para o plano de 512 MiB, pois arquivos XLSX são descompactados em memória. Pré-visualização e confirmação trabalham em lotes parametrizados de 500. Se um lote apresentar falha inesperada, a confirmação retorna ao processamento isolado das linhas daquele lote, preservando o relatório individual. Um advisory lock do PostgreSQL permite somente uma confirmação de importação por vez; tentativas simultâneas recebem `409`, sem ocupar todo o pool necessário ao formulário público.
+VCF, CSV e XLSX aceitam até 5 MB e 20.000 registros. O limite de arquivo permanece conservador para o plano de 512 MiB, pois arquivos XLSX são descompactados em memória. Pré-visualização e confirmação trabalham em lotes parametrizados de 500. Se um lote apresentar falha inesperada, a confirmação retorna ao processamento isolado das linhas daquele lote, preservando o relatório individual. Um advisory lock do PostgreSQL permite somente uma confirmação de importação por vez; tentativas simultâneas recebem `409`, sem ocupar todo o pool necessário ao formulário público.
 
 O backup mais recente anterior à atualização estrutural está fora do repositório em `C:\Users\gabriellindo\Backups\A_Voz_do_Bairro\criar_banco\2026-07-23_170901\`, com SHA-256 `E2E3B6C244B64D989BD0B1FD5EA261F5E386B4704504BE8A792AD4A51741A9A3`. A restauração validada `criar_banco_backup_20260723_170901` foi mantida para conferência.
 

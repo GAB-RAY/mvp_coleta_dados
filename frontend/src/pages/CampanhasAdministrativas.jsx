@@ -13,6 +13,7 @@ import {
   criarCampanha,
   criarLoteCampanha,
   criarTemplate,
+  enviarTentativa,
   listarCampanhas,
   listarContatosLote,
   listarFalhasCampanha,
@@ -25,16 +26,17 @@ import {
 } from '../services/campanhaService';
 
 const CAMPANHA_INICIAL={nome:'',modeloId:'',bairro:'',problema:'',eventoId:'',autorizacaoMensagens:'',cadastroIncompleto:false};
-const TEMPLATE_INICIAL={nome:'',categoria:'Geral',conteudo:'',ativo:true};
+const TEMPLATE_INICIAL={nome:'',categoria:'Geral',conteudo:'',ativo:true,metaNome:'',metaIdioma:'pt_BR',metaCategoria:'MARKETING',metaStatus:'rascunho'};
 
 function textoStatus(status){return String(status||'').replaceAll('_',' ');}
 function telefoneMascarado(valor){return String(valor||'Nao informado').replaceAll('*','•');}
 
-function ListaContatosCampanha({contatos,vazia}){
+function ListaContatosCampanha({contatos,vazia,aoEnviar,podeEnviar}){
   if(!contatos||contatos.length===0)return <div className="estado-vazio-campanha"><strong>{vazia||'Nenhum contato disponível.'}</strong></div>;
   return <div className="lista-contatos-campanha">{contatos.map(function(contato,indice){return <article className="contato-previa-campanha" key={contato.nome+'-'+contato.telefoneMascarado+'-'+indice}>
     <div><strong>{contato.nome}</strong><span>{telefoneMascarado(contato.telefoneMascarado)}</span></div>
     <dl><div><dt>Bairro</dt><dd>{contato.bairro}</dd></div><div><dt>Problema</dt><dd>{contato.problema}</dd></div>{contato.status&&<div><dt>Status</dt><dd>{textoStatus(contato.status)}</dd></div>}</dl>
+    {aoEnviar&&<button className="botao botao-primario" type="button" disabled={!podeEnviar||contato.tentativaStatus!=='pendente'} onClick={function(){aoEnviar(contato);}}>Enviar pela Meta</button>}
   </article>;})}</div>;
 }
 
@@ -169,7 +171,18 @@ function CampanhasAdministrativas(){
       await carregar();
     }catch(erro){setMensagem(erro.message);}
   }
-  function editarTemplate(item){setTemplateEdicao(item.id);setTemplate({nome:item.nome,categoria:item.categoria,conteudo:item.texto,ativo:item.ativo});}
+  function editarTemplate(item){setTemplateEdicao(item.id);setTemplate({nome:item.nome,categoria:item.categoria,conteudo:item.texto,ativo:item.ativo,metaNome:item.meta_nome||'',metaIdioma:item.meta_idioma||'pt_BR',metaCategoria:item.meta_categoria||'MARKETING',metaStatus:item.meta_status||'rascunho'});}
+
+  async function enviarContato(contato){
+    if(!window.confirm('Enviar esta mensagem pela WhatsApp Cloud API oficial?'))return;
+    try{
+      const resposta=await enviarTentativa(contato.tentativaId);
+      setMensagem(resposta.mensagem);
+      const loteAtual=loteAberto;
+      await abrirCampanha(selecionada,tamanho);
+      await abrirLote(loteAtual);
+    }catch(erro){setMensagem(erro.message);}
+  }
 
   async function abrirCampanha(item,quantidade){
     const quantidadePrevia=Number(quantidade||tamanho||250);
@@ -268,7 +281,7 @@ function CampanhasAdministrativas(){
     <section className="cartao campanhas-listagem">
       <div className="cabecalho-resultados"><div><span className="etiqueta-pagina">1. Escolha</span><h2>Campanhas</h2><p>Abra uma campanha para acompanhar seu público e seus lotes.</p></div>{administrador&&<button className="botao botao-primario" type="button" onClick={function(){setMostrarCriacao(!mostrarCriacao);setSelecionada(null);}}>{mostrarCriacao?'Fechar criação':'Nova campanha'}</button>}</div>
       {carregando?<Carregando mensagem="Carregando campanhas..."/>:campanhas.length===0?<div className="estado-vazio-campanha"><strong>Nenhuma campanha cadastrada.</strong><span>Crie a primeira campanha para começar.</span></div>:<div className="grade-campanhas">{campanhas.map(function(item){return <article className={'cartao-campanha-resumo '+(selecionada&&selecionada.id===item.id?'ativo':'')} key={item.id}>
-        <div><span className={'status-campanha status-'+item.status}>{textoStatus(item.status)}</span><h3>{item.nome}</h3><p>{item.modelo_nome||'Template não informado'}</p></div>
+        <div><span className={'status-campanha status-'+item.status}>{textoStatus(item.status)}</span><h3>{item.nome}</h3><p>{item.modelo_nome||'Template não informado'} · Meta: {textoStatus(item.modelo_meta_status||'rascunho')}</p></div>
         <div className="rodape-cartao-campanha"><span>{item.quantidade_lotes||0} lote(s)</span><button className="botao botao-secundario" type="button" onClick={function(){abrirCampanha(item,250);}}>Abrir campanha</button></div>
       </article>;})}</div>}
     </section>
@@ -292,7 +305,7 @@ function CampanhasAdministrativas(){
     </section>}
 
     {selecionada&&<section className="cartao campanha-detalhes">
-      <div className="cabecalho-campanha-aberta"><div><span className="etiqueta-pagina">Campanha aberta</span><h2>{selecionada.nome}</h2><div className="linha-informacoes-campanha"><span className={'status-campanha status-'+selecionada.status}>{textoStatus(selecionada.status)}</span><span>Template: {selecionada.modelo_nome||'Não informado'}</span></div></div><button className="botao botao-secundario" type="button" onClick={function(){setSelecionada(null);setPublico(null);}}>Fechar</button></div>
+      <div className="cabecalho-campanha-aberta"><div><span className="etiqueta-pagina">Campanha aberta</span><h2>{selecionada.nome}</h2><div className="linha-informacoes-campanha"><span className={'status-campanha status-'+selecionada.status}>{textoStatus(selecionada.status)}</span><span>Template: {selecionada.modelo_nome||'Não informado'}</span><span>Meta: {textoStatus(selecionada.modelo_meta_status||'rascunho')}</span></div>{selecionada.modelo_meta_status!=='aprovado'&&<p>O envio fica bloqueado até o template estar aprovado na Meta.</p>}</div><button className="botao botao-secundario" type="button" onClick={function(){setSelecionada(null);setPublico(null);}}>Fechar</button></div>
 
       <div className="metricas-campanha"><article><span>Aptos</span><strong>{publico?publico.publicoApto:0}</strong></article><article><span>Reservados</span><strong>{selecionada.reservado||0}</strong></article><article><span>Enviados</span><strong>{selecionada.enviado||0}</strong></article><article><span>Entregues</span><strong>{selecionada.entregue||0}</strong></article><article><span>Lidos</span><strong>{selecionada.lido||0}</strong></article><article><span>Falhas</span><strong>{selecionada.falhou||0}</strong></article><article><span>Restantes</span><strong>{restantes}</strong></article></div>
 
@@ -309,9 +322,9 @@ function CampanhasAdministrativas(){
       {falhas.length>0&&<details className="secao-secundaria-campanha"><summary>Falhas que podem ser reprocessadas ({falhas.length})</summary><div className="lista-falhas-campanha">{falhas.map(function(item){return <article key={item.id}><div><strong>{item.contato_nome||'Não informado'}</strong><span>Lote {item.lote_ordem} · Tentativa {item.numero_tentativa}</span><small>{item.codigo_erro_externo||'Sem código'} — {item.titulo_erro||'Falha'}</small></div><button className="botao botao-secundario" type="button" onClick={function(){reprocessar(item);}}>Reprocessar</button></article>;})}</div></details>}
     </section>}
 
-    {administrador&&<details className="cartao secao-secundaria-campanha gerenciar-templates-campanha"><summary>Gerenciar templates de mensagem</summary><div className="conteudo-templates-campanha"><form onSubmit={salvarTemplate}><fieldset className="grade-criacao-campanha"><label>Nome<input className="campo-input" value={template.nome} onChange={function(evento){setTemplate(Object.assign({},template,{nome:evento.target.value}));}} required/></label><label>Categoria<input className="campo-input" value={template.categoria} onChange={function(evento){setTemplate(Object.assign({},template,{categoria:evento.target.value}));}} required/></label><label className="campo-template-conteudo">Conteúdo<textarea className="campo-input" value={template.conteudo} onChange={function(evento){setTemplate(Object.assign({},template,{conteudo:evento.target.value}));}} required/></label><label className="opcao-cadastro-incompleto"><input type="checkbox" checked={template.ativo} onChange={function(evento){setTemplate(Object.assign({},template,{ativo:evento.target.checked}));}}/> Template ativo</label></fieldset><div className="acoes-fluxo-campanha"><button className="botao botao-primario" type="submit">{templateEdicao?'Salvar alterações':'Criar template'}</button>{templateEdicao&&<button className="botao botao-secundario" type="button" onClick={function(){setTemplateEdicao(null);setTemplate(TEMPLATE_INICIAL);}}>Cancelar edição</button>}</div></form><div className="lista-templates-campanha">{templates.map(function(item){return <article key={item.id}><div><strong>{item.nome}</strong><span>{item.categoria} · {item.ativo?'Ativo':'Inativo'}</span></div><button className="botao botao-secundario" type="button" onClick={function(){editarTemplate(item);}}>Editar</button></article>;})}</div></div></details>}
+    {administrador&&<details className="cartao secao-secundaria-campanha gerenciar-templates-campanha"><summary>Gerenciar templates de mensagem</summary><div className="conteudo-templates-campanha"><form onSubmit={salvarTemplate}><fieldset className="grade-criacao-campanha"><label>Nome interno<input className="campo-input" value={template.nome} onChange={function(evento){setTemplate(Object.assign({},template,{nome:evento.target.value}));}} required/></label><label>Categoria interna<input className="campo-input" value={template.categoria} onChange={function(evento){setTemplate(Object.assign({},template,{categoria:evento.target.value}));}} required/></label><label>Nome oficial na Meta<input className="campo-input" value={template.metaNome} onChange={function(evento){setTemplate(Object.assign({},template,{metaNome:evento.target.value}));}}/></label><label>Idioma<select className="campo-input" value={template.metaIdioma} onChange={function(evento){setTemplate(Object.assign({},template,{metaIdioma:evento.target.value}));}}><option value="pt_BR">pt_BR</option><option value="en_US">en_US</option></select></label><label>Categoria Meta<select className="campo-input" value={template.metaCategoria} onChange={function(evento){setTemplate(Object.assign({},template,{metaCategoria:evento.target.value}));}}><option value="MARKETING">Marketing</option><option value="UTILITY">Utilidade</option><option value="AUTHENTICATION">Autenticação</option></select></label><label>Status na Meta<select className="campo-input" value={template.metaStatus} onChange={function(evento){setTemplate(Object.assign({},template,{metaStatus:evento.target.value}));}}><option value="rascunho">Rascunho</option><option value="em_analise">Em análise</option><option value="aprovado">Aprovado</option><option value="rejeitado">Rejeitado</option></select></label><label className="campo-template-conteudo">Conteúdo<textarea className="campo-input" value={template.conteudo} onChange={function(evento){setTemplate(Object.assign({},template,{conteudo:evento.target.value}));}} required/></label><label className="opcao-cadastro-incompleto"><input type="checkbox" checked={template.ativo} onChange={function(evento){setTemplate(Object.assign({},template,{ativo:evento.target.checked}));}}/> Template ativo</label></fieldset><div className="acoes-fluxo-campanha"><button className="botao botao-primario" type="submit">{templateEdicao?'Salvar alterações':'Criar template'}</button>{templateEdicao&&<button className="botao botao-secundario" type="button" onClick={function(){setTemplateEdicao(null);setTemplate(TEMPLATE_INICIAL);}}>Cancelar edição</button>}</div></form><div className="lista-templates-campanha">{templates.map(function(item){return <article key={item.id}><div><strong>{item.nome}</strong><span>{item.categoria} · Meta: {textoStatus(item.meta_status||'rascunho')} · {item.ativo?'Ativo':'Inativo'}</span></div><button className="botao botao-secundario" type="button" onClick={function(){editarTemplate(item);}}>Editar</button></article>;})}</div></div></details>}
 
-    {loteAberto&&<div className="sobreposicao-campanha" role="presentation" onMouseDown={function(evento){if(evento.target===evento.currentTarget)setLoteAberto(null);}}><section className="painel-contatos-lote" role="dialog" aria-modal="true" aria-labelledby="titulo-contatos-lote"><div className="cabecalho-campanha-aberta"><div><span className="etiqueta-pagina">Lote {loteAberto.ordem}</span><h2 id="titulo-contatos-lote">{loteAberto.tamanho_efetivo} contatos reservados</h2><p>Telefones aparecem mascarados para proteger os dados.</p></div><button className="botao botao-secundario" type="button" onClick={function(){setLoteAberto(null);}}>Fechar</button></div>{carregandoLote?<Carregando mensagem="Carregando contatos do lote..."/>:<ListaContatosCampanha contatos={contatosLote}/>}</section></div>}
+    {loteAberto&&<div className="sobreposicao-campanha" role="presentation" onMouseDown={function(evento){if(evento.target===evento.currentTarget)setLoteAberto(null);}}><section className="painel-contatos-lote" role="dialog" aria-modal="true" aria-labelledby="titulo-contatos-lote"><div className="cabecalho-campanha-aberta"><div><span className="etiqueta-pagina">Lote {loteAberto.ordem}</span><h2 id="titulo-contatos-lote">{loteAberto.tamanho_efetivo} contatos reservados</h2><p>Telefones aparecem mascarados para proteger os dados.</p></div><button className="botao botao-secundario" type="button" onClick={function(){setLoteAberto(null);}}>Fechar</button></div>{carregandoLote?<Carregando mensagem="Carregando contatos do lote..."/>:<ListaContatosCampanha contatos={contatosLote} aoEnviar={enviarContato} podeEnviar={selecionada.status==='ativa'&&selecionada.modelo_meta_status==='aprovado'}/>}</section></div>}
   </div></main>;
 }
 

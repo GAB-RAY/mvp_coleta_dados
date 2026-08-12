@@ -1,5 +1,14 @@
 const service = require('./mensageriaService');
 
+async function enviar(req, res, next) {
+  try {
+    return res.status(200).json({
+      mensagem: 'Mensagem aceita pela Meta com sucesso.',
+      tentativa: await service.enviar(req.params.id)
+    });
+  } catch (erro) { return next(erro); }
+}
+
 async function reprocessar(req, res, next) {
   try {
     return res.status(201).json({
@@ -11,4 +20,4 @@ async function reprocessar(req, res, next) {
   }
 }
 
-module.exports = { reprocessar };
+module.exports = { enviar, reprocessar };

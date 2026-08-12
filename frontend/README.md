@@ -36,7 +36,7 @@ Substitua o endereço de exemplo pelo e-mail oficial criado para o projeto.
 | `/admin/contatos` | operador/admin | Busca, filtros, evento e paginação. |
 | `/admin/contatos/:id` | operador/admin | Dados, eventos, histórico, revogações e pedido de exclusão. |
 | `/admin/contatos/novo` | operador/admin | Cadastro e edição manual. |
-| `/admin/importacoes` | operador/admin | Pré-visualização e confirmação CSV/XLSX. |
+| `/admin/importacoes` | operador/admin | Pré-visualização e confirmação de arquivo de contatos do celular, CSV ou XLSX. |
 | `/admin/campanhas` | operador/admin | Campanhas, segmentação, prévia, lotes, métricas e capacidade; escrita administrativa protegida. |
 | `/admin/relatorios` | operador/admin | Indicadores e gráficos; CSV e Excel aparecem somente para admin. |
 | `/admin/backups` | admin | Geração, download e histórico auditado de arquivos SQL legíveis somente com os dados do PostgreSQL. |
@@ -107,7 +107,9 @@ Campanhas seguem `rascunho`, `pronta`, `ativa`, `pausada`, `concluida` ou
 `cancelada`. Uma campanha pronta ou ativa pode receber lotes. Se houver menos
 contatos aptos que o tamanho solicitado, a interface informa o tamanho efetivo.
 O mesmo contato pode participar de campanhas diferentes, mas nunca duas vezes da
-mesma campanha. Esta etapa não envia mensagens nem abre WhatsApp.
+mesma campanha. A tela mostra o estado oficial do template na Meta e habilita o
+envio apenas para campanha ativa, tentativa pendente e template aprovado. A
+validação definitiva ocorre no backend e nenhuma credencial Meta entra no bundle.
 
 ## Painel e permissões
 
@@ -128,7 +130,7 @@ Na gestão de usuários, o administrador pode atualizar o próprio nome e criar 
 
 Contatos importados somente com telefone mantêm nome, bairro, idade e categoria como `NULL` no banco. Nomes exclusivamente numéricos também são tratados como ausentes, evitando exibir códigos de planilha como nomes de pessoas. Na listagem, nos detalhes e na pré-visualização da importação, esses valores aparecem visualmente como “Não informado”.
 
-A importação aceita um único arquivo CSV ou XLSX com até 5 MB e 20.000 linhas. A origem é escolhida em um dropdown com as fontes de importação existentes, com opção para cadastrar uma nova. Durante a confirmação, o botão permanece bloqueado e informa que a importação está em andamento.
+A importação aceita um único arquivo de contatos do celular (VCF), CSV ou XLSX com até 5 MB e 20.000 registros. O usuário utiliza um seletor único e o sistema identifica o formato automaticamente. No arquivo do iPhone, nome e telefone são extraídos sem exigir conversão manual; outros dados permanecem como “Não informado”. A origem é escolhida em um dropdown com as fontes de importação existentes, com opção para cadastrar uma nova. Durante a confirmação, o botão permanece bloqueado e informa que a importação está em andamento.
 O seletor de arquivo usa um botão próprio, mostra o nome escolhido e continua
 compatível com teclado e leitores de tela.
 

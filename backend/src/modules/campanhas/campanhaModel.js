@@ -5,7 +5,9 @@ const CAMPOS_CAMPANHA = `
   campanha.id, campanha.nome, campanha.finalidade, campanha.modelo_id,
   campanha.filtros_snapshot, campanha.status, campanha.responsavel_usuario_id,
   campanha.criado_por_usuario_id, campanha.criado_em, campanha.atualizado_em,
-  modelo.nome AS modelo_nome, responsavel.nome AS responsavel_nome
+  modelo.nome AS modelo_nome, modelo.meta_status AS modelo_meta_status,
+  modelo.meta_nome AS modelo_meta_nome, modelo.meta_idioma AS modelo_meta_idioma,
+  responsavel.nome AS responsavel_nome
 `;
 
 function montarConsultaPublico(filtros, somenteAptos) {
@@ -243,10 +245,18 @@ async function listarContatosLote(campanhaId, loteId) {
       ${expressaoTelefoneMascarado()} AS telefone_mascarado,
       contato.bairro,
       contato.problema,
-      participacao.status
+      participacao.status,
+      tentativa_atual.id AS tentativa_id,
+      tentativa_atual.status AS tentativa_status
     FROM campanha_participacoes AS participacao
     INNER JOIN campanha_lotes AS lote ON lote.id = participacao.lote_original_id
     INNER JOIN contatos AS contato ON contato.id = participacao.contato_id
+    LEFT JOIN LATERAL (
+      SELECT tentativa.id, tentativa.status
+      FROM campanha_tentativas tentativa
+      WHERE tentativa.participacao_id=participacao.id
+      ORDER BY tentativa.numero_tentativa DESC LIMIT 1
+    ) tentativa_atual ON TRUE
     WHERE participacao.campanha_id = $1
       AND lote.id = $2
       AND lote.campanha_id = $1
@@ -287,6 +297,7 @@ async function criarLoteAtomico(campanhaId, tamanhoSolicitado, chave, usuarioId,
   const cliente = await banco.connect();
   try {
     await cliente.query('BEGIN');
+    await cliente.query('SELECT pg_advisory_xact_lock(41027, 0)');
     await cliente.query('SELECT pg_advisory_xact_lock(41027, $1)', [campanhaId]);
 
     const existente = await buscarLotePorChave(cliente, campanhaId, chave);
@@ -436,25 +447,31 @@ async function atualizarLimite(novoValor, motivo, usuarioId) {
 
 async function listarTemplates() {
   const resultado = await banco.query(`
-    SELECT id, nome, categoria, texto, ativo, criado_em, atualizado_em
+    SELECT id, nome, categoria, texto, ativo, meta_nome, meta_idioma,
+      meta_categoria, meta_status, criado_em, atualizado_em
     FROM modelos_mensagem ORDER BY ativo DESC, nome
   `);
   return resultado.rows;
 }
 
 async function salvarTemplate(id, dados, usuarioId) {
-  const valores = [dados.nome, dados.categoria, dados.conteudo, dados.ativo, usuarioId];
+  const valores = [dados.nome, dados.categoria, dados.conteudo, dados.ativo,
+    dados.metaNome, dados.metaIdioma, dados.metaCategoria, dados.metaStatus, usuarioId];
   if (id) {
     const resultado = await banco.query(`
       UPDATE modelos_mensagem SET nome=$1, categoria=$2, texto=$3, ativo=$4,
-        atualizado_por_usuario_id=$5, atualizado_em=CURRENT_TIMESTAMP
-      WHERE id=$6 RETURNING id, nome, categoria, texto, ativo
+        meta_nome=$5, meta_idioma=$6, meta_categoria=$7, meta_status=$8,
+        atualizado_por_usuario_id=$9, atualizado_em=CURRENT_TIMESTAMP
+      WHERE id=$10 RETURNING id, nome, categoria, texto, ativo,
+        meta_nome,meta_idioma,meta_categoria,meta_status
     `, valores.concat(id));
     return resultado.rows[0] || null;
   }
   const resultado = await banco.query(`
-    INSERT INTO modelos_mensagem (nome,categoria,texto,ativo,criado_por_usuario_id,atualizado_por_usuario_id)
-    VALUES ($1,$2,$3,$4,$5,$5) RETURNING id,nome,categoria,texto,ativo
+    INSERT INTO modelos_mensagem (nome,categoria,texto,ativo,meta_nome,meta_idioma,
+      meta_categoria,meta_status,criado_por_usuario_id,atualizado_por_usuario_id)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9)
+    RETURNING id,nome,categoria,texto,ativo,meta_nome,meta_idioma,meta_categoria,meta_status
   `, valores);
   return resultado.rows[0];
 }

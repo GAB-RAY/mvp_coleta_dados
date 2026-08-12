@@ -9,6 +9,7 @@ const normalizarNomePessoa = require('../../utils/normalizarNomePessoa');
 const categoriasProblema = require('../../config/categoriasProblema');
 const configuracaoImportacao = require('../../config/importacao');
 const bairroService = require('../bairros/bairroService');
+const leitorVcf = require('./leitorVcf');
 
 async function listar() {
   const importacoes = await importacaoModel.listar();
@@ -163,6 +164,40 @@ async function analisarXlsx(buffer) {
   return linhas;
 }
 
+function detectarFormato(arquivo) {
+  const extensao = path.extname(arquivo.originalname || '').toLowerCase();
+  const inicioTexto = arquivo.buffer.subarray(0, 4096).toString('utf8').replace(/^\uFEFF/, '');
+  const assinaturaZip = arquivo.buffer.length >= 4 &&
+    arquivo.buffer[0] === 0x50 && arquivo.buffer[1] === 0x4B &&
+    arquivo.buffer[2] === 0x03 && arquivo.buffer[3] === 0x04;
+
+  if (assinaturaZip || extensao === '.xlsx') {
+    return 'xlsx';
+  }
+
+  if (/BEGIN:VCARD/i.test(inicioTexto) || extensao === '.vcf') {
+    return 'vcf';
+  }
+
+  if (extensao === '.csv') {
+    return 'csv';
+  }
+
+  const primeiraLinha = inicioTexto.split(/\r?\n/, 1)[0] || '';
+  const cabecalhos = primeiraLinha.split(/[;,]/).map(normalizarCabecalho);
+
+  if (cabecalhos.some(function (cabecalho) {
+    return ['telefone', 'celular', 'whatsapp'].includes(cabecalho);
+  })) {
+    return 'csv';
+  }
+
+  throw criarAppError(
+    'Não foi possível identificar este arquivo. Selecione o arquivo de contatos do celular ou uma planilha válida.',
+    400
+  );
+}
+
 function converterLinhasParaObjetos(linhas) {
   if (linhas.length < 2) {
     return [];
@@ -275,25 +310,26 @@ function validarLinha(linha, telefonesDoArquivo, bairrosAtivos) {
 
 async function preVisualizar(arquivo, nomeOrigem, usuario) {
   if (!arquivo) {
-    throw criarAppError('Selecione um arquivo CSV ou XLSX.', 400);
+    throw criarAppError('Selecione um arquivo de contatos ou uma planilha.', 400);
   }
 
   if (typeof nomeOrigem !== 'string' || nomeOrigem.trim().length < 2) {
     throw criarAppError('Informe a origem da lista.', 400);
   }
 
-  const formato = path.extname(arquivo.originalname).toLowerCase().replace('.', '');
+  const formato = detectarFormato(arquivo);
   let matrizes;
+  let objetos;
 
   if (formato === 'csv') {
     matrizes = analisarCsv(arquivo.buffer.toString('utf8').replace(/^\uFEFF/, ''));
+    objetos = converterLinhasParaObjetos(matrizes);
   } else if (formato === 'xlsx') {
     matrizes = await analisarXlsx(arquivo.buffer);
-  } else {
-    throw criarAppError('Formato não suportado. Use CSV ou XLSX.', 400);
+    objetos = converterLinhasParaObjetos(matrizes);
+  } else if (formato === 'vcf') {
+    objetos = leitorVcf.analisarVcf(arquivo.buffer);
   }
-
-  const objetos = converterLinhasParaObjetos(matrizes);
 
   if (objetos.length === 0) {
     throw criarAppError('O arquivo não possui linhas de dados.', 400);

@@ -1,9 +1,10 @@
-# Relatório da implementação — Campanhas, Lotes e Mensageria
+# Relatório da implementação — Campanhas, Lotes e Mensageria — 12-08-2026
 
 Este documento registra exclusivamente a implementação dos módulos de campanhas,
 lotes e mensageria do **ACORDA RJ**.
 
-Data da validação: **8 de agosto de 2026**.
+Implementação original validada em: **8 de agosto de 2026**.
+Integração com a WhatsApp Cloud API atualizada e validada localmente em: **12 de agosto de 2026**.
 
 ## 1. Resultado da implementação
 
@@ -21,8 +22,9 @@ O sistema passou a possuir um fluxo próprio para:
 10. registrar falhas e reprocessá-las sem apagar a tentativa anterior;
 11. receber futuramente eventos oficiais por webhook autenticado.
 
-Esta etapa **não envia mensagens reais**, não chama a Graph API, não instala SDK
-da Meta e não configura credenciais reais.
+A arquitetura agora suporta envio real pela Graph API oficial exclusivamente quando as
+credenciais de produção estiverem configuradas. Os testes usam provider simulado e não
+realizam qualquer envio externo.
 
 ## 2. Banco de dados
 
@@ -30,6 +32,7 @@ da Meta e não configura credenciais reais.
 
 - `backend/database/migrations/006_criar_campanhas_lotes_mensageria.sql`
 - `backend/database/migrations/007_adicionar_triggers_campanhas.sql`
+- `backend/database/migrations/009_integrar_meta_cloud_api.sql`
 
 A migration `006` cria a estrutura principal. A migration `007` adiciona os
 triggers de atualização de data em uma migration incremental, preservando o
@@ -308,6 +311,7 @@ parser JSON global, sem alterar as demais rotas.
 | GET | `/api/admin/campanhas/configuracao/limite` | operador e administrador |
 | PUT | `/api/admin/campanhas/configuracao/limite` | administrador, exige motivo |
 | POST | `/api/admin/mensageria/tentativas/:id/reprocessar` | usuário autenticado |
+| POST | `/api/admin/mensageria/tentativas/:id/enviar` | usuário autenticado; envio oficial controlado |
 
 ### 3.9 Remoção do fluxo manual antigo
 
@@ -561,8 +565,8 @@ Os valores reais não foram configurados nem versionados.
 Permanecem para uma etapa futura:
 
 - configurar credenciais reais da Meta;
-- integrar com a WhatsApp Cloud API;
-- implementar o envio real;
+- configurar e validar credenciais reais da WhatsApp Cloud API;
+- executar o primeiro envio acompanhado em produção;
 - mover processamento pesado para fila ou worker se o volume futuro exigir;
 - configurar e validar o webhook em ambiente de produção.
 
@@ -574,4 +578,3 @@ Não foram realizados nesta implementação:
 - configuração da Meta;
 - instalação de Redis, BullMQ, RabbitMQ ou SDK externo de mensageria;
 - commit ou push automático.
-

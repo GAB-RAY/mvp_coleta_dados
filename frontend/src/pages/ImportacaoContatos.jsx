@@ -169,7 +169,7 @@ function ImportacaoContatos() {
         <section className="cartao painel-filtros">
           <div className="cabecalho-secao">
             <div><span className="etiqueta-pagina">Operação interna</span><h2>Importar contatos</h2></div>
-            <p>CSV ou XLSX, até 5 MB e 20.000 linhas.</p>
+            <p>Arquivo de contatos ou planilha, até 5 MB e 20.000 registros.</p>
           </div>
           <MensagemRetorno mensagem={mensagem} tipo={tipoMensagem} />
           <form className="formulario-importacao" onSubmit={visualizar}>
@@ -202,10 +202,10 @@ function ImportacaoContatos() {
             )}
             <div className="grupo-campo grupo-arquivo-importacao">
               <span>Arquivo *</span>
-              <input id="arquivo-importacao" className="input-arquivo-oculto" type="file" accept=".csv,.xlsx" onChange={function (evento) { setArquivo(evento.target.files[0] || null); }} />
+              <input id="arquivo-importacao" className="input-arquivo-oculto" type="file" accept=".vcf,.csv,.xlsx,text/vcard,text/x-vcard,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={function (evento) { setArquivo(evento.target.files[0] || null); }} />
               <label className="seletor-arquivo" htmlFor="arquivo-importacao">
                 <span className="icone-seletor-arquivo" aria-hidden="true">↑</span>
-                <span><strong>{arquivo ? arquivo.name : 'Escolher arquivo'}</strong><small>CSV ou XLSX, até 5 MB</small></span>
+                <span><strong>{arquivo ? arquivo.name : 'Escolher arquivo'}</strong><small>O sistema identifica automaticamente arquivos do celular e planilhas.</small></span>
               </label>
             </div>
             <button className="botao botao-primario" disabled={processando} type="submit">

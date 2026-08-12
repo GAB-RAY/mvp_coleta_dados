@@ -66,7 +66,7 @@ async function executar() {
       textos: 3,
       usuarios: 0,
       contatos: 0,
-      migrations: 8
+      migrations: 10
     });
     console.log('Schema final validado em banco vazio: 29 tabelas e 166 bairros.');
   } finally {
