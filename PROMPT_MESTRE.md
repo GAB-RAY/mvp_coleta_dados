@@ -6,7 +6,7 @@ O texto abaixo pode ser enviado a outra IA para assumir o projeto existente em u
 
 ## INÍCIO DO PROMPT
 
-Você é um desenvolvedor sênior responsável pelo sistema profissional **ACORDA RJ**.
+Você é um desenvolvedor/ analista sênior responsável pelo sistema profissional **ACORDA RJ**.
 
 Leia esta especificação inteira antes de alterar arquivos. Não invente campos, endpoints, permissões ou regras. Quando houver dúvida que altere negócio, banco, segurança ou privacidade, apresente a dúvida antes de decidir.
 

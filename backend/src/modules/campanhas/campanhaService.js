@@ -152,6 +152,8 @@ async function criarLote(campanhaIdRecebido, dados, usuario) {
     if (erro.codigo === 'CAPACIDADE_INSUFICIENTE') {
       const appError = criarAppError('Capacidade insuficiente. Disponivel nas ultimas 24 horas: ' + erro.capacidade + '.', 409);
       appError.capacidade = erro.capacidade;
+      appError.limite = erro.limite;
+      appError.utilizado = erro.utilizado;
       throw appError;
     }
     if (erro.codigo === 'CAMPANHA_INDISPONIVEL' || erro.codigo === 'SEM_CONTATOS') throw criarAppError(erro.message, 409);

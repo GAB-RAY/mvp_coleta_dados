@@ -52,10 +52,17 @@ async function executar() {
     confirmar(previaLote.quantidadeEfetiva===250&&previaLote.contatos.length===250,'Previa do lote deve apresentar os proximos 250 contatos.');
     confirmar(!JSON.stringify(previaLote.contatos).includes(telefones[0]),'Previa nao pode expor o telefone completo.');
     campanhaService.definirRelogioParaTeste(function(){return inicio;});
-    const lote1=await campanhaService.criarLote(principal.id,{tamanho:250,chaveIdempotencia:marca+'-1'},usuario);
-    confirmar(lote1.lote.tamanho_efetivo===250,'Primeiro lote deve reservar 250.');
+    const lote1=await campanhaService.criarLote(principal.id,{tamanho:200,chaveIdempotencia:marca+'-1'},usuario);
+    confirmar(lote1.lote.tamanho_efetivo===200,'Primeiro lote deve reservar 200.');
+    const capacidadeApos200=await campanhaService.obterLimite();
+    confirmar(capacidadeApos200.limite===250&&capacidadeApos200.utilizado===200&&capacidadeApos200.disponivel===50,'Apos consumir 200, a capacidade disponivel deve ser 50.');
+    let excessoDos50;
+    try{await campanhaService.criarLote(principal.id,{tamanho:51,chaveIdempotencia:marca+'-excesso-50'},usuario);}catch(erro){excessoDos50=erro;}
+    confirmar(excessoDos50&&excessoDos50.statusHttp===409&&excessoDos50.capacidade===50,'Solicitacao acima dos 50 restantes deve informar e bloquear o excesso.');
+    confirmar(Number((await banco.query('SELECT COUNT(*) total FROM campanha_participacoes WHERE campanha_id=$1',[principal.id])).rows[0].total)===200,'Excesso nao pode criar participacao parcial.');
+    await campanhaService.criarLote(principal.id,{tamanho:50,chaveIdempotencia:marca+'-complemento'},usuario);
     const contatosLote=await campanhaService.listarContatosLote(principal.id,lote1.lote.id);
-    confirmar(contatosLote.length===250&&!JSON.stringify(contatosLote).includes(telefones[0]),'Consulta do lote deve listar 250 contatos com telefone mascarado.');
+    confirmar(contatosLote.length===200&&!JSON.stringify(contatosLote).includes(telefones[0]),'Consulta do lote deve listar 200 contatos com telefone mascarado.');
     campanhaService.definirRelogioParaTeste(function(){return new Date(inicio.getTime()+25*60*60*1000);});
     const lote2=await campanhaService.criarLote(principal.id,{tamanho:250,chaveIdempotencia:marca+'-2'},usuario);
     confirmar(lote2.lote.tamanho_efetivo===250,'Segundo lote deve reservar outros 250.');
@@ -84,6 +91,16 @@ async function executar() {
     confirmar(resultados[0].lote.id===resultados[1].lote.id,'Clique duplo deve devolver o mesmo lote.');
     confirmar(Number((await banco.query('SELECT COUNT(*) total FROM campanha_lotes WHERE campanha_id=$1',[concorrente.id])).rows[0].total)===1,'Concorrencia nao pode duplicar lote.');
 
+    const concorrenteGlobalA=await novaCampanha('CONCORRENTE GLOBAL A',{nome:marca});
+    const concorrenteGlobalB=await novaCampanha('CONCORRENTE GLOBAL B',{nome:marca});
+    const disputaGlobal=await Promise.allSettled([
+      campanhaService.criarLote(concorrenteGlobalA.id,{tamanho:150,chaveIdempotencia:marca+'-global-a'},usuario),
+      campanhaService.criarLote(concorrenteGlobalB.id,{tamanho:150,chaveIdempotencia:marca+'-global-b'},usuario)
+    ]);
+    confirmar(disputaGlobal.filter(function(resultado){return resultado.status==='fulfilled';}).length===1&&disputaGlobal.filter(function(resultado){return resultado.status==='rejected'&&resultado.reason.statusHttp===409;}).length===1,'Operacoes concorrentes globais nao podem ultrapassar o limite configurado.');
+    const capacidadeConcorrente=await campanhaService.obterLimite();
+    confirmar(capacidadeConcorrente.utilizado===170&&capacidadeConcorrente.disponivel===80,'A concorrencia deve preservar a capacidade global sem ultrapassar 250.');
+
     campanhaService.definirRelogioParaTeste(function(){return new Date(inicio.getTime()+125*60*60*1000);});
     const filtrada=await novaCampanha('ILUMINACAO',{nome:marca,problema:'Iluminacao publica'});
     const loteFiltrado=await campanhaService.criarLote(filtrada.id,{tamanho:50,chaveIdempotencia:marca+'-filtro'},usuario);
@@ -107,6 +124,9 @@ async function executar() {
     confirmar(erroOperador&&erroOperador.statusHttp===403,'Operador nao pode alterar configuracao administrativa.');
     const auditoria=(await banco.query('SELECT * FROM historico_configuracoes_sistema WHERE motivo=$1',[marca])).rows;
     confirmar(auditoria.length===1&&auditoria[0].valor_novo===250,'Alteracao do limite deve ser auditada.');
+    campanhaService.definirRelogioParaTeste(function(){return new Date(inicio.getTime()+150*60*60*1000);});
+    const capacidadeLiberada=await campanhaService.obterLimite();
+    confirmar(capacidadeLiberada.utilizado===0&&capacidadeLiberada.disponivel===250,'A janela movel deve liberar automaticamente a capacidade apos 24 horas.');
     console.log('Campanhas, lotes e mensageria: '+verificacoes+' verificacoes aprovadas.');
   } finally {
     campanhaService.definirRelogioParaTeste(null);

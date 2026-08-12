@@ -2952,7 +2952,14 @@
   background: var(--campanha-fundo-suave);
 }
 
-.resumo-capacidade-campanha div {
+.metricas-capacidade-campanha {
+  display: grid;
+  flex: 1;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.metricas-capacidade-campanha > div {
   display: grid;
   gap: 0.12rem;
 }
@@ -3441,6 +3448,10 @@
   .grade-lotes-campanha,
   .lista-contatos-campanha,
   .metricas-previa-campanha {
+    grid-template-columns: 1fr;
+  }
+
+  .metricas-capacidade-campanha {
     grid-template-columns: 1fr;
   }
 

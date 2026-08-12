@@ -239,7 +239,8 @@ function CampanhasAdministrativas(){
   }
 
   async function salvarLimite(){
-    const valor=window.prompt('Novo limite móvel de 24 horas:',String(capacidade&&capacidade.limite||250));
+    if(!capacidade)return;
+    const valor=window.prompt('Novo limite móvel de 24 horas:',String(capacidade.limite));
     if(!valor)return;
     const motivo=window.prompt('Informe o motivo da alteração:');
     if(!motivo)return;
@@ -256,7 +257,11 @@ function CampanhasAdministrativas(){
     {mensagem&&<MensagemRetorno mensagem={mensagem} tipo="informacao"/>}
 
     <section className="resumo-capacidade-campanha">
-      <div><span>Capacidade nas últimas 24 horas</span><strong>{capacidade?capacidade.disponivel:'—'} disponíveis</strong><small>{capacidade?capacidade.utilizado+' de '+capacidade.limite+' utilizados':'Carregando capacidade...'}</small></div>
+      <div className="metricas-capacidade-campanha">
+        <div><span>Limite atual</span><strong>{capacidade?capacidade.limite:'—'}</strong></div>
+        <div><span>Utilizado nas últimas 24h</span><strong>{capacidade?capacidade.utilizado:'—'}</strong></div>
+        <div><span>Capacidade disponível</span><strong>{capacidade?capacidade.disponivel:'—'}</strong></div>
+      </div>
       {administrador&&<button className="botao botao-secundario" type="button" onClick={salvarLimite}>Alterar limite</button>}
     </section>
 

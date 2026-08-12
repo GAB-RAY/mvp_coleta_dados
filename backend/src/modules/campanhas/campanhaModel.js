@@ -322,6 +322,8 @@ async function criarLoteAtomico(campanhaId, tamanhoSolicitado, chave, usuarioId,
       const erro = new Error('A solicitacao ultrapassa a capacidade disponivel de 24 horas.');
       erro.codigo = 'CAPACIDADE_INSUFICIENTE';
       erro.capacidade = capacidade;
+      erro.limite = limite;
+      erro.utilizado = usados.rows[0].total;
       throw erro;
     }
 

@@ -1,4 +1,4 @@
-# Central de Comunicação — Acorda VK
+# Central de Comunicação — Acorda RJ
 
 Sistema real de coleta e gestão de contatos comunitários. O projeto possui formulário público, painel administrativo, controle de usuários, eventos, consentimentos, pedidos de exclusão, importações e relatórios.
 
