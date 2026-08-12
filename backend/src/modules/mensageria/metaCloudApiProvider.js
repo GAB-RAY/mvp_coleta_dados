@@ -99,8 +99,73 @@ async function enviarTemplate(comando) {
   }
 }
 
+async function consultarLimiteMensageria() {
+  const configuracao = obterConfiguracao();
+  const controlador = new AbortController();
+  const timeoutMs = Number(process.env.META_REQUISICAO_TIMEOUT_MS || 10000);
+  const temporizador = setTimeout(function () { controlador.abort(); }, timeoutMs);
+
+  try {
+    const parametros = new URLSearchParams({
+      fields: 'whatsapp_business_manager_messaging_limit'
+    });
+    const resposta = await executarFetch(
+      ENDERECO_GRAPH + '/' + configuracao.versao + '/' + configuracao.phoneNumberId + '?' + parametros.toString(),
+      {
+        method: 'GET',
+        headers: { Authorization: 'Bearer ' + configuracao.token },
+        signal: controlador.signal
+      }
+    );
+    const corpo = await lerResposta(resposta);
+
+    if (!resposta.ok) {
+      throw prepararErroMeta(resposta, corpo);
+    }
+
+    const tier = textoSeguro(
+      corpo && corpo.whatsapp_business_manager_messaging_limit,
+      40
+    );
+
+    if (!tier) {
+      throw criarErroIntegracao(
+        'A Meta não informou o limite oficial de mensageria.',
+        'META_LIMITE_AUSENTE',
+        resposta.status,
+        true
+      );
+    }
+
+    return { tier };
+  } catch (erro) {
+    if (erro.name === 'AbortError') {
+      throw criarErroIntegracao(
+        'A Meta não respondeu dentro do tempo esperado.',
+        'META_TIMEOUT',
+        504,
+        true
+      );
+    }
+    if (erro.codigoIntegracao) throw erro;
+    throw criarErroIntegracao(
+      'Não foi possível consultar o limite na Meta.',
+      'META_INDISPONIVEL',
+      503,
+      true
+    );
+  } finally {
+    clearTimeout(temporizador);
+  }
+}
+
 function definirFetchParaTeste(funcao) {
   executarFetch = funcao || function () { return fetch.apply(globalThis, arguments); };
 }
 
-module.exports = { definirFetchParaTeste, enviarTemplate, montarPayload };
+module.exports = {
+  consultarLimiteMensageria,
+  definirFetchParaTeste,
+  enviarTemplate,
+  montarPayload
+};

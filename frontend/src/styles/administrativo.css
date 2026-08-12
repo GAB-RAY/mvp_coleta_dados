@@ -2955,8 +2955,14 @@
 .metricas-capacidade-campanha {
   display: grid;
   flex: 1;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: 0.75rem;
+}
+
+.acoes-capacidade-campanha {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .metricas-capacidade-campanha > div {
@@ -3453,6 +3459,11 @@
 
   .metricas-capacidade-campanha {
     grid-template-columns: 1fr;
+  }
+
+  .acoes-capacidade-campanha,
+  .acoes-capacidade-campanha .botao {
+    width: 100%;
   }
 
   .rodape-cartao-campanha {

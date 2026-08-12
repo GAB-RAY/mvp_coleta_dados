@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const criarAppError = require('../../utils/AppError');
 const contatoService = require('../contatos/contatoService');
 const campanhaModel = require('./campanhaModel');
+const limiteMetaService = require('./limiteMetaService');
 
 let obterAgora = function () { return new Date(); };
 
@@ -189,6 +190,10 @@ async function atualizarLimite(dados, usuario) {
   return obterLimite();
 }
 
+async function sincronizarLimiteMeta(usuario) {
+  return limiteMetaService.sincronizarPorApi(usuario);
+}
+
 async function listarTemplates() { return campanhaModel.listarTemplates(); }
 
 async function salvarTemplate(idRecebido, dados, usuario) {
@@ -224,6 +229,6 @@ function definirRelogioParaTeste(funcao) {
 module.exports = {
   alterarStatus, atualizar, atualizarLimite, criar, criarLote,
   definirRelogioParaTeste, listar, listarContatosLote, listarFalhas, listarLotes,
-  listarTemplates, obterLimite, salvarTemplate, visualizarPreviaFiltros,
+  listarTemplates, obterLimite, salvarTemplate, sincronizarLimiteMeta, visualizarPreviaFiltros,
   visualizarPublico
 };

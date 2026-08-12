@@ -238,9 +238,10 @@ configurações da Meta ou envio real.
 Templates oficiais que utilizem variáveis dinâmicas exigirão a definição explícita
 dos componentes antes do primeiro envio desse modelo.
 
-O limite continua sendo interno, configurável e auditado. Não foi criada
-sincronização automática de tier com a Meta porque nenhuma fonte oficial adequada
-foi incorporada nesta implementação.
+Em 12 de agosto de 2026, uma etapa posterior incorporou a fonte oficial
+`whatsapp_business_manager_messaging_limit` e o webhook
+`business_capability_update`. A regra completa e os testes estao em
+`RELATORIO_SINCRONIZACAO_LIMITE_META_2026-08-12.md`.
 
 ## 12. Arquivos principais alterados
 

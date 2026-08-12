@@ -141,7 +141,7 @@ Triggers atualizam `atualizado_em` nas tabelas de lotes e participações.
 O arquivo `backend/database/criar_banco.sql` foi atualizado para representar o
 estado atual do banco, incluindo:
 
-- 29 tabelas;
+- 30 tabelas;
 - constraints;
 - relacionamentos;
 - índices;
@@ -310,6 +310,7 @@ parser JSON global, sem alterar as demais rotas.
 | PUT | `/api/admin/campanhas/templates/:id` | administrador |
 | GET | `/api/admin/campanhas/configuracao/limite` | operador e administrador |
 | PUT | `/api/admin/campanhas/configuracao/limite` | administrador, exige motivo |
+| POST | `/api/admin/campanhas/configuracao/limite/sincronizar-meta` | administrador; consulta oficial da Meta |
 | POST | `/api/admin/mensageria/tentativas/:id/reprocessar` | usuário autenticado |
 | POST | `/api/admin/mensageria/tentativas/:id/enviar` | usuário autenticado; envio oficial controlado |
 
@@ -523,7 +524,7 @@ npm run testar:schema-vazio
 Resultado:
 
 ```text
-Schema final validado em banco vazio: 29 tabelas e 166 bairros.
+Schema final validado em banco vazio: 30 tabelas e 166 bairros.
 ```
 
 ### 6.7 Build do frontend

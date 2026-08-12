@@ -317,10 +317,26 @@ async function criarLoteAtomico(campanhaId, tamanhoSolicitado, chave, usuarioId,
       throw erro;
     }
 
-    const configuracao = await cliente.query(
-      "SELECT valor_inteiro FROM configuracoes_sistema WHERE chave = 'limite_mensagens_24h' FOR UPDATE"
-    );
-    const limite = configuracao.rows[0].valor_inteiro;
+    const configuracao = await cliente.query(`
+      SELECT
+        configuracao.valor_inteiro AS limite_interno,
+        sincronizacao.limite_novo AS limite_meta
+      FROM configuracoes_sistema AS configuracao
+      LEFT JOIN LATERAL (
+        SELECT limite_novo
+        FROM sincronizacoes_limite_meta
+        WHERE status = 'sucesso'
+        ORDER BY id DESC
+        LIMIT 1
+      ) AS sincronizacao ON TRUE
+      WHERE configuracao.chave = 'limite_mensagens_24h'
+      FOR UPDATE OF configuracao
+    `);
+    const limiteInterno = configuracao.rows[0].limite_interno;
+    const limiteMeta = configuracao.rows[0].limite_meta;
+    const limite = limiteMeta === null
+      ? limiteInterno
+      : Math.min(limiteInterno, limiteMeta);
     const usados = await cliente.query(`
       SELECT COUNT(*)::integer AS total
       FROM campanha_participacoes
@@ -408,24 +424,50 @@ async function criarLoteAtomico(campanhaId, tamanhoSolicitado, chave, usuarioId,
 
 async function obterCapacidade(agora) {
   const resultado = await banco.query(`
-    SELECT configuracao.valor_inteiro AS limite,
+    SELECT
+      configuracao.valor_inteiro AS limite_interno,
+      sincronizacao.limite_novo AS limite_meta,
+      sincronizacao.tier_novo AS tier_meta,
+      sincronizacao.criado_em AS sincronizado_em,
+      sincronizacao.origem AS origem_sincronizacao,
       COUNT(participacao.id) FILTER (
         WHERE participacao.reservado_em >= $1::timestamptz - INTERVAL '24 hours'
           AND participacao.reservado_em <= $1::timestamptz
       )::integer AS utilizado
     FROM configuracoes_sistema configuracao
+    LEFT JOIN LATERAL (
+      SELECT limite_novo, tier_novo, criado_em, origem
+      FROM sincronizacoes_limite_meta
+      WHERE status = 'sucesso'
+      ORDER BY id DESC
+      LIMIT 1
+    ) AS sincronizacao ON TRUE
     LEFT JOIN campanha_participacoes participacao ON TRUE
     WHERE configuracao.chave = 'limite_mensagens_24h'
-    GROUP BY configuracao.valor_inteiro
+    GROUP BY configuracao.valor_inteiro, sincronizacao.limite_novo,
+      sincronizacao.tier_novo, sincronizacao.criado_em, sincronizacao.origem
   `, [agora]);
   const linha = resultado.rows[0];
-  return { limite: linha.limite, utilizado: linha.utilizado, disponivel: Math.max(0, linha.limite - linha.utilizado) };
+  const limite = linha.limite_meta === null
+    ? linha.limite_interno
+    : Math.min(linha.limite_interno, linha.limite_meta);
+  return {
+    limite,
+    limiteInterno: linha.limite_interno,
+    limiteMeta: linha.limite_meta,
+    tierMeta: linha.tier_meta,
+    utilizado: linha.utilizado,
+    disponivel: Math.max(0, limite - linha.utilizado),
+    sincronizadoEm: linha.sincronizado_em,
+    origemSincronizacao: linha.origem_sincronizacao
+  };
 }
 
 async function atualizarLimite(novoValor, motivo, usuarioId) {
   const cliente = await banco.connect();
   try {
     await cliente.query('BEGIN');
+    await cliente.query('SELECT pg_advisory_xact_lock(41027, 0)');
     const atual = await cliente.query("SELECT valor_inteiro FROM configuracoes_sistema WHERE chave = 'limite_mensagens_24h' FOR UPDATE");
     await cliente.query(`
       UPDATE configuracoes_sistema
@@ -443,6 +485,49 @@ async function atualizarLimite(novoValor, motivo, usuarioId) {
   } finally {
     cliente.release();
   }
+}
+
+async function registrarSincronizacaoLimiteMeta(dados) {
+  const cliente = await banco.connect();
+  try {
+    await cliente.query('BEGIN');
+    await cliente.query('SELECT pg_advisory_xact_lock(41027, 0)');
+    const anterior = await cliente.query(`
+      SELECT limite_novo, tier_novo
+      FROM sincronizacoes_limite_meta
+      WHERE status = 'sucesso'
+      ORDER BY id DESC
+      LIMIT 1
+    `);
+    const registroAnterior = anterior.rows[0] || {};
+    await cliente.query(`
+      INSERT INTO sincronizacoes_limite_meta (
+        limite_anterior, limite_novo, tier_anterior, tier_novo,
+        origem, status, usuario_id
+      ) VALUES ($1, $2, $3, $4, $5, 'sucesso', $6)
+    `, [
+      registroAnterior.limite_novo === undefined ? null : registroAnterior.limite_novo,
+      dados.limite,
+      registroAnterior.tier_novo || null,
+      dados.tier,
+      dados.origem,
+      dados.usuarioId || null
+    ]);
+    await cliente.query('COMMIT');
+  } catch (erro) {
+    await cliente.query('ROLLBACK');
+    throw erro;
+  } finally {
+    cliente.release();
+  }
+}
+
+async function registrarFalhaSincronizacaoLimiteMeta(dados) {
+  await banco.query(`
+    INSERT INTO sincronizacoes_limite_meta (
+      origem, status, codigo_erro, usuario_id
+    ) VALUES ($1, 'falha', $2, $3)
+  `, [dados.origem, dados.codigoErro, dados.usuarioId || null]);
 }
 
 async function listarTemplates() {
@@ -492,5 +577,7 @@ module.exports = {
   listarLotes,
   listarTemplates,
   obterCapacidade,
+  registrarFalhaSincronizacaoLimiteMeta,
+  registrarSincronizacaoLimiteMeta,
   salvarTemplate
 };

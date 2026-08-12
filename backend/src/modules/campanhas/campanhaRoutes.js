@@ -8,6 +8,7 @@ roteador.post('/templates', autorizarAdministrador, controller.criarTemplate);
 roteador.put('/templates/:id', autorizarAdministrador, controller.atualizarTemplate);
 roteador.get('/configuracao/limite', controller.obterLimite);
 roteador.put('/configuracao/limite', autorizarAdministrador, controller.atualizarLimite);
+roteador.post('/configuracao/limite/sincronizar-meta', autorizarAdministrador, controller.sincronizarLimiteMeta);
 roteador.post('/publico/previa', autorizarAdministrador, controller.visualizarPreviaFiltros);
 roteador.get('/', controller.listar);
 roteador.post('/', autorizarAdministrador, controller.criar);

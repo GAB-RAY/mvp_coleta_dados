@@ -1,6 +1,7 @@
 const criarAppError = require('../../utils/AppError');
 const model = require('./mensageriaModel');
 const metaProvider = require('./metaCloudApiProvider');
+const limiteMetaService = require('../campanhas/limiteMetaService');
 
 let obterAgora = function () { return new Date(); };
 
@@ -61,6 +62,21 @@ async function processarWebhook(payload) {
     const mudancas = Array.isArray(entrada.changes) ? entrada.changes : [];
     for (const mudanca of mudancas) {
       const valor = mudanca && mudanca.value || {};
+      if (mudanca && mudanca.field === 'business_capability_update') {
+        const contaEsperada = String(process.env.WHATSAPP_BUSINESS_ACCOUNT_ID || '');
+        const contaRecebida = String(entrada.id || '');
+        if (contaEsperada && contaRecebida === contaEsperada &&
+          valor.max_daily_conversations_per_business !== undefined) {
+          const atualizado = await limiteMetaService.registrarLimiteDoWebhook(
+            valor.max_daily_conversations_per_business
+          );
+          alteracoes.push({
+            processado: atualizado,
+            motivo: atualizado ? 'limite_meta_atualizado' : 'limite_meta_invalido'
+          });
+        }
+        continue;
+      }
       const statuses = Array.isArray(valor.statuses) ? valor.statuses : [];
       for (const item of statuses) {
         const status = MAPA_META[item.status];

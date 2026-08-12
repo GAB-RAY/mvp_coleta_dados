@@ -17,5 +17,6 @@ function criarTemplate(dados){return requisitar('/api/admin/campanhas/templates'
 function atualizarTemplate(id,dados){return requisitar('/api/admin/campanhas/templates/'+id,{method:'PUT',autenticado:true,body:JSON.stringify(dados)});}
 function obterCapacidade(){return requisitar('/api/admin/campanhas/configuracao/limite',{method:'GET',autenticado:true});}
 function atualizarLimite(valor,motivo){return requisitar('/api/admin/campanhas/configuracao/limite',{method:'PUT',autenticado:true,body:JSON.stringify({valor,motivo})});}
+function sincronizarLimiteMeta(){return requisitar('/api/admin/campanhas/configuracao/limite/sincronizar-meta',{method:'POST',autenticado:true});}
 
-export {alterarStatusCampanha,atualizarCampanha,atualizarLimite,atualizarTemplate,criarCampanha,criarLoteCampanha,criarTemplate,enviarTentativa,listarCampanhas,listarContatosLote,listarFalhasCampanha,listarLotesCampanha,listarTemplates,obterCapacidade,reprocessarTentativa,visualizarPreviaFiltros,visualizarPublicoCampanha};
+export {alterarStatusCampanha,atualizarCampanha,atualizarLimite,atualizarTemplate,criarCampanha,criarLoteCampanha,criarTemplate,enviarTentativa,listarCampanhas,listarContatosLote,listarFalhasCampanha,listarLotesCampanha,listarTemplates,obterCapacidade,reprocessarTentativa,sincronizarLimiteMeta,visualizarPreviaFiltros,visualizarPublicoCampanha};

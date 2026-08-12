@@ -450,6 +450,12 @@ O limite móvel começa em 250 reservas por 24 horas e fica em
 `configuracoes_sistema`. Somente administrador altera o valor, sempre com motivo;
 valor anterior, novo valor, usuário e data ficam no histórico.
 
+O limite oficial atual e consultado no campo
+`whatsapp_business_manager_messaging_limit` da Meta. O limite efetivo e sempre o
+menor entre a protecao interna e o ultimo limite oficial finito registrado em
+`sincronizacoes_limite_meta`. O webhook `business_capability_update` aceita
+`max_daily_conversations_per_business`. Falhas preservam o ultimo valor seguro.
+
 O webhook público fica em `/api/webhooks/whatsapp`. O GET valida o token e devolve
 o challenge. O POST calcula HMAC SHA-256 sobre os bytes exatos do corpo bruto,
 usa comparação segura, limita o corpo, não armazena payload bruto e encaminha
@@ -484,7 +490,7 @@ Backup:
 
 ### 3.14 Banco de dados
 
-O schema possui 29 tabelas:
+O schema possui 30 tabelas:
 
 | Grupo | Tabelas |
 |---|---|
@@ -493,7 +499,7 @@ O schema possui 29 tabelas:
 | Eventos | `eventos`, `historico_eventos`, `contato_eventos` |
 | Importação e conteúdo | `importacoes`, `importacao_linhas`, `textos_formulario` |
 | Histórico legado | `numeros_whatsapp`, `comunicacoes`, `historico_comunicacoes` |
-| Campanhas e mensageria | `modelos_mensagem`, `campanhas`, `campanha_lotes`, `campanha_participacoes`, `campanha_tentativas`, `historico_status_mensageria`, `configuracoes_sistema`, `historico_configuracoes_sistema`, `eventos_webhook_mensageria` |
+| Campanhas e mensageria | `modelos_mensagem`, `campanhas`, `campanha_lotes`, `campanha_participacoes`, `campanha_tentativas`, `historico_status_mensageria`, `configuracoes_sistema`, `historico_configuracoes_sistema`, `eventos_webhook_mensageria`, `sincronizacoes_limite_meta` |
 | Evolução estrutural | `schema_migrations` |
 
 Proteções relevantes:

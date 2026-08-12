@@ -10,6 +10,8 @@ function respostaFake(){return{codigo:0,corpo:null,status:function(codigo){this.
 async function executar(){
   process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN='token-fake-teste';
   process.env.META_APP_SECRET='segredo-fake-teste';
+  process.env.WHATSAPP_BUSINESS_ACCOUNT_ID='987654321';
+  const ultimoLimiteId=(await banco.query('SELECT COALESCE(MAX(id),0)::bigint id FROM sincronizacoes_limite_meta')).rows[0].id;
   let resposta=respostaFake();
   controller.verificar({query:{'hub.mode':'subscribe','hub.verify_token':'token-fake-teste','hub.challenge':'12345'}},resposta);
   confirmar(resposta.codigo===200&&resposta.corpo==='12345','GET valido deve devolver challenge.');
@@ -34,7 +36,14 @@ async function executar(){
   const assinaturaMalformada='sha256='+crypto.createHmac('sha256',process.env.META_APP_SECRET).update(malformado).digest('hex');
   await controller.receber({body:malformado,get:function(){return assinaturaMalformada;}},resposta,function(erro){throw erro;});
   confirmar(resposta.codigo===400,'Payload malformado deve devolver 400.');
+  const corpoLimite=Buffer.from(JSON.stringify({object:'whatsapp_business_account',entry:[{id:'987654321',changes:[{field:'business_capability_update',value:{max_daily_conversations_per_business:'TIER_250'}}]}]}));
+  const assinaturaLimite='sha256='+crypto.createHmac('sha256',process.env.META_APP_SECRET).update(corpoLimite).digest('hex');
+  resposta=respostaFake();
+  await controller.receber({body:corpoLimite,get:function(){return assinaturaLimite;}},resposta,function(erro){throw erro;});
+  const limiteWebhook=(await banco.query("SELECT tier_novo,origem,status FROM sincronizacoes_limite_meta WHERE id>$1 ORDER BY id DESC LIMIT 1",[ultimoLimiteId])).rows[0];
+  confirmar(resposta.codigo===200&&limiteWebhook&&limiteWebhook.tier_novo==='TIER_250'&&limiteWebhook.origem==='webhook'&&limiteWebhook.status==='sucesso','Webhook oficial de capacidade deve atualizar o limite auditado.');
   await banco.query('DELETE FROM eventos_webhook_mensageria WHERE identificador_externo=$1',['recebida:'+identificador]);
+  await banco.query('DELETE FROM sincronizacoes_limite_meta WHERE id>$1',[ultimoLimiteId]);
   console.log('Webhook de mensageria: '+verificacoes+' verificacoes aprovadas.');
 }
 

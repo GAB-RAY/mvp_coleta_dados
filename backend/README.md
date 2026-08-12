@@ -101,7 +101,8 @@ npm run banco:migrar
 O runner cria e consulta `schema_migrations`, verifica o checksum de cada arquivo, serializa execuções concorrentes com advisory lock e aplica cada migration em transação própria. Nunca edite uma migration já registrada; crie a próxima versão.
 
 As migrations de campanhas/mensageria são `006_criar_campanhas_lotes_mensageria.sql`,
-`007_adicionar_triggers_campanhas.sql` e `009_integrar_meta_cloud_api.sql`. O suporte ao arquivo de contatos do iPhone foi incorporado por `010_permitir_importacao_vcf.sql`.
+`007_adicionar_triggers_campanhas.sql`, `009_integrar_meta_cloud_api.sql` e
+`011_sincronizar_limite_meta.sql`. O suporte ao arquivo de contatos do iPhone foi incorporado por `010_permitir_importacao_vcf.sql`.
 
 O `database/criar_banco.sql` continua exclusivo para banco vazio e já registra as migrations incorporadas. Nunca execute o schema completo em banco com estrutura ou dados.
 
@@ -116,7 +117,7 @@ O comando é idempotente. Ele mantém uma versão ativa de cada tipo, preserva a
 versões anteriores e não altera consentimentos já registrados. As versões ativas
 são `aviso_privacidade_v3`, `mensagens_whatsapp_v3` e `ligacoes_v3`.
 
-O schema atual tem 29 tabelas:
+O schema atual tem 30 tabelas:
 
 - cadastros: `bairros`, `origens`, `usuarios`, `contatos`;
 - privacidade: `consentimentos`, `aceites_privacidade`, `historico_contatos`, `solicitacoes_exclusao`;
@@ -126,7 +127,8 @@ O schema atual tem 29 tabelas:
 - campanhas: `modelos_mensagem`, `campanhas`, `campanha_lotes`,
   `campanha_participacoes`, `campanha_tentativas`,
   `historico_status_mensageria`, `configuracoes_sistema`,
-  `historico_configuracoes_sistema`, `eventos_webhook_mensageria`.
+  `historico_configuracoes_sistema`, `eventos_webhook_mensageria`,
+  `sincronizacoes_limite_meta`.
 
 As tabelas manuais antigas permanecem somente para preservar histórico. Novos
 registros usam campanhas, lotes, participações únicas e tentativas.
@@ -180,7 +182,12 @@ As colunas anteriores de compatibilidade em `contatos` foram mantidas apenas qua
 - O envio usa exclusivamente a WhatsApp Cloud API oficial, por template aprovado.
 - O provider possui timeout, erros sanitizados e trava contra envio duplicado da mesma tentativa.
 - O quick reply com identificador `WHATSAPP_OPTOUT_BUTTON_ID` registra revogação global e bloqueia campanhas futuras.
-- O limite continua sendo a configuração interna auditada; não há aumento ou sincronização automática de tier da Meta.
+- O limite efetivo e o menor entre a protecao interna auditada e o ultimo limite
+  oficial valido da Meta. A consulta usa
+  `whatsapp_business_manager_messaging_limit`; o webhook
+  `business_capability_update` aplica reducoes e demais mudancas oficiais.
+- Aumento oficial nao eleva sozinho a protecao interna. Falha da Meta preserva o
+  ultimo valor valido e nunca libera capacidade adicional.
 
 ## Rotas
 
@@ -221,6 +228,7 @@ Administrativas com JWT:
 | GET/POST/PUT | `/api/admin/campanhas/templates` | leitura operador/admin; escrita admin |
 | GET | `/api/admin/campanhas/configuracao/limite` | operador/admin |
 | PUT | `/api/admin/campanhas/configuracao/limite` | admin; exige motivo |
+| POST | `/api/admin/campanhas/configuracao/limite/sincronizar-meta` | admin; consulta o limite oficial |
 | POST | `/api/admin/mensageria/tentativas/:id/reprocessar` | operador/admin |
 | POST | `/api/admin/mensageria/tentativas/:id/enviar` | operador/admin; exige campanha ativa e template Meta aprovado |
 | GET/POST | `/api/webhooks/whatsapp` | público; verificação e eventos assinados |
@@ -312,7 +320,7 @@ Resultado de 02/08/2026: 392 verificações aprovadas.
 - backups, permissões, conteúdo de dados, ausência de estrutura, integridade e auditoria: 22.
 - resiliência, rate limit, concorrência, saúde, pool e configuração: 22.
 
-O teste de schema cria um banco temporário vazio, aplica `database/criar_banco.sql`, valida 29 tabelas, dez migrations registradas e 166 bairros e remove o banco temporário ao final.
+O teste de schema cria um banco temporário vazio, aplica `database/criar_banco.sql`, valida 30 tabelas, onze migrations registradas e 166 bairros e remove o banco temporário ao final.
 
 O teste de carga de importação gera 15.000 contatos temporários, percorre pré-visualização, confirmação e persistência, valida a rejeição de 20.001 linhas, remove todos os dados de teste e ressincroniza as sequências utilizadas. Ele recusa execução quando `NODE_ENV=production`.
 

@@ -111,6 +111,11 @@ mesma campanha. A tela mostra o estado oficial do template na Meta e habilita o
 envio apenas para campanha ativa, tentativa pendente e template aprovado. A
 validação definitiva ocorre no backend e nenhuma credencial Meta entra no bundle.
 
+O resumo de capacidade mostra a proteção interna, o último tier oficial válido,
+o limite efetivo, a quantidade usada nas últimas 24 horas e o saldo disponível.
+Somente administrador vê as ações para alterar a proteção interna ou solicitar
+uma sincronização oficial com a Meta. Nenhuma credencial é enviada ao frontend.
+
 ## Painel e permissões
 
 Operadores e administradores podem cadastrar, editar, consultar, revogar consentimentos, solicitar exclusão e abrir a tela de eventos. Para operador, eventos são somente leitura e permitem acessar participantes. Somente administradores veem os controles de criação, edição, ativação e encerramento, além de usuários, fila de exclusões e backups. Os botões de exportação CSV e Excel também aparecem somente para administrador.

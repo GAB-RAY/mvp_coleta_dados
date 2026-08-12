@@ -13,8 +13,9 @@ function listarContatosLote(req,res,next){return responder(next,async function()
 function listarFalhas(req,res,next){return responder(next,async function(){return res.status(200).json({mensagem:'Falhas listadas com sucesso.',falhas:await service.listarFalhas(req.params.id)});});}
 function obterLimite(req,res,next){return responder(next,async function(){return res.status(200).json({mensagem:'Capacidade consultada com sucesso.',capacidade:await service.obterLimite()});});}
 function atualizarLimite(req,res,next){return responder(next,async function(){return res.status(200).json({mensagem:'Limite atualizado com sucesso.',capacidade:await service.atualizarLimite(req.body,req.usuario)});});}
+function sincronizarLimiteMeta(req,res,next){return responder(next,async function(){return res.status(200).json({mensagem:'Limite oficial sincronizado com sucesso.',capacidade:await service.sincronizarLimiteMeta(req.usuario)});});}
 function listarTemplates(req,res,next){return responder(next,async function(){return res.status(200).json({mensagem:'Templates listados com sucesso.',templates:await service.listarTemplates()});});}
 function criarTemplate(req,res,next){return responder(next,async function(){return res.status(201).json({mensagem:'Template criado com sucesso.',template:await service.salvarTemplate(null,req.body,req.usuario)});});}
 function atualizarTemplate(req,res,next){return responder(next,async function(){return res.status(200).json({mensagem:'Template atualizado com sucesso.',template:await service.salvarTemplate(req.params.id,req.body,req.usuario)});});}
 
-module.exports={alterarStatus,atualizar,atualizarLimite,atualizarTemplate,criar,criarLote,criarTemplate,listar,listarContatosLote,listarFalhas,listarLotes,listarTemplates,obterLimite,visualizarPreviaFiltros,visualizarPublico};
+module.exports={alterarStatus,atualizar,atualizarLimite,atualizarTemplate,criar,criarLote,criarTemplate,listar,listarContatosLote,listarFalhas,listarLotes,listarTemplates,obterLimite,sincronizarLimiteMeta,visualizarPreviaFiltros,visualizarPublico};

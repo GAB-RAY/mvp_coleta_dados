@@ -64,6 +64,7 @@ async function validarCatalogo(cliente) {
     'origens',
     'schema_migrations',
     'solicitacoes_exclusao',
+    'sincronizacoes_limite_meta',
     'tentativas_login',
     'textos_formulario',
     'usuarios'

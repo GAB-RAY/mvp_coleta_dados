@@ -21,6 +21,7 @@ import {
   listarTemplates,
   obterCapacidade,
   reprocessarTentativa,
+  sincronizarLimiteMeta,
   visualizarPreviaFiltros,
   visualizarPublicoCampanha
 } from '../services/campanhaService';
@@ -261,6 +262,14 @@ function CampanhasAdministrativas(){
     catch(erro){setMensagem(erro.message);}
   }
 
+  async function sincronizarMeta(){
+    try{
+      const resposta=await sincronizarLimiteMeta();
+      setCapacidade(resposta.capacidade);
+      setMensagem(resposta.mensagem);
+    }catch(erro){setMensagem(erro.message);}
+  }
+
   const capacidadeInsuficiente=Boolean(publico&&Number(tamanho)>Number(publico.capacidade&&publico.capacidade.disponivel||0));
   const podeCriarLote=Boolean(selecionada&&['pronta','ativa'].includes(selecionada.status)&&publico&&publico.quantidadeEfetiva>0&&!capacidadeInsuficiente&&!criandoLote);
   const restantes=publico?Number(publico.restantes||0):0;
@@ -271,11 +280,13 @@ function CampanhasAdministrativas(){
 
     <section className="resumo-capacidade-campanha">
       <div className="metricas-capacidade-campanha">
-        <div><span>Limite atual</span><strong>{capacidade?capacidade.limite:'—'}</strong></div>
+        <div><span>Limite efetivo atual</span><strong>{capacidade?capacidade.limite:'—'}</strong></div>
+        <div><span>Proteção interna</span><strong>{capacidade?capacidade.limiteInterno:'—'}</strong></div>
+        <div><span>Limite oficial Meta</span><strong>{capacidade?(capacidade.tierMeta||'Não sincronizado'):'—'}</strong>{capacidade&&capacidade.sincronizadoEm&&<small>Atualizado em {new Date(capacidade.sincronizadoEm).toLocaleString('pt-BR')}</small>}</div>
         <div><span>Utilizado nas últimas 24h</span><strong>{capacidade?capacidade.utilizado:'—'}</strong></div>
         <div><span>Capacidade disponível</span><strong>{capacidade?capacidade.disponivel:'—'}</strong></div>
       </div>
-      {administrador&&<button className="botao botao-secundario" type="button" onClick={salvarLimite}>Alterar limite</button>}
+      {administrador&&<div className="acoes-capacidade-campanha"><button className="botao botao-secundario" type="button" onClick={sincronizarMeta}>Sincronizar Meta</button><button className="botao botao-secundario" type="button" onClick={salvarLimite}>Alterar proteção interna</button></div>}
     </section>
 
     <section className="cartao campanhas-listagem">

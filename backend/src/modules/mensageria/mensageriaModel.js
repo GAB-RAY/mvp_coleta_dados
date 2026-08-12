@@ -145,8 +145,24 @@ async function iniciarEnvio(tentativaId, agora) {
     if (tentativa.bloqueado_para_mensagens) { const erro = new Error('O contato bloqueou mensagens pelo WhatsApp.'); erro.codigo='CONTATO_BLOQUEADO'; throw erro; }
     const exclusao = await cliente.query("SELECT 1 FROM solicitacoes_exclusao WHERE contato_id=$1 AND status='pendente'", [tentativa.contato_id]);
     if (exclusao.rows[0]) { const erro = new Error('O contato possui solicitacao de exclusao pendente.'); erro.codigo='CONTATO_BLOQUEADO'; throw erro; }
-    const configuracao = await cliente.query("SELECT valor_inteiro FROM configuracoes_sistema WHERE chave='limite_mensagens_24h' FOR UPDATE");
-    const limite = configuracao.rows[0].valor_inteiro;
+    const configuracao = await cliente.query(`
+      SELECT
+        configuracao.valor_inteiro AS limite_interno,
+        sincronizacao.limite_novo AS limite_meta
+      FROM configuracoes_sistema AS configuracao
+      LEFT JOIN LATERAL (
+        SELECT limite_novo
+        FROM sincronizacoes_limite_meta
+        WHERE status = 'sucesso'
+        ORDER BY id DESC
+        LIMIT 1
+      ) AS sincronizacao ON TRUE
+      WHERE configuracao.chave = 'limite_mensagens_24h'
+      FOR UPDATE OF configuracao
+    `);
+    const limiteInterno = configuracao.rows[0].limite_interno;
+    const limiteMeta = configuracao.rows[0].limite_meta;
+    const limite = limiteMeta === null ? limiteInterno : Math.min(limiteInterno, limiteMeta);
     const usados = await cliente.query(`SELECT COUNT(*)::integer total FROM campanha_participacoes
       WHERE reservado_em >= $1::timestamptz - INTERVAL '24 hours' AND reservado_em <= $1::timestamptz`, [agora]);
     const reservaNaJanela = new Date(tentativa.reservado_em) >= new Date(new Date(agora).getTime() - 86400000);
