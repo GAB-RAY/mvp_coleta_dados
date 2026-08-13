@@ -29,8 +29,31 @@ import {
 const CAMPANHA_INICIAL={nome:'',modeloId:'',bairro:'',problema:'',eventoId:'',autorizacaoMensagens:'',cadastroIncompleto:false};
 const TEMPLATE_INICIAL={nome:'',categoria:'Geral',conteudo:'',ativo:true,metaNome:'',metaIdioma:'pt_BR',metaCategoria:'MARKETING',metaStatus:'rascunho'};
 
-function textoStatus(status){return String(status||'').replaceAll('_',' ');}
+function textoStatus(status){
+  const textos={
+    rascunho:'Rascunho',pronta:'Pronta para criar lotes',ativa:'Ativa',pausada:'Pausada',concluida:'Concluída',cancelada:'Cancelada',
+    em_analise:'Em análise',aprovado:'Aprovado',rejeitado:'Rejeitado',pendente:'Pendente',enviando:'Enviando',enviada:'Enviada',
+    entregue:'Entregue',lida:'Lida',falhou:'Falhou'
+  };
+  return textos[status]||String(status||'').replaceAll('_',' ');
+}
 function telefoneMascarado(valor){return String(valor||'Nao informado').replaceAll('*','•');}
+function formatarQuantidade(valor){return Number(valor||0).toLocaleString('pt-BR');}
+function rotuloContatos(quantidade){return Number(quantidade)===1?'contato':'contatos';}
+function formatarTierMeta(valor){
+  if(!valor)return 'Não informado';
+  const faixas={TIER_50:'Faixa de 50',TIER_250:'Faixa de 250',TIER_1K:'Faixa de 1.000',TIER_2K:'Faixa de 2.000',TIER_10K:'Faixa de 10.000',TIER_100K:'Faixa de 100.000',TIER_UNLIMITED:'Sem limite definido'};
+  if(faixas[valor])return faixas[valor];
+  const quantidade=String(valor).replace('TIER_','');
+  return /^\d+$/.test(quantidade)?'Faixa de '+Number(quantidade).toLocaleString('pt-BR'):textoStatus(valor);
+}
+function textoPreviaPublico(previa){
+  const aptos=Number(previa.publicoApto||0);
+  const exibidos=Array.isArray(previa.contatos)?previa.contatos.length:0;
+  if(aptos===0)return 'Nenhum contato pode participar desta campanha com os filtros atuais.';
+  if(exibidos>=aptos)return 'Exibindo todos os '+formatarQuantidade(aptos)+' '+rotuloContatos(aptos)+' aptos. Criar a campanha apenas salva esta seleção; nenhuma mensagem será enviada agora.';
+  return 'Exibindo '+formatarQuantidade(exibidos)+' de '+formatarQuantidade(aptos)+' '+rotuloContatos(aptos)+' '+(aptos===1?'apto':'aptos')+'. Esta é apenas uma prévia. Ao criar o lote, o sistema considerará todos os contatos aptos, respeitando a capacidade disponível para envio.';
+}
 
 function ListaContatosCampanha({contatos,vazia,aoEnviar,podeEnviar}){
   if(!contatos||contatos.length===0)return <div className="estado-vazio-campanha"><strong>{vazia||'Nenhum contato disponível.'}</strong></div>;
@@ -175,7 +198,7 @@ function CampanhasAdministrativas(){
   function editarTemplate(item){setTemplateEdicao(item.id);setTemplate({nome:item.nome,categoria:item.categoria,conteudo:item.texto,ativo:item.ativo,metaNome:item.meta_nome||'',metaIdioma:item.meta_idioma||'pt_BR',metaCategoria:item.meta_categoria||'MARKETING',metaStatus:item.meta_status||'rascunho'});}
 
   async function enviarContato(contato){
-    if(!window.confirm('Enviar esta mensagem pela WhatsApp Cloud API oficial?'))return;
+    if(!window.confirm('Enviar esta mensagem agora pela WhatsApp Cloud API oficial?'))return;
     try{
       const resposta=await enviarTentativa(contato.tentativaId);
       setMensagem(resposta.mensagem);
@@ -223,7 +246,7 @@ function CampanhasAdministrativas(){
   }
 
   async function reprocessar(item){
-    if(!window.confirm('Criar nova tentativa para esta falha?'))return;
+    if(!window.confirm('Tentar enviar novamente a mensagem que falhou? O envio anterior continuará registrado no histórico.'))return;
     try{const resposta=await reprocessarTentativa(item.id);setMensagem(resposta.mensagem);await abrirCampanha(selecionada,tamanho);}
     catch(erro){setMensagem(erro.message);}
   }
@@ -244,7 +267,7 @@ function CampanhasAdministrativas(){
     try{
       const chave=crypto.randomUUID();
       const resposta=await criarLoteCampanha(selecionada.id,Number(tamanho),chave);
-      setMensagem(resposta.mensagem+' Foram reservados '+resposta.resultado.lote.tamanho_efetivo+' contatos.');
+      setMensagem(resposta.mensagem+' Foram separados '+resposta.resultado.lote.tamanho_efetivo+' contatos para este lote. Nenhuma mensagem foi enviada ainda.');
       const atualizadas=await carregar();
       const item=atualizadas.find(function(campanha){return campanha.id===selecionada.id;})||selecionada;
       await abrirCampanha(item,tamanho);
@@ -254,7 +277,7 @@ function CampanhasAdministrativas(){
 
   async function salvarLimite(){
     if(!capacidade)return;
-    const valor=window.prompt('Nova proteção interna de 24 horas:',String(capacidade.limiteInterno));
+    const valor=window.prompt('Novo limite de segurança para 24 horas:',String(capacidade.limiteInterno));
     if(!valor)return;
     const motivo=window.prompt('Informe o motivo da alteração:');
     if(!motivo)return;
@@ -273,6 +296,9 @@ function CampanhasAdministrativas(){
   const capacidadeInsuficiente=Boolean(publico&&Number(tamanho)>Number(publico.capacidade&&publico.capacidade.disponivel||0));
   const podeCriarLote=Boolean(selecionada&&['pronta','ativa'].includes(selecionada.status)&&publico&&publico.quantidadeEfetiva>0&&!capacidadeInsuficiente&&!criandoLote);
   const restantes=publico?Number(publico.restantes||0):0;
+  const aptosPrevia=previaCriacao?Number(previaCriacao.publicoApto||0):0;
+  const capacidadeDisponivel=capacidade?Number(capacidade.disponivel||0):null;
+  const previaUltrapassaCapacidade=capacidadeDisponivel!==null&&aptosPrevia>capacidadeDisponivel;
 
   return <main className="pagina-administrativa"><div className="conteudo-administrativo campanhas-pagina">
     <CabecalhoAdministrativo aoSair={sair} titulo="Campanhas" subtitulo="Crie campanhas, confira o público e organize os próximos lotes."/>
@@ -287,62 +313,72 @@ function CampanhasAdministrativas(){
         <span className="status-sincronizacao-capacidade"><span className="indicador-sincronizacao-capacidade" aria-hidden="true"/>Sincronização automática ativa</span>
       </div>
       <dl className="metricas-capacidade-campanha">
-        <div><dt>Limite oficial Meta</dt><dd>{capacidade?(!capacidade.tierMeta?'Não sincronizado':capacidade.limiteMeta===null?'Ilimitado':Number(capacidade.limiteMeta).toLocaleString('pt-BR')):'—'}</dd></div>
-        <div><dt>Proteção interna</dt><dd>{capacidade?Number(capacidade.limiteInterno).toLocaleString('pt-BR'):'—'}</dd></div>
+        <div><dt>Limite oficial Meta</dt><dd>{capacidade?(!capacidade.tierMeta?'Não sincronizado':capacidade.limiteMeta===null?'Ilimitado':Number(capacidade.limiteMeta).toLocaleString('pt-BR')):'—'}</dd><small>Concedido pela Meta</small></div>
+        <div><dt>Limite de segurança</dt><dd>{capacidade?Number(capacidade.limiteInterno).toLocaleString('pt-BR'):'—'}</dd><small>Definido no sistema</small></div>
         <div><dt>Utilizado nas últimas 24h</dt><dd>{capacidade?Number(capacidade.utilizado).toLocaleString('pt-BR'):'—'}</dd></div>
-        <div><dt>Tier Meta</dt><dd>{capacidade&&capacidade.tierMeta?capacidade.tierMeta:'—'}</dd></div>
+        <div><dt>Faixa da conta na Meta</dt><dd>{capacidade?formatarTierMeta(capacidade.tierMeta):'—'}</dd></div>
         <div><dt>Última atualização</dt><dd>{capacidade&&capacidade.sincronizadoEm?new Date(capacidade.sincronizadoEm).toLocaleString('pt-BR'):'—'}</dd></div>
       </dl>
-      {administrador&&<div className="acoes-capacidade-campanha"><button className="botao botao-secundario" type="button" onClick={sincronizarMeta}>Sincronizar agora</button><button className="botao botao-secundario" type="button" onClick={salvarLimite}>Alterar proteção interna</button></div>}
+      {!capacidade||!capacidade.tierMeta?<p className="aviso-capacidade-campanha">O limite oficial da Meta ainda não está disponível. O sistema continua respeitando o limite de segurança configurado.</p>:<p className="ajuda-capacidade-campanha">O sistema sempre respeita o menor valor entre o limite concedido pela Meta e o limite de segurança.</p>}
+      {administrador&&<div className="acoes-capacidade-campanha"><span>“Sincronizar agora” apenas confere o limite oficial; não altera o limite de segurança.</span><button className="botao botao-secundario" type="button" onClick={sincronizarMeta}>Sincronizar agora</button><button className="botao botao-secundario" type="button" onClick={salvarLimite}>Ajustar limite de segurança</button></div>}
     </section>
 
     <section className="cartao campanhas-listagem">
-      <div className="cabecalho-resultados"><div><span className="etiqueta-pagina">1. Escolha</span><h2>Campanhas</h2><p>Abra uma campanha para acompanhar seu público e seus lotes.</p></div>{administrador&&<button className="botao botao-primario" type="button" onClick={function(){setMostrarCriacao(!mostrarCriacao);setSelecionada(null);}}>{mostrarCriacao?'Fechar criação':'Nova campanha'}</button>}</div>
+      <div className="cabecalho-resultados"><div><span className="etiqueta-pagina">1. Escolha</span><h2>Campanhas</h2><p>Abra uma campanha para acompanhar o público, os grupos de envio e os resultados.</p></div>{administrador&&<button className="botao botao-primario" type="button" onClick={function(){setMostrarCriacao(!mostrarCriacao);setSelecionada(null);}}>{mostrarCriacao?'Fechar criação':'Nova campanha'}</button>}</div>
       {carregando?<Carregando mensagem="Carregando campanhas..."/>:campanhas.length===0?<div className="estado-vazio-campanha"><strong>Nenhuma campanha cadastrada.</strong><span>Crie a primeira campanha para começar.</span></div>:<div className="grade-campanhas">{campanhas.map(function(item){return <article className={'cartao-campanha-resumo '+(selecionada&&selecionada.id===item.id?'ativo':'')} key={item.id}>
-        <div><span className={'status-campanha status-'+item.status}>{textoStatus(item.status)}</span><h3>{item.nome}</h3><p>{item.modelo_nome||'Template não informado'} · Meta: {textoStatus(item.modelo_meta_status||'rascunho')}</p></div>
-        <div className="rodape-cartao-campanha"><span>{item.quantidade_lotes||0} lote(s)</span><button className="botao botao-secundario" type="button" onClick={function(){abrirCampanha(item,250);}}>Abrir campanha</button></div>
+        <div><span className={'status-campanha status-'+item.status}>{textoStatus(item.status)}</span><h3>{item.nome}</h3><p>Mensagem: {item.modelo_nome||'Não informada'} · Aprovação: {textoStatus(item.modelo_meta_status||'rascunho')}</p></div>
+        <div className="rodape-cartao-campanha"><span>{formatarQuantidade(item.quantidade_lotes||0)} {Number(item.quantidade_lotes||0)===1?'lote':'lotes'}</span><button className="botao botao-secundario" type="button" onClick={function(){abrirCampanha(item,250);}}>Abrir campanha</button></div>
       </article>;})}</div>}
     </section>
 
     {mostrarCriacao&&administrador&&<section className="cartao campanha-criacao">
-      <div className="cabecalho-secao"><div><span className="etiqueta-pagina">2. Configure</span><h2>Nova campanha</h2><p>Informe o nome, escolha um texto pronto e use os filtros necessários.</p></div></div>
+      <div className="cabecalho-secao"><div><span className="etiqueta-pagina">2. Configure</span><h2>Nova campanha</h2><p>Informe o nome, escolha a mensagem e defina quais contatos deseja encontrar.</p></div></div>
       <form onSubmit={salvarCampanha}>
         <fieldset className="grade-criacao-campanha">
           <label>Nome da campanha<input className="campo-input" name="nome" value={formulario.nome} onChange={alterar} required/></label>
-          <label>Template<select className="campo-input" name="modeloId" value={formulario.modeloId} onChange={alterar} required><option value="">Selecione</option>{templates.filter(function(item){return item.ativo;}).map(function(item){return <option key={item.id} value={item.id}>{item.nome}</option>;})}</select></label>
+          <label>Mensagem que será usada<select className="campo-input" name="modeloId" value={formulario.modeloId} onChange={alterar} required><option value="">Selecione uma mensagem</option>{templates.filter(function(item){return item.ativo;}).map(function(item){return <option key={item.id} value={item.id}>{item.nome}</option>;})}</select></label>
           <label>Bairro<select className="campo-input" name="bairro" value={formulario.bairro} onChange={alterar}><option value="">Todos</option><option value="nao_informado">Não informado</option>{bairros.map(function(item){return <option key={item} value={item}>{item}</option>;})}</select></label>
           <label>Problema<select className="campo-input" name="problema" value={formulario.problema} onChange={alterar}><option value="">Todos</option><option value="nao_informado">Não informado</option>{problemas.map(function(item){return <option key={item} value={item}>{item}</option>;})}</select></label>
           <label>Evento<select className="campo-input" name="eventoId" value={formulario.eventoId} onChange={alterar}><option value="">Todos</option><option value="sem_evento">Sem evento</option>{eventos.map(function(item){return <option key={item.id} value={item.id}>{item.nome}</option>;})}</select></label>
-          <label>Consentimento<select className="campo-input" name="autorizacaoMensagens" value={formulario.autorizacaoMensagens} onChange={alterar}><option value="">Todos</option><option value="nao_informado">Não informado</option><option value="autorizado">Autorizado</option><option value="recusado">Recusado</option><option value="revogado">Revogado</option></select></label>
+          <label>Autorização para mensagens<select className="campo-input" name="autorizacaoMensagens" value={formulario.autorizacaoMensagens} onChange={alterar}><option value="">Todas as situações</option><option value="nao_informado">Não informado</option><option value="autorizado">Autorizado</option><option value="recusado">Recusado</option><option value="revogado">Revogado</option></select></label>
           <label className="opcao-cadastro-incompleto"><input type="checkbox" name="cadastroIncompleto" checked={formulario.cadastroIncompleto} onChange={alterar}/> Somente cadastros incompletos</label>
         </fieldset>
-        <p className="aviso-combinacao-filtros">Os filtros selecionados são combinados. Um contato precisa atender a todos eles para aparecer na prévia.</p>
+        <p className="aviso-combinacao-filtros">Os filtros funcionam juntos: o contato precisa corresponder a todas as opções selecionadas. A prévia não envia mensagens.</p>
         <div className="acoes-fluxo-campanha"><button className="botao botao-secundario" type="button" onClick={limparFiltrosCriacao}>Limpar filtros</button><button className="botao botao-secundario" type="button" onClick={verPreviaCriacao}>Ver prévia do público</button>{previaCriacao&&<button className="botao botao-primario" type="submit">Criar campanha</button>}</div>
       </form>
-      {previaCriacao&&<div className="bloco-previa-campanha"><div className="metricas-previa-campanha"><article><span>Encontrado</span><strong>{previaCriacao.publicoEncontrado}</strong></article><article><span>Apto</span><strong>{previaCriacao.publicoApto}</strong></article><article><span>Não apto</span><strong>{previaCriacao.publicoNaoApto}</strong></article></div><div className="cabecalho-lista-previa"><div><h3>Quem pode entrar na campanha</h3><p>Telefones protegidos; mostramos somente os últimos dígitos.</p></div><span>{previaCriacao.contatos.length} exibidos</span></div><ListaContatosCampanha contatos={previaCriacao.contatos}/>{previaCriacao.listaLimitada&&<p className="aviso-lista-limitada">A lista é uma amostra. O total completo será considerado na reserva.</p>}</div>}
+      {previaCriacao&&<div className="bloco-previa-campanha"><div className="metricas-previa-campanha"><article><span>Encontrados</span><strong>{formatarQuantidade(previaCriacao.publicoEncontrado)}</strong><small>Correspondem aos filtros escolhidos.</small></article><article><span>Aptos para a campanha</span><strong>{formatarQuantidade(previaCriacao.publicoApto)}</strong><small>Podem participar desta campanha.</small></article><article><span>Não aptos</span><strong>{formatarQuantidade(previaCriacao.publicoNaoApto)}</strong><small>Foram encontrados, mas estão impedidos.</small></article></div>{Number(previaCriacao.publicoEncontrado)>0&&Number(previaCriacao.publicoApto)===0&&<p className="aviso-estado-campanha">Os filtros encontraram contatos, mas nenhum pode participar desta campanha. Revise os filtros ou as condições desses cadastros.</p>}{previaUltrapassaCapacidade&&<p className="aviso-capacidade-publico"><strong>{formatarQuantidade(aptosPrevia)} contatos estão aptos, mas a capacidade restante permite até {formatarQuantidade(capacidadeDisponivel)} neste momento.</strong><span>A campanha pode ser criada normalmente. Depois, escolha um lote dentro da capacidade disponível.</span></p>}<div className="cabecalho-lista-previa"><div><h3>Contatos da prévia</h3><p>Os telefones estão protegidos e mostram somente os últimos dígitos.</p></div><span>{formatarQuantidade(previaCriacao.contatos.length)} exibidos</span></div><ListaContatosCampanha contatos={previaCriacao.contatos} vazia={Number(previaCriacao.publicoEncontrado)===0?'Nenhum contato corresponde aos filtros escolhidos. Revise os filtros e gere uma nova prévia.':'Nenhum contato pode participar desta campanha com os filtros atuais.'}/><p className="aviso-lista-limitada">{textoPreviaPublico(previaCriacao)}</p><p className="ajuda-criar-campanha">Criar a campanha salva o público e as configurações. Nenhuma mensagem será enviada até que um lote seja criado e o envio seja iniciado.</p></div>}
     </section>}
 
     {selecionada&&<section className="cartao campanha-detalhes">
-      <div className="cabecalho-campanha-aberta"><div><span className="etiqueta-pagina">Campanha aberta</span><h2>{selecionada.nome}</h2><div className="linha-informacoes-campanha"><span className={'status-campanha status-'+selecionada.status}>{textoStatus(selecionada.status)}</span><span>Template: {selecionada.modelo_nome||'Não informado'}</span><span>Meta: {textoStatus(selecionada.modelo_meta_status||'rascunho')}</span></div>{selecionada.modelo_meta_status!=='aprovado'&&<p>O envio fica bloqueado até o template estar aprovado na Meta.</p>}</div><button className="botao botao-secundario" type="button" onClick={function(){setSelecionada(null);setPublico(null);}}>Fechar</button></div>
+      <div className="cabecalho-campanha-aberta"><div><span className="etiqueta-pagina">Campanha aberta</span><h2>{selecionada.nome}</h2><div className="linha-informacoes-campanha"><span className={'status-campanha status-'+selecionada.status}>{textoStatus(selecionada.status)}</span><span>Mensagem: {selecionada.modelo_nome||'Não informada'}</span><span>Aprovação na Meta: {textoStatus(selecionada.modelo_meta_status||'rascunho')}</span></div>{!selecionada.modelo_nome?<p className="aviso-estado-campanha">Esta campanha não possui uma mensagem associada e não pode realizar envios.</p>:selecionada.modelo_meta_status!=='aprovado'&&<p className="aviso-estado-campanha">A mensagem ainda não foi aprovada pela Meta. É possível conferir o público, mas o envio permanece bloqueado.</p>}</div><button className="botao botao-secundario" type="button" onClick={function(){setSelecionada(null);setPublico(null);}}>Fechar campanha</button></div>
 
-      <div className="metricas-campanha"><article><span>Aptos</span><strong>{publico?publico.publicoApto:0}</strong></article><article><span>Reservados</span><strong>{selecionada.reservado||0}</strong></article><article><span>Enviados</span><strong>{selecionada.enviado||0}</strong></article><article><span>Entregues</span><strong>{selecionada.entregue||0}</strong></article><article><span>Lidos</span><strong>{selecionada.lido||0}</strong></article><article><span>Falhas</span><strong>{selecionada.falhou||0}</strong></article><article><span>Restantes</span><strong>{restantes}</strong></article></div>
+      <div className="metricas-campanha"><article title="Contatos que podem participar da campanha"><span>Aptos</span><strong>{publico?formatarQuantidade(publico.publicoApto):0}</strong></article><article title="Contatos já separados em lotes para envio"><span>Separados em lotes</span><strong>{formatarQuantidade(selecionada.reservado||0)}</strong></article><article><span>Enviados</span><strong>{formatarQuantidade(selecionada.enviado||0)}</strong></article><article><span>Entregues</span><strong>{formatarQuantidade(selecionada.entregue||0)}</strong></article><article><span>Lidos</span><strong>{formatarQuantidade(selecionada.lido||0)}</strong></article><article><span>Falhas</span><strong>{formatarQuantidade(selecionada.falhou||0)}</strong></article><article title="Contatos aptos que ainda não entraram em um lote"><span>Ainda disponíveis</span><strong>{formatarQuantidade(restantes)}</strong></article></div>
 
       <div className="acoes-status-campanha">{selecionada.status==='rascunho'&&administrador&&<button className="botao botao-primario" type="button" onClick={function(){mudarStatus('pronta');}}>Liberar criação de lotes</button>}{selecionada.status==='ativa'&&administrador&&<button className="botao botao-secundario" type="button" onClick={function(){mudarStatus('pausada');}}>Pausar</button>}{selecionada.status==='pausada'&&administrador&&<button className="botao botao-primario" type="button" onClick={function(){mudarStatus('ativa');}}>Retomar</button>}{['ativa','pausada'].includes(selecionada.status)&&administrador&&<button className="botao botao-secundario" type="button" onClick={function(){mudarStatus('concluida');}}>Concluir</button>}{['rascunho','pronta','ativa','pausada'].includes(selecionada.status)&&administrador&&<button className="botao botao-perigo" type="button" onClick={function(){mudarStatus('cancelada');}}>Cancelar campanha</button>}</div>
 
       {['rascunho','pronta','ativa'].includes(selecionada.status)&&<div className="bloco-proximo-lote">
-        <div className="cabecalho-secao"><div><span className="etiqueta-pagina">Próximo lote</span><h3>Confira os contatos antes de reservar</h3><p>A lista segue os filtros salvos nesta campanha.</p></div></div>
-        <div className="controle-tamanho-lote"><label>Quantidade do próximo lote<input className="campo-input" type="number" min="1" max="10000" value={tamanho} onChange={function(evento){setTamanho(evento.target.value);}}/></label><button className="botao botao-secundario" type="button" onClick={atualizarPreviaLote}>Atualizar prévia</button></div>
-        {publico&&<><div className="resumo-proximo-lote"><strong>{publico.quantidadeEfetiva} contato(s) entrarão neste lote</strong>{publico.quantidadeEfetiva<Number(tamanho)&&!capacidadeInsuficiente&&<span>Há menos contatos disponíveis que a quantidade solicitada. O lote será criado com {publico.quantidadeEfetiva}.</span>}{capacidadeInsuficiente&&<span>A quantidade solicitada ultrapassa a capacidade atual de {publico.capacidade.disponivel}. Reduza o lote para continuar.</span>}</div><ListaContatosCampanha contatos={publico.contatos} vazia="Não existem novos contatos aptos para este lote."/>{publico.listaLimitada&&<p className="aviso-lista-limitada">Exibindo os primeiros 1.000 contatos da reserva.</p>}<div className="acoes-fluxo-campanha"><button className="botao botao-primario botao-criar-lote" type="button" disabled={!podeCriarLote} onClick={criarLote}>{criandoLote?'Criando lote...':'Criar lote com estes '+publico.quantidadeEfetiva+' contatos'}</button></div></>}
+        <div className="cabecalho-secao"><div><span className="etiqueta-pagina">Próximo lote</span><h3>Escolha o próximo grupo para envio</h3><p>Um lote é o grupo de contatos que será separado para os próximos envios. Criar o lote ainda não envia mensagens.</p></div></div>
+        <div className="controle-tamanho-lote"><label>Quantidade de contatos no próximo lote<input className="campo-input" type="number" min="1" max="10000" value={tamanho} onChange={function(evento){setTamanho(evento.target.value);}}/></label><button className="botao botao-secundario" type="button" onClick={atualizarPreviaLote}>Conferir esta quantidade</button></div>
+        {publico&&<>
+          <div className={'resumo-proximo-lote '+(capacidadeInsuficiente?'resumo-proximo-lote-bloqueado':'')}>
+            <strong>{formatarQuantidade(publico.quantidadeEfetiva)} {rotuloContatos(publico.quantidadeEfetiva)} {Number(publico.quantidadeEfetiva)===1?'será separado':'serão separados'} neste lote</strong>
+            {Number(publico.capacidade&&publico.capacidade.disponivel||0)===0?<span>A capacidade está esgotada neste momento. Aguarde a liberação da janela de 24 horas ou ajuste o limite de segurança, se for apropriado.</span>:publico.quantidadeEfetiva<Number(tamanho)&&!capacidadeInsuficiente?<span>Existem apenas {formatarQuantidade(publico.quantidadeEfetiva)} contatos disponíveis para este lote. O sistema usará essa quantidade menor.</span>:null}
+            {capacidadeInsuficiente&&Number(publico.capacidade&&publico.capacidade.disponivel||0)>0&&<span>Você pediu {formatarQuantidade(tamanho)}, mas a capacidade restante permite até {formatarQuantidade(publico.capacidade.disponivel)}. Reduza a quantidade para continuar.</span>}
+          </div>
+          <ListaContatosCampanha contatos={publico.contatos} vazia="Nenhum contato pode entrar no próximo lote. Eles podem já estar em outro lote desta campanha ou estar impedidos pelas regras atuais."/>
+          {publico.listaLimitada&&<p className="aviso-lista-limitada">Exibindo {formatarQuantidade(publico.contatos.length)} dos {formatarQuantidade(publico.quantidadeEfetiva)} contatos que entrarão neste lote.</p>}
+          <div className="acoes-fluxo-campanha"><button className="botao botao-primario botao-criar-lote" type="button" disabled={!podeCriarLote} onClick={criarLote}>{criandoLote?'Criando lote...':'Criar lote para envio com '+formatarQuantidade(publico.quantidadeEfetiva)+' '+rotuloContatos(publico.quantidadeEfetiva)}</button></div>
+        </>}
       </div>}
 
-      <div className="secao-lotes-campanha"><div className="cabecalho-secao"><div><span className="etiqueta-pagina">Acompanhamento</span><h3>Lotes da campanha</h3></div></div>{lotes.length===0?<div className="estado-vazio-campanha"><strong>Nenhum lote criado.</strong><span>Confira a prévia acima para criar o primeiro.</span></div>:<div className="grade-lotes-campanha">{lotes.map(function(lote){return <article className="cartao-lote-campanha" key={lote.id}><div><span>Lote {lote.ordem}</span><strong>{lote.tamanho_efetivo} contatos</strong></div><dl><div><dt>Status</dt><dd>{textoStatus(lote.status)}</dd></div><div><dt>Data</dt><dd>{new Date(lote.criado_em).toLocaleString('pt-BR')}</dd></div></dl><button className="botao botao-secundario" type="button" onClick={function(){abrirLote(lote);}}>Ver contatos</button></article>;})}</div>}</div>
+      <div className="secao-lotes-campanha"><div className="cabecalho-secao"><div><span className="etiqueta-pagina">Acompanhamento</span><h3>Grupos preparados para envio</h3><p>Cada lote reúne contatos separados para acompanhar e enviar as mensagens.</p></div></div>{lotes.length===0?<div className="estado-vazio-campanha"><strong>Nenhum lote criado.</strong><span>Confira a quantidade acima para criar o primeiro grupo de envio.</span></div>:<div className="grade-lotes-campanha">{lotes.map(function(lote){return <article className="cartao-lote-campanha" key={lote.id}><div><span>Lote {lote.ordem}</span><strong>{formatarQuantidade(lote.tamanho_efetivo)} {rotuloContatos(lote.tamanho_efetivo)}</strong></div><dl><div><dt>Status</dt><dd>{textoStatus(lote.status)}</dd></div><div><dt>Criado em</dt><dd>{new Date(lote.criado_em).toLocaleString('pt-BR')}</dd></div></dl><button className="botao botao-secundario" type="button" onClick={function(){abrirLote(lote);}}>Ver contatos deste lote</button></article>;})}</div>}</div>
 
-      {falhas.length>0&&<details className="secao-secundaria-campanha"><summary>Falhas que podem ser reprocessadas ({falhas.length})</summary><div className="lista-falhas-campanha">{falhas.map(function(item){return <article key={item.id}><div><strong>{item.contato_nome||'Não informado'}</strong><span>Lote {item.lote_ordem} · Tentativa {item.numero_tentativa}</span><small>{item.codigo_erro_externo||'Sem código'} — {item.titulo_erro||'Falha'}</small></div><button className="botao botao-secundario" type="button" onClick={function(){reprocessar(item);}}>Reprocessar</button></article>;})}</div></details>}
+      {falhas.length>0&&<details className="secao-secundaria-campanha"><summary>Mensagens que falharam e podem ser enviadas novamente ({falhas.length})</summary><div className="lista-falhas-campanha">{falhas.map(function(item){return <article key={item.id}><div><strong>{item.contato_nome||'Não informado'}</strong><span>Lote {item.lote_ordem} · Envio nº {item.numero_tentativa}</span><small>{item.codigo_erro_externo||'Sem código'} — {item.titulo_erro||'Falha'}</small></div><button className="botao botao-secundario" type="button" onClick={function(){reprocessar(item);}}>Tentar enviar novamente</button></article>;})}</div></details>}
     </section>}
 
     {administrador&&<details className="cartao secao-secundaria-campanha gerenciar-templates-campanha"><summary>Gerenciar templates de mensagem</summary><div className="conteudo-templates-campanha"><form onSubmit={salvarTemplate}><fieldset className="grade-criacao-campanha"><label>Nome interno<input className="campo-input" value={template.nome} onChange={function(evento){setTemplate(Object.assign({},template,{nome:evento.target.value}));}} required/></label><label>Categoria interna<input className="campo-input" value={template.categoria} onChange={function(evento){setTemplate(Object.assign({},template,{categoria:evento.target.value}));}} required/></label><label>Nome oficial na Meta<input className="campo-input" value={template.metaNome} onChange={function(evento){setTemplate(Object.assign({},template,{metaNome:evento.target.value}));}}/></label><label>Idioma<select className="campo-input" value={template.metaIdioma} onChange={function(evento){setTemplate(Object.assign({},template,{metaIdioma:evento.target.value}));}}><option value="pt_BR">pt_BR</option><option value="en_US">en_US</option></select></label><label>Categoria Meta<select className="campo-input" value={template.metaCategoria} onChange={function(evento){setTemplate(Object.assign({},template,{metaCategoria:evento.target.value}));}}><option value="MARKETING">Marketing</option><option value="UTILITY">Utilidade</option><option value="AUTHENTICATION">Autenticação</option></select></label><label>Status na Meta<select className="campo-input" value={template.metaStatus} onChange={function(evento){setTemplate(Object.assign({},template,{metaStatus:evento.target.value}));}}><option value="rascunho">Rascunho</option><option value="em_analise">Em análise</option><option value="aprovado">Aprovado</option><option value="rejeitado">Rejeitado</option></select></label><label className="campo-template-conteudo">Conteúdo<textarea className="campo-input" value={template.conteudo} onChange={function(evento){setTemplate(Object.assign({},template,{conteudo:evento.target.value}));}} required/></label><label className="opcao-cadastro-incompleto"><input type="checkbox" checked={template.ativo} onChange={function(evento){setTemplate(Object.assign({},template,{ativo:evento.target.checked}));}}/> Template ativo</label></fieldset><div className="acoes-fluxo-campanha"><button className="botao botao-primario" type="submit">{templateEdicao?'Salvar alterações':'Criar template'}</button>{templateEdicao&&<button className="botao botao-secundario" type="button" onClick={function(){setTemplateEdicao(null);setTemplate(TEMPLATE_INICIAL);}}>Cancelar edição</button>}</div></form><div className="lista-templates-campanha">{templates.map(function(item){return <article key={item.id}><div><strong>{item.nome}</strong><span>{item.categoria} · Meta: {textoStatus(item.meta_status||'rascunho')} · {item.ativo?'Ativo':'Inativo'}</span></div><button className="botao botao-secundario" type="button" onClick={function(){editarTemplate(item);}}>Editar</button></article>;})}</div></div></details>}
 
-    {loteAberto&&<div className="sobreposicao-campanha" role="presentation" onMouseDown={function(evento){if(evento.target===evento.currentTarget)setLoteAberto(null);}}><section className="painel-contatos-lote" role="dialog" aria-modal="true" aria-labelledby="titulo-contatos-lote"><div className="cabecalho-campanha-aberta"><div><span className="etiqueta-pagina">Lote {loteAberto.ordem}</span><h2 id="titulo-contatos-lote">{loteAberto.tamanho_efetivo} contatos reservados</h2><p>Telefones aparecem mascarados para proteger os dados.</p></div><button className="botao botao-secundario" type="button" onClick={function(){setLoteAberto(null);}}>Fechar</button></div>{carregandoLote?<Carregando mensagem="Carregando contatos do lote..."/>:<ListaContatosCampanha contatos={contatosLote} aoEnviar={enviarContato} podeEnviar={selecionada.status==='ativa'&&selecionada.modelo_meta_status==='aprovado'}/>}</section></div>}
+    {loteAberto&&<div className="sobreposicao-campanha" role="presentation" onMouseDown={function(evento){if(evento.target===evento.currentTarget)setLoteAberto(null);}}><section className="painel-contatos-lote" role="dialog" aria-modal="true" aria-labelledby="titulo-contatos-lote"><div className="cabecalho-campanha-aberta"><div><span className="etiqueta-pagina">Lote {loteAberto.ordem}</span><h2 id="titulo-contatos-lote">{formatarQuantidade(loteAberto.tamanho_efetivo)} contatos neste lote</h2><p>Telefones aparecem mascarados para proteger os dados. Abrir esta lista não envia mensagens.</p></div><button className="botao botao-secundario" type="button" onClick={function(){setLoteAberto(null);}}>Fechar lista</button></div>{carregandoLote?<Carregando mensagem="Carregando contatos do lote..."/>:<ListaContatosCampanha contatos={contatosLote} aoEnviar={enviarContato} podeEnviar={selecionada.status==='ativa'&&selecionada.modelo_meta_status==='aprovado'}/>}</section></div>}
   </div></main>;
 }
 
