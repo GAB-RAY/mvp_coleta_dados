@@ -3,6 +3,7 @@ const criarAppError = require('../../utils/AppError');
 const contatoService = require('../contatos/contatoService');
 const campanhaModel = require('./campanhaModel');
 const limiteMetaService = require('./limiteMetaService');
+const templateMetaService = require('./templateMetaService');
 
 let obterAgora = function () { return new Date(); };
 
@@ -198,37 +199,24 @@ async function listarTemplates() { return campanhaModel.listarTemplates(); }
 
 async function salvarTemplate(idRecebido, dados, usuario) {
   const id = idRecebido ? validarId(idRecebido, 'Template') : null;
-  const statusPermitidos = ['rascunho','em_analise','aprovado','rejeitado'];
-  const metaStatus = typeof dados.metaStatus === 'string' ? dados.metaStatus.trim() : 'rascunho';
-  if (!statusPermitidos.includes(metaStatus)) throw criarAppError('Status do template na Meta invalido.', 400);
-  const metaNome = typeof dados.metaNome === 'string' ? dados.metaNome.trim() : '';
-  const metaIdioma = typeof dados.metaIdioma === 'string' ? dados.metaIdioma.trim() : '';
-  const metaCategoria = typeof dados.metaCategoria === 'string' ? dados.metaCategoria.trim() : '';
-  if (metaStatus === 'aprovado' && (!metaNome || !metaIdioma)) {
-    throw criarAppError('Template aprovado exige nome oficial e idioma da Meta.', 400);
-  }
-  const preparado = {
-    nome: validarTexto(dados.nome, 'Nome', 150),
-    categoria: validarTexto(dados.categoria, 'Categoria', 100),
-    conteudo: validarTexto(dados.conteudo, 'Conteudo', 10000),
-    ativo: dados.ativo !== false,
-    metaNome: metaNome ? validarTexto(metaNome, 'Nome oficial da Meta', 512) : null,
-    metaIdioma: metaIdioma ? validarTexto(metaIdioma, 'Idioma da Meta', 35) : null,
-    metaCategoria: metaCategoria ? validarTexto(metaCategoria, 'Categoria da Meta', 50) : null,
-    metaStatus
-  };
-  const template = await campanhaModel.salvarTemplate(id, preparado, usuario.id);
+  let template;
+  try { template = await templateMetaService.salvarRascunho(id, dados, usuario); }
+  catch (erro) { if (erro.codigo === 'TEMPLATE_JA_SUBMETIDO') throw criarAppError(erro.message, 409); throw erro; }
   if (!template) throw criarAppError('Template nao encontrado.', 404);
   return template;
 }
+
+async function submeterTemplate(id, usuario) { return templateMetaService.submeter(id, usuario); }
+async function sincronizarTemplatesMeta(usuario) { return templateMetaService.sincronizar(usuario); }
+async function configurarEnvioTemplate(id, dados, usuario) { return templateMetaService.configurarEnvio(id, dados, usuario); }
 
 function definirRelogioParaTeste(funcao) {
   obterAgora = funcao || function () { return new Date(); };
 }
 
 module.exports = {
-  alterarStatus, atualizar, atualizarLimite, criar, criarLote,
+  alterarStatus, atualizar, atualizarLimite, configurarEnvioTemplate, criar, criarLote,
   definirRelogioParaTeste, listar, listarContatosLote, listarFalhas, listarLotes,
   listarTemplates, obterLimite, salvarTemplate, sincronizarLimiteMeta, visualizarPreviaFiltros,
-  visualizarPublico
+  visualizarPublico, submeterTemplate, sincronizarTemplatesMeta
 };

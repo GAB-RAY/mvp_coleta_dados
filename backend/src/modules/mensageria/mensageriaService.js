@@ -139,8 +139,11 @@ async function enviar(tentativaIdRecebido) {
   try {
     const resultado = await metaProvider.enviarTemplate({
       telefone: tentativa.telefone_normalizado,
+      nomeContato: tentativa.contato_nome,
       templateNome: tentativa.meta_nome,
-      templateIdioma: tentativa.meta_idioma
+      templateIdioma: tentativa.meta_idioma,
+      templateComponentes: tentativa.meta_componentes,
+      templateConfiguracaoEnvio: tentativa.meta_configuracao_envio
     });
     return await model.concluirEnvio(tentativaId, resultado.identificadorExterno, obterAgora());
   } catch (erro) {

@@ -4,7 +4,10 @@ const autorizarAdministrador = require('../../middlewares/autorizarAdministrador
 const roteador = express.Router();
 
 roteador.get('/templates', controller.listarTemplates);
+roteador.post('/templates/sincronizar-meta', autorizarAdministrador, controller.sincronizarTemplatesMeta);
 roteador.post('/templates', autorizarAdministrador, controller.criarTemplate);
+roteador.post('/templates/:id/submeter-meta', autorizarAdministrador, controller.submeterTemplate);
+roteador.put('/templates/:id/configuracao-envio', autorizarAdministrador, controller.configurarEnvioTemplate);
 roteador.put('/templates/:id', autorizarAdministrador, controller.atualizarTemplate);
 roteador.get('/configuracao/limite', controller.obterLimite);
 roteador.put('/configuracao/limite', autorizarAdministrador, controller.atualizarLimite);

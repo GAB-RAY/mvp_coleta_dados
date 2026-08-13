@@ -59,8 +59,8 @@ Considere este cenário somente quando não houver implementação aproveitável
 #### Estado de referência deste documento
 
 Na atualização de 13/08/2026, o repositório já possuía backend, frontend e
-schema completo implementados. O schema atual possui 30 tabelas, 166 bairros e
-12 migrations registradas. Os resultados dos relatórios datados servem como
+schema completo implementados. O schema atual possui 31 tabelas, 166 bairros e
+13 migrations registradas. Os resultados dos relatórios datados servem como
 referência de regressão, não como substitutos para uma nova execução dos testes
 no ambiente recebido.
 
@@ -638,18 +638,19 @@ Tabelas obrigatórias:
 16. `textos_formulario`.
 17. `numeros_whatsapp`;
 18. `modelos_mensagem`;
-19. `comunicacoes`;
-20. `campanhas`;
-21. `historico_comunicacoes`;
-22. `schema_migrations`.
-23. `campanha_lotes`;
-24. `campanha_participacoes`;
-25. `campanha_tentativas`;
-26. `historico_status_mensageria`;
-27. `configuracoes_sistema`;
-28. `historico_configuracoes_sistema`;
-29. `eventos_webhook_mensageria`.
-30. `sincronizacoes_limite_meta`.
+19. `historico_modelos_mensagem_meta`;
+20. `comunicacoes`;
+21. `campanhas`;
+22. `historico_comunicacoes`;
+23. `schema_migrations`.
+24. `campanha_lotes`;
+25. `campanha_participacoes`;
+26. `campanha_tentativas`;
+27. `historico_status_mensageria`;
+28. `configuracoes_sistema`;
+29. `historico_configuracoes_sistema`;
+30. `eventos_webhook_mensageria`.
+31. `sincronizacoes_limite_meta`.
 
 Implementar chaves estrangeiras, checks, índices e triggers para:
 

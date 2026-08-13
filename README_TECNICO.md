@@ -292,6 +292,9 @@ Todas exigem JWT.
 | `GET/POST` | `/api/admin/campanhas/:id/lotes` | operador/admin |
 | `GET` | `/api/admin/campanhas/:id/falhas` | operador/admin; falhas atuais aptas a reprocessamento |
 | `GET/POST/PUT` | `/api/admin/campanhas/templates` | leitura operador/admin; escrita admin |
+| `POST` | `/api/admin/campanhas/templates/sincronizar-meta` | sincronização oficial paginada; admin |
+| `POST` | `/api/admin/campanhas/templates/:id/submeter-meta` | submissão oficial para análise; admin |
+| `PUT` | `/api/admin/campanhas/templates/:id/configuracao-envio` | parâmetros locais de envio; admin |
 | `GET` | `/api/admin/campanhas/configuracao/limite` | operador/admin |
 | `PUT` | `/api/admin/campanhas/configuracao/limite` | admin, com motivo |
 | `POST` | `/api/admin/mensageria/tentativas/:id/reprocessar` | operador/admin |
@@ -494,7 +497,7 @@ Backup:
 
 ### 3.14 Banco de dados
 
-O schema possui 30 tabelas:
+O schema possui 31 tabelas:
 
 | Grupo | Tabelas |
 |---|---|
@@ -503,7 +506,7 @@ O schema possui 30 tabelas:
 | Eventos | `eventos`, `historico_eventos`, `contato_eventos` |
 | Importação e conteúdo | `importacoes`, `importacao_linhas`, `textos_formulario` |
 | Histórico legado | `numeros_whatsapp`, `comunicacoes`, `historico_comunicacoes` |
-| Campanhas e mensageria | `modelos_mensagem`, `campanhas`, `campanha_lotes`, `campanha_participacoes`, `campanha_tentativas`, `historico_status_mensageria`, `configuracoes_sistema`, `historico_configuracoes_sistema`, `eventos_webhook_mensageria`, `sincronizacoes_limite_meta` |
+| Campanhas e mensageria | `modelos_mensagem`, `historico_modelos_mensagem_meta`, `campanhas`, `campanha_lotes`, `campanha_participacoes`, `campanha_tentativas`, `historico_status_mensageria`, `configuracoes_sistema`, `historico_configuracoes_sistema`, `eventos_webhook_mensageria`, `sincronizacoes_limite_meta` |
 | Evolução estrutural | `schema_migrations` |
 
 Proteções relevantes:

@@ -119,14 +119,14 @@ O comando é idempotente. Ele mantém uma versão ativa de cada tipo, preserva a
 versões anteriores e não altera consentimentos já registrados. As versões ativas
 são `aviso_privacidade_v3`, `mensagens_whatsapp_v3` e `ligacoes_v3`.
 
-O schema atual tem 30 tabelas:
+O schema atual tem 31 tabelas:
 
 - cadastros: `bairros`, `origens`, `usuarios`, `contatos`;
 - privacidade: `consentimentos`, `aceites_privacidade`, `historico_contatos`, `solicitacoes_exclusao`;
 - eventos: `eventos`, `historico_eventos`, `contato_eventos`;
 - operação: `importacoes`, `importacao_linhas`, `tentativas_login`, `textos_formulario`, `backups_banco`, `schema_migrations`;
 - histórico legado: `numeros_whatsapp`, `comunicacoes`, `historico_comunicacoes`;
-- campanhas: `modelos_mensagem`, `campanhas`, `campanha_lotes`,
+- campanhas: `modelos_mensagem`, `historico_modelos_mensagem_meta`, `campanhas`, `campanha_lotes`,
   `campanha_participacoes`, `campanha_tentativas`,
   `historico_status_mensageria`, `configuracoes_sistema`,
   `historico_configuracoes_sistema`, `eventos_webhook_mensageria`,
@@ -231,6 +231,9 @@ Administrativas com JWT:
 | GET/POST | `/api/admin/campanhas/:id/lotes` | operador/admin; reserva atômica |
 | GET | `/api/admin/campanhas/:id/falhas` | operador/admin; falhas atuais aptas a reprocessamento |
 | GET/POST/PUT | `/api/admin/campanhas/templates` | leitura operador/admin; escrita admin |
+| POST | `/api/admin/campanhas/templates/sincronizar-meta` | importa e atualiza templates oficiais; admin |
+| POST | `/api/admin/campanhas/templates/:id/submeter-meta` | envia rascunho para análise da Meta; admin |
+| PUT | `/api/admin/campanhas/templates/:id/configuracao-envio` | configura parâmetros de envio sem editar a estrutura oficial; admin |
 | GET | `/api/admin/campanhas/configuracao/limite` | operador/admin |
 | PUT | `/api/admin/campanhas/configuracao/limite` | admin; exige motivo |
 | POST | `/api/admin/campanhas/configuracao/limite/sincronizar-meta` | admin; consulta o limite oficial |
@@ -314,7 +317,7 @@ das implementações de campanhas e Meta ficam nos relatórios `RELATORIO_*.md`.
 Execute novamente os comandos acima antes de cada publicação relevante; não
 trate uma contagem histórica como validação do código atual.
 
-O teste de schema cria um banco temporário vazio, aplica `database/criar_banco.sql`, valida 30 tabelas, doze migrations registradas e 166 bairros e remove o banco temporário ao final.
+O teste de schema cria um banco temporário vazio, aplica `database/criar_banco.sql`, valida 31 tabelas, treze migrations registradas e 166 bairros e remove o banco temporário ao final.
 
 O teste de carga de importação gera 15.000 contatos temporários, percorre pré-visualização, confirmação e persistência, valida a rejeição de 20.001 linhas, remove todos os dados de teste e ressincroniza as sequências utilizadas. Ele recusa execução quando `NODE_ENV=production`.
 

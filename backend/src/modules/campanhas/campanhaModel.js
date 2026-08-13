@@ -6,6 +6,7 @@ const CAMPOS_CAMPANHA = `
   campanha.filtros_snapshot, campanha.status, campanha.responsavel_usuario_id,
   campanha.criado_por_usuario_id, campanha.criado_em, campanha.atualizado_em,
   modelo.nome AS modelo_nome, modelo.meta_status AS modelo_meta_status,
+  modelo.meta_status_oficial AS modelo_meta_status_oficial,
   modelo.meta_nome AS modelo_meta_nome, modelo.meta_idioma AS modelo_meta_idioma,
   responsavel.nome AS responsavel_nome
 `;
@@ -560,41 +561,169 @@ async function registrarFalhaSincronizacaoLimiteMeta(dados) {
 async function listarTemplates() {
   const resultado = await banco.query(`
     SELECT id, nome, categoria, texto, ativo, meta_nome, meta_idioma,
-      meta_categoria, meta_status, criado_em, atualizado_em
+      meta_categoria, meta_status, meta_template_id, meta_componentes,
+      meta_status_oficial, meta_origem, meta_submetido_em,
+      meta_sincronizado_em, meta_configuracao_envio, criado_em, atualizado_em
     FROM modelos_mensagem ORDER BY ativo DESC, nome
   `);
   return resultado.rows;
 }
 
 async function salvarTemplate(id, dados, usuarioId) {
-  const valores = [dados.nome, dados.categoria, dados.conteudo, dados.ativo,
-    dados.metaNome, dados.metaIdioma, dados.metaCategoria, dados.metaStatus, usuarioId];
-  if (id) {
-    const resultado = await banco.query(`
-      UPDATE modelos_mensagem SET nome=$1, categoria=$2, texto=$3, ativo=$4,
-        meta_nome=$5, meta_idioma=$6, meta_categoria=$7, meta_status=$8,
-        atualizado_por_usuario_id=$9, atualizado_em=CURRENT_TIMESTAMP
-      WHERE id=$10 RETURNING id, nome, categoria, texto, ativo,
-        meta_nome,meta_idioma,meta_categoria,meta_status
-    `, valores.concat(id));
-    return resultado.rows[0] || null;
-  }
-  const resultado = await banco.query(`
-    INSERT INTO modelos_mensagem (nome,categoria,texto,ativo,meta_nome,meta_idioma,
-      meta_categoria,meta_status,criado_por_usuario_id,atualizado_por_usuario_id)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9)
-    RETURNING id,nome,categoria,texto,ativo,meta_nome,meta_idioma,meta_categoria,meta_status
-  `, valores);
+  const cliente = await banco.connect();
+  try {
+    await cliente.query('BEGIN');
+    let template;
+    if (id) {
+      await cliente.query('SELECT pg_advisory_xact_lock(41030, $1)', [id]);
+      const atual = await cliente.query('SELECT meta_template_id FROM modelos_mensagem WHERE id=$1 FOR UPDATE', [id]);
+      if (!atual.rows[0]) { await cliente.query('ROLLBACK'); return null; }
+      if (atual.rows[0].meta_template_id) { const erro = new Error('Template oficial nao pode ser editado como rascunho.'); erro.codigo='TEMPLATE_JA_SUBMETIDO'; throw erro; }
+      template = (await cliente.query(`
+        UPDATE modelos_mensagem SET nome=$1, categoria=$2, texto=$3, ativo=$4,
+          meta_nome=$5, meta_idioma=$6, meta_categoria=$7, meta_status='rascunho',
+          meta_componentes=$8::jsonb, meta_configuracao_envio=$9::jsonb,
+          atualizado_por_usuario_id=$10, atualizado_em=CURRENT_TIMESTAMP
+        WHERE id=$11 RETURNING *
+      `, [dados.nome,dados.categoria,dados.conteudo,dados.ativo,dados.metaNome,
+        dados.metaIdioma,dados.metaCategoria,JSON.stringify(dados.componentes),
+        JSON.stringify(dados.configuracaoEnvio),usuarioId,id])).rows[0];
+      await cliente.query(`INSERT INTO historico_modelos_mensagem_meta
+        (modelo_id,acao,origem,usuario_id) VALUES ($1,'rascunho_atualizado','sistema',$2)`, [id,usuarioId]);
+    } else {
+      template = (await cliente.query(`
+        INSERT INTO modelos_mensagem (nome,categoria,texto,ativo,meta_nome,meta_idioma,
+          meta_categoria,meta_status,meta_componentes,meta_configuracao_envio,
+          criado_por_usuario_id,atualizado_por_usuario_id)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,'rascunho',$8::jsonb,$9::jsonb,$10,$10)
+        RETURNING *
+      `, [dados.nome,dados.categoria,dados.conteudo,dados.ativo,dados.metaNome,
+        dados.metaIdioma,dados.metaCategoria,JSON.stringify(dados.componentes),
+        JSON.stringify(dados.configuracaoEnvio),usuarioId])).rows[0];
+      await cliente.query(`INSERT INTO historico_modelos_mensagem_meta
+        (modelo_id,acao,origem,usuario_id) VALUES ($1,'rascunho_criado','sistema',$2)`, [template.id,usuarioId]);
+    }
+    await cliente.query('COMMIT');
+    return template;
+  } catch (erro) { await cliente.query('ROLLBACK'); throw erro; }
+  finally { cliente.release(); }
+}
+
+async function buscarTemplatePorId(id) {
+  return (await banco.query('SELECT * FROM modelos_mensagem WHERE id=$1', [id])).rows[0] || null;
+}
+
+async function configurarEnvioTemplate(id, configuracaoEnvio, usuarioId) {
+  const resultado = await banco.query(`UPDATE modelos_mensagem SET meta_configuracao_envio=$1::jsonb,
+    atualizado_por_usuario_id=$2,atualizado_em=CURRENT_TIMESTAMP
+    WHERE id=$3 AND meta_template_id IS NOT NULL RETURNING *`, [JSON.stringify(configuracaoEnvio),usuarioId,id]);
+  if (!resultado.rows[0]) return null;
+  await banco.query(`INSERT INTO historico_modelos_mensagem_meta
+    (modelo_id,meta_template_id,acao,origem,usuario_id)
+    VALUES ($1,$2,'configuracao_envio','sistema',$3)`, [id,resultado.rows[0].meta_template_id,usuarioId]);
   return resultado.rows[0];
+}
+
+function statusInternoOficial(status) {
+  if (status === 'APPROVED') return 'aprovado';
+  if (status === 'PENDING') return 'em_analise';
+  if (status === 'REJECTED') return 'rejeitado';
+  return 'indisponivel';
+}
+
+function jsonCanonico(valor) {
+  if (Array.isArray(valor)) return '[' + valor.map(jsonCanonico).join(',') + ']';
+  if (valor && typeof valor === 'object') return '{' + Object.keys(valor).sort().map(function(chave){return JSON.stringify(chave)+':'+jsonCanonico(valor[chave]);}).join(',') + '}';
+  return JSON.stringify(valor);
+}
+
+async function submeterTemplateAtomico(id, usuarioId, enviarParaMeta) {
+  const cliente = await banco.connect();
+  try {
+    await cliente.query('BEGIN');
+    await cliente.query('SELECT pg_advisory_xact_lock(41030, $1)', [id]);
+    const atual = (await cliente.query('SELECT * FROM modelos_mensagem WHERE id=$1 FOR UPDATE', [id])).rows[0];
+    if (!atual) { const erro = new Error('Template nao encontrado.'); erro.codigo='TEMPLATE_NAO_ENCONTRADO'; throw erro; }
+    if (atual.meta_template_id) { await cliente.query('COMMIT'); return { template: atual, repetido: true }; }
+    const oficial = await enviarParaMeta(atual);
+    const status = String(oficial.status || '').toUpperCase();
+    const template = (await cliente.query(`UPDATE modelos_mensagem SET
+      meta_template_id=$1, meta_status_oficial=$2, meta_status=$3,
+      meta_categoria=COALESCE($4,meta_categoria), meta_submetido_em=CURRENT_TIMESTAMP,
+      meta_sincronizado_em=CURRENT_TIMESTAMP, atualizado_por_usuario_id=$5,
+      atualizado_em=CURRENT_TIMESTAMP WHERE id=$6 RETURNING *`,
+    [String(oficial.id),status,statusInternoOficial(status),oficial.category || null,usuarioId,id])).rows[0];
+    await cliente.query(`INSERT INTO historico_modelos_mensagem_meta
+      (modelo_id,meta_template_id,acao,status_anterior,status_novo,origem,usuario_id)
+      VALUES ($1,$2,'submissao',$3,$4,'api_meta',$5)`, [id,String(oficial.id),atual.meta_status_oficial,status,usuarioId]);
+    await cliente.query('COMMIT');
+    return { template, repetido: false };
+  } catch (erro) { await cliente.query('ROLLBACK'); throw erro; }
+  finally { cliente.release(); }
+}
+
+async function sincronizarTemplatesOficiais(templates, usuarioId) {
+  const cliente = await banco.connect();
+  const resumo = { criados: 0, atualizados: 0, vinculados: 0, inalterados: 0 };
+  try {
+    await cliente.query('BEGIN');
+    await cliente.query('SELECT pg_advisory_xact_lock(41031, 0)');
+    for (const oficial of templates) {
+      let atual = (await cliente.query('SELECT * FROM modelos_mensagem WHERE meta_template_id=$1 FOR UPDATE', [oficial.id])).rows[0];
+      let acao = 'sincronizacao';
+      if (!atual) {
+        const candidatos = await cliente.query(`SELECT * FROM modelos_mensagem
+          WHERE meta_template_id IS NULL AND meta_nome=$1 AND meta_idioma=$2 FOR UPDATE`, [oficial.name,oficial.language]);
+        if (candidatos.rowCount === 1) { atual = candidatos.rows[0]; acao='vinculo_inicial'; resumo.vinculados += 1; }
+      }
+      const status = String(oficial.status).toUpperCase();
+      const componentes = JSON.stringify(oficial.components);
+      if (atual) {
+        const mudou = atual.meta_template_id !== String(oficial.id) || atual.meta_status_oficial !== status ||
+          atual.meta_categoria !== oficial.category || jsonCanonico(atual.meta_componentes || []) !== jsonCanonico(oficial.components);
+        if (!mudou) { resumo.inalterados += 1; continue; }
+        await cliente.query(`UPDATE modelos_mensagem SET meta_template_id=$1,meta_nome=$2,
+          meta_idioma=$3,meta_categoria=$4,meta_status_oficial=$5,meta_status=$6,
+          meta_componentes=$7::jsonb,meta_origem=CASE WHEN $8='vinculo_inicial' THEN meta_origem ELSE 'meta' END,
+          meta_sincronizado_em=CURRENT_TIMESTAMP,atualizado_em=CURRENT_TIMESTAMP WHERE id=$9`,
+        [String(oficial.id),oficial.name,oficial.language,oficial.category,status,
+          statusInternoOficial(status),componentes,acao,atual.id]);
+        await cliente.query(`INSERT INTO historico_modelos_mensagem_meta
+          (modelo_id,meta_template_id,acao,status_anterior,status_novo,origem,usuario_id)
+          VALUES ($1,$2,$3,$4,$5,'sincronizacao_meta',$6)`,
+        [atual.id,String(oficial.id),acao,atual.meta_status_oficial,status,usuarioId]);
+        resumo.atualizados += 1;
+      } else {
+        const corpo = oficial.components.find(function(item){return item.type === 'BODY';});
+        const nomeInterno = oficial.name.replace(/_/g,' ').replace(/\b\w/g,function(letra){return letra.toUpperCase();}).slice(0,150);
+        const criado = (await cliente.query(`INSERT INTO modelos_mensagem
+          (nome,categoria,texto,ativo,meta_nome,meta_idioma,meta_categoria,meta_status,
+          meta_template_id,meta_componentes,meta_status_oficial,meta_origem,meta_sincronizado_em,
+          criado_por_usuario_id,atualizado_por_usuario_id)
+          VALUES ($1,$2,$3,TRUE,$4,$5,$6,$7,$8,$9::jsonb,$10,'meta',CURRENT_TIMESTAMP,$11,$11) RETURNING id`,
+        [nomeInterno,oficial.category,(corpo && corpo.text) || 'Template oficial da Meta',oficial.name,
+          oficial.language,oficial.category,statusInternoOficial(status),String(oficial.id),componentes,status,usuarioId])).rows[0];
+        await cliente.query(`INSERT INTO historico_modelos_mensagem_meta
+          (modelo_id,meta_template_id,acao,status_novo,origem,usuario_id)
+          VALUES ($1,$2,'sincronizacao',$3,'sincronizacao_meta',$4)`, [criado.id,String(oficial.id),status,usuarioId]);
+        resumo.criados += 1;
+      }
+    }
+    await cliente.query('COMMIT');
+    return resumo;
+  } catch (erro) { await cliente.query('ROLLBACK'); throw erro; }
+  finally { cliente.release(); }
 }
 
 module.exports = {
   alterarStatus,
   atualizar,
   atualizarLimite,
+  buscarTemplatePorId,
   buscarPorId,
   contarDisponiveis,
   contarPublico,
+  configurarEnvioTemplate,
   criar,
   criarLoteAtomico,
   listar,
@@ -606,5 +735,7 @@ module.exports = {
   obterCapacidade,
   registrarFalhaSincronizacaoLimiteMeta,
   registrarSincronizacaoLimiteMeta,
-  salvarTemplate
+  salvarTemplate,
+  submeterTemplateAtomico,
+  sincronizarTemplatesOficiais
 };

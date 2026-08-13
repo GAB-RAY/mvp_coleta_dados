@@ -51,7 +51,9 @@ async function executar() {
     await banco.query("UPDATE contatos SET problema='Iluminacao publica' WHERE id=ANY($1::bigint[])",[contatoIds.slice(0,20)]);
     confirmar(contatoIds.length===600,'O teste deve criar 600 contatos.');
 
-    const template=await campanhaService.salvarTemplate(null,{nome:marca,categoria:'Teste',conteudo:'Ola {{nome}}',ativo:true},usuario);
+    const template=await campanhaService.salvarTemplate(null,{nome:marca,categoria:'Teste',conteudo:'Ola teste',ativo:true,
+      metaNome:'teste_campanha_'+Date.now(),metaIdioma:'pt_BR',metaCategoria:'MARKETING',
+      componentes:[{type:'BODY',text:'Ola teste'}],configuracaoEnvio:{corpo:[],botoes:[]}},usuario);
     templateId=template.id;
 
     async function novaCampanha(sufixo,filtros){const campanha=await campanhaService.criar({nome:marca+' '+sufixo,finalidade:'Validacao automatizada',modeloId:templateId,filtros},usuario);nomesCampanhas.push(campanha.id);return campanhaService.alterarStatus(campanha.id,'pronta',usuario);}
@@ -141,7 +143,7 @@ async function executar() {
   } finally {
     campanhaService.definirRelogioParaTeste(null);
     if(nomesCampanhas.length){await banco.query('DELETE FROM historico_status_mensageria WHERE participacao_id IN (SELECT id FROM campanha_participacoes WHERE campanha_id=ANY($1::bigint[]))',[nomesCampanhas]);await banco.query('DELETE FROM campanha_tentativas WHERE participacao_id IN (SELECT id FROM campanha_participacoes WHERE campanha_id=ANY($1::bigint[]))',[nomesCampanhas]);await banco.query('DELETE FROM campanha_participacoes WHERE campanha_id=ANY($1::bigint[])',[nomesCampanhas]);await banco.query('DELETE FROM campanha_lotes WHERE campanha_id=ANY($1::bigint[])',[nomesCampanhas]);await banco.query('DELETE FROM campanhas WHERE id=ANY($1::bigint[])',[nomesCampanhas]);}
-    if(templateId)await banco.query('DELETE FROM modelos_mensagem WHERE id=$1',[templateId]);
+    if(templateId){await banco.query('DELETE FROM historico_modelos_mensagem_meta WHERE modelo_id=$1',[templateId]);await banco.query('DELETE FROM modelos_mensagem WHERE id=$1',[templateId]);}
     if(contatoIds.length){await banco.query('DELETE FROM consentimentos WHERE contato_id=ANY($1::bigint[])',[contatoIds]);await banco.query('DELETE FROM contatos WHERE id=ANY($1::bigint[])',[contatoIds]);}
     if(limiteAnterior)await banco.query("UPDATE configuracoes_sistema SET valor_inteiro=$1 WHERE chave='limite_mensagens_24h'",[limiteAnterior]);
     if(usuario)await banco.query('DELETE FROM historico_configuracoes_sistema WHERE usuario_id=$1 AND motivo LIKE $2',[usuario.id,'TESTE_CAMPANHA_%']);

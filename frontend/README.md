@@ -99,7 +99,12 @@ de aceitar inscrições, enquanto participantes e históricos permanecem preserv
 
 O menu `Campanhas` substitui a antiga tela manual. O administrador cria e edita
 templates, define nome e os filtros da campanha. A finalidade técnica permanece
-interna para compatibilidade e não é exigida na interface. Bairro, problema,
+interna. Administradores também podem salvar rascunhos, submetê-los para análise
+e sincronizar templates oficiais existentes na WABA. O status não pode ser
+alterado manualmente: somente `APPROVED` oficial libera novos envios. A
+configuração de imagem, parâmetros e opt-out permanece separada da estrutura
+oficial sincronizada. A finalidade técnica permanece interna para compatibilidade
+e não é exigida na interface. Bairro, problema,
 evento, cadastro incompleto e consentimento usam a mesma semântica dos filtros de
 contatos. A tela mostra público encontrado, apto, não apto, capacidade móvel de
 24 horas, reservas, lotes e estados técnicos.

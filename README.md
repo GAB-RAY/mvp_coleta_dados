@@ -8,7 +8,7 @@ integração oficial com a WhatsApp Cloud API.
 
 - Backend: Node.js 24, Express 5, CommonJS, PostgreSQL e SQL parametrizado.
 - Frontend: React 19, React Router 7 e Vite 8.
-- Banco: schema final com 30 tabelas, 166 bairros e 12 migrations registradas.
+- Banco: schema final com 31 tabelas, 166 bairros e 13 migrations registradas.
 - Produção planejada: frontend na Vercel, API e PostgreSQL gerenciado na
   DigitalOcean.
 
@@ -28,7 +28,7 @@ integração oficial com a WhatsApp Cloud API.
 - pedidos de exclusão, revogações e trilha de auditoria;
 - backup de dados em SQL, sem estrutura, exclusivo para administradores;
 - usuários com perfis `administrador` e `operador`;
-- campanhas com templates, filtros, prévia, lotes idempotentes, tentativas e
+- campanhas com templates oficiais sincronizados com a Meta, rascunhos, submissão para análise, filtros, prévia, lotes idempotentes, tentativas e
   histórico técnico;
 - envio por template aprovado através da WhatsApp Cloud API oficial;
 - webhook autenticado por HMAC, idempotente e sem armazenamento do payload

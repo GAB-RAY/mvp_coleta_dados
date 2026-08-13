@@ -10,6 +10,7 @@ import {
   alterarStatusCampanha,
   atualizarLimite,
   atualizarTemplate,
+  configurarEnvioTemplate,
   criarCampanha,
   criarLoteCampanha,
   criarTemplate,
@@ -22,17 +23,21 @@ import {
   obterCapacidade,
   reprocessarTentativa,
   sincronizarLimiteMeta,
+  sincronizarTemplatesMeta,
+  submeterTemplateMeta,
   visualizarPreviaFiltros,
   visualizarPublicoCampanha
 } from '../services/campanhaService';
 
 const CAMPANHA_INICIAL={nome:'',modeloId:'',bairro:'',problema:'',eventoId:'',autorizacaoMensagens:'',cadastroIncompleto:false};
-const TEMPLATE_INICIAL={nome:'',categoria:'Geral',conteudo:'',ativo:true,metaNome:'',metaIdioma:'pt_BR',metaCategoria:'MARKETING',metaStatus:'rascunho'};
+const TEMPLATE_INICIAL={nome:'',categoria:'Geral',conteudo:'',ativo:true,metaNome:'',metaIdioma:'pt_BR',metaCategoria:'MARKETING',cabecalhoTipo:'nenhum',cabecalhoTexto:'',cabecalhoExemplo:'',imagemHandle:'',imagemEnvio:'',rodape:'',botaoTipo:'nenhum',botaoTexto:'',botaoUrl:'',botaoExemplo:'',botaoValorEnvio:'',botaoTelefone:'',botaoOptOut:false,parametrosCorpo:[]};
+
+function quantidadeParametros(texto){const numeros=Array.from(String(texto||'').matchAll(/\{\{(\d+)\}\}/g),function(item){return Number(item[1]);});return numeros.length?Math.max.apply(null,numeros):0;}
 
 function textoStatus(status){
   const textos={
     rascunho:'Rascunho',pronta:'Pronta para criar lotes',ativa:'Ativa',pausada:'Pausada',concluida:'Concluída',cancelada:'Cancelada',
-    em_analise:'Em análise',aprovado:'Aprovado',rejeitado:'Rejeitado',pendente:'Pendente',enviando:'Enviando',enviada:'Enviada',
+    em_analise:'Enviado para análise',aprovado:'Aprovado pela Meta',rejeitado:'Rejeitado pela Meta',indisponivel:'Indisponível',pendente:'Pendente',enviando:'Enviando',enviada:'Enviada',
     entregue:'Entregue',lida:'Lida',falhou:'Falhou'
   };
   return textos[status]||String(status||'').replaceAll('_',' ');
@@ -79,6 +84,7 @@ function CampanhasAdministrativas(){
   const [mostrarCriacao,setMostrarCriacao]=useState(false);
   const [template,setTemplate]=useState(TEMPLATE_INICIAL);
   const [templateEdicao,setTemplateEdicao]=useState(null);
+  const [templateOficialEdicao,setTemplateOficialEdicao]=useState(false);
   const [selecionada,setSelecionada]=useState(null);
   const [publico,setPublico]=useState(null);
   const [lotes,setLotes]=useState([]);
@@ -188,14 +194,56 @@ function CampanhasAdministrativas(){
   async function salvarTemplate(evento){
     evento.preventDefault();
     try{
-      const resposta=templateEdicao?await atualizarTemplate(templateEdicao,template):await criarTemplate(template);
+      const componentes=[];
+      const configuracaoEnvio={corpo:[],botoes:[]};
+      if(template.cabecalhoTipo==='texto'){
+        componentes.push({type:'HEADER',format:'TEXT',text:template.cabecalhoTexto,exemplos:template.cabecalhoExemplo?[template.cabecalhoExemplo]:[]});
+        if(quantidadeParametros(template.cabecalhoTexto))configuracaoEnvio.cabecalho={tipo:'texto',parametros:[{origem:'nome_contato'}]};
+      }
+      if(template.cabecalhoTipo==='imagem'){
+        componentes.push({type:'HEADER',format:'IMAGE',handleExemplo:template.imagemHandle});
+        configuracaoEnvio.cabecalho={tipo:'imagem',origem:'link',valor:template.imagemEnvio};
+      }
+      componentes.push({type:'BODY',text:template.conteudo,exemplos:template.parametrosCorpo.map(function(item){return item.exemplo;})});
+      configuracaoEnvio.corpo=template.parametrosCorpo.map(function(item){return {origem:item.origem,valor:item.origem==='fixo'?item.valor:undefined};});
+      if(template.rodape)componentes.push({type:'FOOTER',text:template.rodape});
+      if(template.botaoTipo==='optout'){componentes.push({type:'BUTTONS',buttons:[{type:'QUICK_REPLY',text:template.botaoTexto||'Não quero mais receber'}]});configuracaoEnvio.botoes.push({indice:0,subtipo:'quick_reply',origem:'opt_out'});}
+      if(template.botaoTipo==='quick'&&template.botaoOptOut)configuracaoEnvio.botoes.push({indice:0,subtipo:'quick_reply',origem:'opt_out'});
+      if(template.botaoTipo==='url'){
+        componentes.push({type:'BUTTONS',buttons:[{type:'URL',text:template.botaoTexto,url:template.botaoUrl,exemplo:template.botaoExemplo}]});
+        if(template.botaoUrl.includes('{{1}}'))configuracaoEnvio.botoes.push({indice:0,subtipo:'url',origem:'fixo',valor:template.botaoValorEnvio});
+      }
+      if(template.botaoTipo==='telefone')componentes.push({type:'BUTTONS',buttons:[{type:'PHONE_NUMBER',text:template.botaoTexto,phone_number:template.botaoTelefone}]});
+      const dados=Object.assign({},template,{componentes,configuracaoEnvio});
+      const resposta=templateOficialEdicao?await configurarEnvioTemplate(templateEdicao,configuracaoEnvio):(templateEdicao?await atualizarTemplate(templateEdicao,dados):await criarTemplate(dados));
       setMensagem(resposta.mensagem);
       setTemplate(TEMPLATE_INICIAL);
       setTemplateEdicao(null);
+      setTemplateOficialEdicao(false);
       await carregar();
     }catch(erro){setMensagem(erro.message);}
   }
-  function editarTemplate(item){setTemplateEdicao(item.id);setTemplate({nome:item.nome,categoria:item.categoria,conteudo:item.texto,ativo:item.ativo,metaNome:item.meta_nome||'',metaIdioma:item.meta_idioma||'pt_BR',metaCategoria:item.meta_categoria||'MARKETING',metaStatus:item.meta_status||'rascunho'});}
+  function editarTemplate(item){
+    const componentes=item.meta_componentes||[];
+    const cabecalho=componentes.find(function(componente){return componente.type==='HEADER';});
+    const rodape=componentes.find(function(componente){return componente.type==='FOOTER';});
+    const botoes=componentes.find(function(componente){return componente.type==='BUTTONS';});
+    const envio=item.meta_configuracao_envio||{};
+    setTemplateEdicao(item.id);
+    setTemplateOficialEdicao(Boolean(item.meta_template_id));
+    const body=componentes.find(function(componente){return componente.type==='BODY';});
+    const exemplos=body&&body.example&&body.example.body_text&&body.example.body_text[0]||[];
+    const quantidade=quantidadeParametros(item.texto);
+    const parametros=Array.from({length:quantidade},function(_,indice){const parametro=(envio.corpo||[])[indice]||{};return {origem:parametro.origem||(indice===0?'nome_contato':'fixo'),valor:parametro.valor||'',exemplo:exemplos[indice]||''};});
+    const primeiroBotao=botoes&&botoes.buttons&&botoes.buttons[0];
+    const configuracaoBotao=(envio.botoes||[]).find(function(botao){return botao.indice===0;})||{};
+    const botaoTipo=!primeiroBotao?'nenhum':(primeiroBotao.type==='QUICK_REPLY'?'quick':(primeiroBotao.type==='URL'?'url':'telefone'));
+    setTemplate({nome:item.nome,categoria:item.categoria,conteudo:item.texto,ativo:item.ativo,metaNome:item.meta_nome||'',metaIdioma:item.meta_idioma||'pt_BR',metaCategoria:item.meta_categoria||'MARKETING',cabecalhoTipo:cabecalho?(cabecalho.format==='IMAGE'?'imagem':'texto'):'nenhum',cabecalhoTexto:cabecalho&&cabecalho.text||'',cabecalhoExemplo:cabecalho&&cabecalho.example&&cabecalho.example.header_text&&cabecalho.example.header_text[0]||'',imagemHandle:cabecalho&&cabecalho.example&&cabecalho.example.header_handle&&cabecalho.example.header_handle[0]||'',imagemEnvio:envio.cabecalho&&envio.cabecalho.valor||'',rodape:rodape&&rodape.text||'',botaoTipo,botaoTexto:primeiroBotao&&primeiroBotao.text||'',botaoUrl:primeiroBotao&&primeiroBotao.url||'',botaoExemplo:primeiroBotao&&primeiroBotao.example&&primeiroBotao.example[0]||'',botaoValorEnvio:configuracaoBotao.valor||'',botaoTelefone:primeiroBotao&&primeiroBotao.phone_number||'',botaoOptOut:configuracaoBotao.origem==='opt_out',parametrosCorpo:parametros});
+  }
+  function alterarTextoTemplate(evento){const conteudo=evento.target.value;const quantidade=quantidadeParametros(conteudo);const parametros=Array.from({length:quantidade},function(_,indice){return template.parametrosCorpo[indice]||{origem:indice===0?'nome_contato':'fixo',valor:'',exemplo:''};});setTemplate(Object.assign({},template,{conteudo,parametrosCorpo:parametros}));}
+  function alterarParametroCorpo(indice,campo,valor){setTemplate(Object.assign({},template,{parametrosCorpo:template.parametrosCorpo.map(function(item,posicao){return posicao===indice?Object.assign({},item,{[campo]:valor}):item;})}));}
+  async function sincronizarTemplates(){try{const resposta=await sincronizarTemplatesMeta();setMensagem(resposta.mensagem+' '+resposta.resumo.total+' template(s) recebido(s).');await carregar();}catch(erro){setMensagem(erro.message);}}
+  async function submeterTemplate(item){if(!window.confirm('Enviar este template para análise da Meta? Isso não envia mensagens aos contatos.'))return;try{const resposta=await submeterTemplateMeta(item.id);setMensagem(resposta.mensagem);await carregar();}catch(erro){setMensagem(erro.message);}}
 
   async function enviarContato(contato){
     if(!window.confirm('Enviar esta mensagem agora pela WhatsApp Cloud API oficial?'))return;
@@ -326,7 +374,7 @@ function CampanhasAdministrativas(){
     <section className="cartao campanhas-listagem">
       <div className="cabecalho-resultados"><div><span className="etiqueta-pagina">1. Escolha</span><h2>Campanhas</h2><p>Abra uma campanha para acompanhar o público, os grupos de envio e os resultados.</p></div>{administrador&&<button className="botao botao-primario" type="button" onClick={function(){setMostrarCriacao(!mostrarCriacao);setSelecionada(null);}}>{mostrarCriacao?'Fechar criação':'Nova campanha'}</button>}</div>
       {carregando?<Carregando mensagem="Carregando campanhas..."/>:campanhas.length===0?<div className="estado-vazio-campanha"><strong>Nenhuma campanha cadastrada.</strong><span>Crie a primeira campanha para começar.</span></div>:<div className="grade-campanhas">{campanhas.map(function(item){return <article className={'cartao-campanha-resumo '+(selecionada&&selecionada.id===item.id?'ativo':'')} key={item.id}>
-        <div><span className={'status-campanha status-'+item.status}>{textoStatus(item.status)}</span><h3>{item.nome}</h3><p>Mensagem: {item.modelo_nome||'Não informada'} · Aprovação: {textoStatus(item.modelo_meta_status||'rascunho')}</p></div>
+        <div><span className={'status-campanha status-'+item.status}>{textoStatus(item.status)}</span><h3>{item.nome}</h3><p>Mensagem: {item.modelo_nome||'Não informada'} · Aprovação: {item.modelo_meta_status_oficial==='APPROVED'?'Aprovado pela Meta':textoStatus(item.modelo_meta_status||'rascunho')}</p></div>
         <div className="rodape-cartao-campanha"><span>{formatarQuantidade(item.quantidade_lotes||0)} {Number(item.quantidade_lotes||0)===1?'lote':'lotes'}</span><button className="botao botao-secundario" type="button" onClick={function(){abrirCampanha(item,250);}}>Abrir campanha</button></div>
       </article>;})}</div>}
     </section>
@@ -350,7 +398,7 @@ function CampanhasAdministrativas(){
     </section>}
 
     {selecionada&&<section className="cartao campanha-detalhes">
-      <div className="cabecalho-campanha-aberta"><div><span className="etiqueta-pagina">Campanha aberta</span><h2>{selecionada.nome}</h2><div className="linha-informacoes-campanha"><span className={'status-campanha status-'+selecionada.status}>{textoStatus(selecionada.status)}</span><span>Mensagem: {selecionada.modelo_nome||'Não informada'}</span><span>Aprovação na Meta: {textoStatus(selecionada.modelo_meta_status||'rascunho')}</span></div>{!selecionada.modelo_nome?<p className="aviso-estado-campanha">Esta campanha não possui uma mensagem associada e não pode realizar envios.</p>:selecionada.modelo_meta_status!=='aprovado'&&<p className="aviso-estado-campanha">A mensagem ainda não foi aprovada pela Meta. É possível conferir o público, mas o envio permanece bloqueado.</p>}</div><button className="botao botao-secundario" type="button" onClick={function(){setSelecionada(null);setPublico(null);}}>Fechar campanha</button></div>
+      <div className="cabecalho-campanha-aberta"><div><span className="etiqueta-pagina">Campanha aberta</span><h2>{selecionada.nome}</h2><div className="linha-informacoes-campanha"><span className={'status-campanha status-'+selecionada.status}>{textoStatus(selecionada.status)}</span><span>Mensagem: {selecionada.modelo_nome||'Não informada'}</span><span>Aprovação na Meta: {selecionada.modelo_meta_status_oficial==='APPROVED'?'Aprovado pela Meta':textoStatus(selecionada.modelo_meta_status||'rascunho')}</span></div>{!selecionada.modelo_nome?<p className="aviso-estado-campanha">Esta campanha não possui uma mensagem associada e não pode realizar envios.</p>:selecionada.modelo_meta_status_oficial!=='APPROVED'&&<p className="aviso-estado-campanha">A mensagem ainda não está oficialmente aprovada pela Meta. É possível conferir o público, mas o envio permanece bloqueado.</p>}</div><button className="botao botao-secundario" type="button" onClick={function(){setSelecionada(null);setPublico(null);}}>Fechar campanha</button></div>
 
       <div className="metricas-campanha"><article title="Contatos que podem participar da campanha"><span>Aptos</span><strong>{publico?formatarQuantidade(publico.publicoApto):0}</strong></article><article title="Contatos já separados em lotes para envio"><span>Separados em lotes</span><strong>{formatarQuantidade(selecionada.reservado||0)}</strong></article><article><span>Enviados</span><strong>{formatarQuantidade(selecionada.enviado||0)}</strong></article><article><span>Entregues</span><strong>{formatarQuantidade(selecionada.entregue||0)}</strong></article><article><span>Lidos</span><strong>{formatarQuantidade(selecionada.lido||0)}</strong></article><article><span>Falhas</span><strong>{formatarQuantidade(selecionada.falhou||0)}</strong></article><article title="Contatos aptos que ainda não entraram em um lote"><span>Ainda disponíveis</span><strong>{formatarQuantidade(restantes)}</strong></article></div>
 
@@ -376,9 +424,31 @@ function CampanhasAdministrativas(){
       {falhas.length>0&&<details className="secao-secundaria-campanha"><summary>Mensagens que falharam e podem ser enviadas novamente ({falhas.length})</summary><div className="lista-falhas-campanha">{falhas.map(function(item){return <article key={item.id}><div><strong>{item.contato_nome||'Não informado'}</strong><span>Lote {item.lote_ordem} · Envio nº {item.numero_tentativa}</span><small>{item.codigo_erro_externo||'Sem código'} — {item.titulo_erro||'Falha'}</small></div><button className="botao botao-secundario" type="button" onClick={function(){reprocessar(item);}}>Tentar enviar novamente</button></article>;})}</div></details>}
     </section>}
 
-    {administrador&&<details className="cartao secao-secundaria-campanha gerenciar-templates-campanha"><summary>Gerenciar templates de mensagem</summary><div className="conteudo-templates-campanha"><form onSubmit={salvarTemplate}><fieldset className="grade-criacao-campanha"><label>Nome interno<input className="campo-input" value={template.nome} onChange={function(evento){setTemplate(Object.assign({},template,{nome:evento.target.value}));}} required/></label><label>Categoria interna<input className="campo-input" value={template.categoria} onChange={function(evento){setTemplate(Object.assign({},template,{categoria:evento.target.value}));}} required/></label><label>Nome oficial na Meta<input className="campo-input" value={template.metaNome} onChange={function(evento){setTemplate(Object.assign({},template,{metaNome:evento.target.value}));}}/></label><label>Idioma<select className="campo-input" value={template.metaIdioma} onChange={function(evento){setTemplate(Object.assign({},template,{metaIdioma:evento.target.value}));}}><option value="pt_BR">pt_BR</option><option value="en_US">en_US</option></select></label><label>Categoria Meta<select className="campo-input" value={template.metaCategoria} onChange={function(evento){setTemplate(Object.assign({},template,{metaCategoria:evento.target.value}));}}><option value="MARKETING">Marketing</option><option value="UTILITY">Utilidade</option><option value="AUTHENTICATION">Autenticação</option></select></label><label>Status na Meta<select className="campo-input" value={template.metaStatus} onChange={function(evento){setTemplate(Object.assign({},template,{metaStatus:evento.target.value}));}}><option value="rascunho">Rascunho</option><option value="em_analise">Em análise</option><option value="aprovado">Aprovado</option><option value="rejeitado">Rejeitado</option></select></label><label className="campo-template-conteudo">Conteúdo<textarea className="campo-input" value={template.conteudo} onChange={function(evento){setTemplate(Object.assign({},template,{conteudo:evento.target.value}));}} required/></label><label className="opcao-cadastro-incompleto"><input type="checkbox" checked={template.ativo} onChange={function(evento){setTemplate(Object.assign({},template,{ativo:evento.target.checked}));}}/> Template ativo</label></fieldset><div className="acoes-fluxo-campanha"><button className="botao botao-primario" type="submit">{templateEdicao?'Salvar alterações':'Criar template'}</button>{templateEdicao&&<button className="botao botao-secundario" type="button" onClick={function(){setTemplateEdicao(null);setTemplate(TEMPLATE_INICIAL);}}>Cancelar edição</button>}</div></form><div className="lista-templates-campanha">{templates.map(function(item){return <article key={item.id}><div><strong>{item.nome}</strong><span>{item.categoria} · Meta: {textoStatus(item.meta_status||'rascunho')} · {item.ativo?'Ativo':'Inativo'}</span></div><button className="botao botao-secundario" type="button" onClick={function(){editarTemplate(item);}}>Editar</button></article>;})}</div></div></details>}
+    {administrador&&<details className="cartao secao-secundaria-campanha gerenciar-templates-campanha"><summary>Gerenciar templates oficiais da Meta</summary><div className="conteudo-templates-campanha">
+      <div className="cabecalho-gerenciamento-templates"><div><h3>Templates de mensagem</h3><p>Crie um rascunho ou importe os templates existentes na conta oficial. A aprovação sempre depende da Meta.</p></div><button className="botao botao-secundario" type="button" onClick={sincronizarTemplates}>Sincronizar templates da Meta</button></div>
+      <form onSubmit={salvarTemplate}><fieldset className="grade-criacao-campanha">
+        <label>Nome interno<input className="campo-input" value={template.nome} disabled={templateOficialEdicao} onChange={function(evento){setTemplate(Object.assign({},template,{nome:evento.target.value}));}} required/></label>
+        <label>Categoria interna<input className="campo-input" value={template.categoria} disabled={templateOficialEdicao} onChange={function(evento){setTemplate(Object.assign({},template,{categoria:evento.target.value}));}} required/></label>
+        <label>Nome oficial na Meta<input className="campo-input" value={template.metaNome} disabled={templateOficialEdicao} onChange={function(evento){setTemplate(Object.assign({},template,{metaNome:evento.target.value.toLowerCase().replace(/\s+/g,'_')}));}} placeholder="exemplo_campanha" required/></label>
+        <label>Idioma<select className="campo-input" value={template.metaIdioma} disabled={templateOficialEdicao} onChange={function(evento){setTemplate(Object.assign({},template,{metaIdioma:evento.target.value}));}}><option value="pt_BR">Português (Brasil)</option><option value="en_US">Inglês (EUA)</option></select></label>
+        <label>Categoria oficial<select className="campo-input" value={template.metaCategoria} disabled={templateOficialEdicao} onChange={function(evento){setTemplate(Object.assign({},template,{metaCategoria:evento.target.value}));}}><option value="MARKETING">Marketing</option><option value="UTILITY">Utilidade</option></select></label>
+        <label>Cabeçalho<select className="campo-input" value={template.cabecalhoTipo} disabled={templateOficialEdicao} onChange={function(evento){setTemplate(Object.assign({},template,{cabecalhoTipo:evento.target.value}));}}><option value="nenhum">Sem cabeçalho</option><option value="texto">Texto</option><option value="imagem">Imagem</option></select></label>
+        {template.cabecalhoTipo==='texto'&&<><label>Texto do cabeçalho<input className="campo-input" value={template.cabecalhoTexto} onChange={function(evento){setTemplate(Object.assign({},template,{cabecalhoTexto:evento.target.value}));}} placeholder="Opcionalmente use {{1}} para o nome" required/></label>{quantidadeParametros(template.cabecalhoTexto)>0&&<label>Exemplo do nome no cabeçalho<input className="campo-input" value={template.cabecalhoExemplo} onChange={function(evento){setTemplate(Object.assign({},template,{cabecalhoExemplo:evento.target.value}));}} required/></label>}</>}
+        {template.cabecalhoTipo==='imagem'&&<><label>Identificador da imagem de exemplo<input className="campo-input" value={template.imagemHandle} onChange={function(evento){setTemplate(Object.assign({},template,{imagemHandle:evento.target.value}));}} required/></label><label>URL HTTPS da imagem para envio<input className="campo-input" type="url" value={template.imagemEnvio} onChange={function(evento){setTemplate(Object.assign({},template,{imagemEnvio:evento.target.value}));}} required/></label></>}
+        <label className="campo-template-conteudo">Texto principal<textarea className="campo-input" value={template.conteudo} disabled={templateOficialEdicao} onChange={alterarTextoTemplate} placeholder="Use {{1}}, {{2}}... para valores personalizados." required/></label>
+        {template.parametrosCorpo.map(function(parametro,indice){return <div className="configuracao-parametro-template" key={'parametro-'+indice}><strong>Parâmetro {'{{'+(indice+1)+'}}'}</strong><label>Exemplo para análise<input className="campo-input" value={parametro.exemplo} onChange={function(evento){alterarParametroCorpo(indice,'exemplo',evento.target.value);}} required={!templateOficialEdicao}/></label><label>Valor no envio<select className="campo-input" value={parametro.origem} onChange={function(evento){alterarParametroCorpo(indice,'origem',evento.target.value);}}><option value="nome_contato">Nome do contato</option><option value="fixo">Texto fixo</option></select></label>{parametro.origem==='fixo'&&<label>Texto fixo<input className="campo-input" value={parametro.valor} onChange={function(evento){alterarParametroCorpo(indice,'valor',evento.target.value);}} required/></label>}</div>;})}
+        <label className="campo-template-conteudo">Rodapé opcional<input className="campo-input" value={template.rodape} disabled={templateOficialEdicao} onChange={function(evento){setTemplate(Object.assign({},template,{rodape:evento.target.value}));}}/></label>
+        <label>Botão<select className="campo-input" value={template.botaoTipo} disabled={templateOficialEdicao} onChange={function(evento){setTemplate(Object.assign({},template,{botaoTipo:evento.target.value}));}}><option value="nenhum">Sem botão</option><option value="optout">Resposta rápida de descadastro</option>{templateOficialEdicao&&<option value="quick">Resposta rápida existente</option>}<option value="url">Abrir URL</option><option value="telefone">Ligar</option></select></label>
+        {template.botaoTipo!=='nenhum'&&<label>Texto do botão<input className="campo-input" value={template.botaoTexto} disabled={templateOficialEdicao} onChange={function(evento){setTemplate(Object.assign({},template,{botaoTexto:evento.target.value}));}} required/></label>}
+        {template.botaoTipo==='url'&&<><label>URL HTTPS<input className="campo-input" value={template.botaoUrl} disabled={templateOficialEdicao} onChange={function(evento){setTemplate(Object.assign({},template,{botaoUrl:evento.target.value}));}} placeholder="https://exemplo.com/{{1}}" required/></label>{template.botaoUrl.includes('{{1}}')&&<><label>Exemplo da URL<input className="campo-input" value={template.botaoExemplo} disabled={templateOficialEdicao} onChange={function(evento){setTemplate(Object.assign({},template,{botaoExemplo:evento.target.value}));}} required={!templateOficialEdicao}/></label><label>Valor usado no envio<input className="campo-input" value={template.botaoValorEnvio} onChange={function(evento){setTemplate(Object.assign({},template,{botaoValorEnvio:evento.target.value}));}} required/></label></>}</>}
+        {template.botaoTipo==='telefone'&&<label>Telefone do botão<input className="campo-input" value={template.botaoTelefone} disabled={templateOficialEdicao} onChange={function(evento){setTemplate(Object.assign({},template,{botaoTelefone:evento.target.value}));}} required/></label>}
+        {template.botaoTipo==='quick'&&<label className="opcao-cadastro-incompleto"><input type="checkbox" checked={template.botaoOptOut} onChange={function(evento){setTemplate(Object.assign({},template,{botaoOptOut:evento.target.checked}));}}/> Este botão é o descadastro “Não quero mais receber”</label>}
+        <label className="opcao-cadastro-incompleto"><input type="checkbox" checked={template.ativo} onChange={function(evento){setTemplate(Object.assign({},template,{ativo:evento.target.checked}));}}/> Template ativo</label>
+      </fieldset><p className="aviso-estado-campanha">{templateOficialEdicao?'A estrutura oficial não é alterada aqui. Salve apenas os valores usados no envio.':'Salvar cria somente um rascunho interno. Enviar para análise não envia mensagens aos contatos.'}</p><div className="acoes-fluxo-campanha"><button className="botao botao-primario" type="submit">{templateOficialEdicao?'Salvar configuração de envio':'Salvar rascunho'}</button>{templateEdicao&&<button className="botao botao-secundario" type="button" onClick={function(){setTemplateEdicao(null);setTemplateOficialEdicao(false);setTemplate(TEMPLATE_INICIAL);}}>Cancelar edição</button>}</div></form>
+      <div className="lista-templates-campanha">{templates.map(function(item){return <article key={item.id}><div><strong>{item.nome}</strong><span>{item.meta_nome||'Sem nome oficial'} · {item.meta_idioma||'Idioma não informado'} · {item.meta_categoria||item.categoria}</span><span className={'status-campanha status-'+item.meta_status}>{textoStatus(item.meta_status||'rascunho')}</span>{item.meta_sincronizado_em&&<small>Atualizado em {new Date(item.meta_sincronizado_em).toLocaleString('pt-BR')}</small>}</div><div className="acoes-template-meta"><button className="botao botao-secundario" type="button" onClick={function(){editarTemplate(item);}}>{item.meta_template_id?'Configurar envio':'Editar rascunho'}</button>{!item.meta_template_id&&<button className="botao botao-primario" type="button" onClick={function(){submeterTemplate(item);}}>Enviar para análise da Meta</button>}</div></article>;})}</div>
+    </div></details>}
 
-    {loteAberto&&<div className="sobreposicao-campanha" role="presentation" onMouseDown={function(evento){if(evento.target===evento.currentTarget)setLoteAberto(null);}}><section className="painel-contatos-lote" role="dialog" aria-modal="true" aria-labelledby="titulo-contatos-lote"><div className="cabecalho-campanha-aberta"><div><span className="etiqueta-pagina">Lote {loteAberto.ordem}</span><h2 id="titulo-contatos-lote">{formatarQuantidade(loteAberto.tamanho_efetivo)} contatos neste lote</h2><p>Telefones aparecem mascarados para proteger os dados. Abrir esta lista não envia mensagens.</p></div><button className="botao botao-secundario" type="button" onClick={function(){setLoteAberto(null);}}>Fechar lista</button></div>{carregandoLote?<Carregando mensagem="Carregando contatos do lote..."/>:<ListaContatosCampanha contatos={contatosLote} aoEnviar={enviarContato} podeEnviar={selecionada.status==='ativa'&&selecionada.modelo_meta_status==='aprovado'}/>}</section></div>}
+    {loteAberto&&<div className="sobreposicao-campanha" role="presentation" onMouseDown={function(evento){if(evento.target===evento.currentTarget)setLoteAberto(null);}}><section className="painel-contatos-lote" role="dialog" aria-modal="true" aria-labelledby="titulo-contatos-lote"><div className="cabecalho-campanha-aberta"><div><span className="etiqueta-pagina">Lote {loteAberto.ordem}</span><h2 id="titulo-contatos-lote">{formatarQuantidade(loteAberto.tamanho_efetivo)} contatos neste lote</h2><p>Telefones aparecem mascarados para proteger os dados. Abrir esta lista não envia mensagens.</p></div><button className="botao botao-secundario" type="button" onClick={function(){setLoteAberto(null);}}>Fechar lista</button></div>{carregandoLote?<Carregando mensagem="Carregando contatos do lote..."/>:<ListaContatosCampanha contatos={contatosLote} aoEnviar={enviarContato} podeEnviar={selecionada.status==='ativa'&&selecionada.modelo_meta_status_oficial==='APPROVED'}/>}</section></div>}
   </div></main>;
 }
 

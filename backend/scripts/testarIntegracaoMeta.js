@@ -19,9 +19,10 @@ async function criarCenario(sufixo, metaStatus, reservadoEm) {
   const usuario = (await banco.query("SELECT id FROM usuarios WHERE ativo=TRUE ORDER BY id LIMIT 1")).rows[0];
   const origem = (await banco.query("SELECT id FROM origens WHERE ativa=TRUE ORDER BY id LIMIT 1")).rows[0];
   const template = (await banco.query(`INSERT INTO modelos_mensagem
-    (nome,categoria,texto,ativo,meta_nome,meta_idioma,meta_categoria,meta_status,criado_por_usuario_id,atualizado_por_usuario_id)
-    VALUES ($1,'Teste','Mensagem de teste',TRUE,'template_teste','pt_BR','MARKETING',$2,$3,$3) RETURNING id`,
-  ['Teste Meta ' + sufixo, metaStatus, usuario.id])).rows[0];
+    (nome,categoria,texto,ativo,meta_nome,meta_idioma,meta_categoria,meta_status,
+      meta_template_id,meta_status_oficial,meta_componentes,criado_por_usuario_id,atualizado_por_usuario_id)
+    VALUES ($1,'Teste','Mensagem de teste',TRUE,'template_teste','pt_BR','MARKETING',$2,$4,$5,'[{"type":"BODY","text":"Mensagem de teste"}]',$3,$3) RETURNING id`,
+  ['Teste Meta ' + sufixo, metaStatus, usuario.id,'meta-'+sufixo,metaStatus==='aprovado'?'APPROVED':'PENDING'])).rows[0];
   const contato = (await banco.query(`INSERT INTO contatos
     (nome,telefone,telefone_normalizado,bairro,problema,consentimento_armazenamento,origem_id)
     VALUES ($1,$2,$2,'Centro','Teste',TRUE,$3) RETURNING id`, ['Contato Meta ' + sufixo, '2199' + sufixo.padStart(7,'0').slice(-7), origem.id])).rows[0];
@@ -55,7 +56,10 @@ async function limpar(cenarios) {
     await banco.query('DELETE FROM consentimentos WHERE contato_id=ANY($1::bigint[])', [contatos]);
     await banco.query('DELETE FROM contatos WHERE id=ANY($1::bigint[])', [contatos]);
   }
-  if (templates.length) await banco.query('DELETE FROM modelos_mensagem WHERE id=ANY($1::bigint[])', [templates]);
+  if (templates.length) {
+    await banco.query('DELETE FROM historico_modelos_mensagem_meta WHERE modelo_id=ANY($1::bigint[])', [templates]);
+    await banco.query('DELETE FROM modelos_mensagem WHERE id=ANY($1::bigint[])', [templates]);
+  }
   await banco.query("DELETE FROM eventos_webhook_mensageria WHERE identificador_externo LIKE 'recebida:wamid.optout.%'");
 }
 

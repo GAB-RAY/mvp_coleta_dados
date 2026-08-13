@@ -123,7 +123,7 @@ async function iniciarEnvio(tentativaId, agora) {
       SELECT tentativa.id, tentativa.status, tentativa.participacao_id,
         participacao.campanha_id, participacao.contato_id, participacao.lote_original_id,
         participacao.reservado_em, campanha.status AS campanha_status,
-        contato.telefone_normalizado, contato.bloqueado_para_mensagens,
+        contato.nome AS contato_nome, contato.telefone_normalizado, contato.bloqueado_para_mensagens,
         EXISTS (
           SELECT 1
           FROM consentimentos AS consentimento_mensagens
@@ -136,7 +136,8 @@ async function iniciarEnvio(tentativaId, agora) {
             )
         ) AS mensagens_recusadas,
         modelo.ativo AS modelo_ativo, modelo.meta_nome, modelo.meta_idioma,
-        modelo.meta_status
+        modelo.meta_status, modelo.meta_template_id, modelo.meta_status_oficial,
+        modelo.meta_componentes, modelo.meta_configuracao_envio
       FROM campanha_tentativas tentativa
       INNER JOIN campanha_participacoes participacao ON participacao.id=tentativa.participacao_id
       INNER JOIN campanha_lotes lote ON lote.id=participacao.lote_original_id AND lote.campanha_id=participacao.campanha_id
@@ -150,7 +151,8 @@ async function iniciarEnvio(tentativaId, agora) {
     if (!tentativa) { const erro = new Error('Tentativa nao encontrada.'); erro.codigo='TENTATIVA_NAO_ENCONTRADA'; throw erro; }
     if (tentativa.status !== 'pendente') { const erro = new Error('Esta tentativa ja foi processada ou esta em processamento.'); erro.codigo='ENVIO_DUPLICADO'; throw erro; }
     if (tentativa.campanha_status !== 'ativa') { const erro = new Error('A campanha precisa estar ativa para enviar mensagens.'); erro.codigo='CAMPANHA_INDISPONIVEL'; throw erro; }
-    if (!tentativa.modelo_ativo || tentativa.meta_status !== 'aprovado' || !tentativa.meta_nome || !tentativa.meta_idioma) {
+    if (!tentativa.modelo_ativo || tentativa.meta_status_oficial !== 'APPROVED' ||
+      !tentativa.meta_template_id || !tentativa.meta_nome || !tentativa.meta_idioma) {
       const erro = new Error('O template precisa estar aprovado e configurado na Meta.'); erro.codigo='TEMPLATE_NAO_APROVADO'; throw erro;
     }
     if (tentativa.bloqueado_para_mensagens) {
