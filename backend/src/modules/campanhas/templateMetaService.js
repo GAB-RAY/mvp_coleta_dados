@@ -174,12 +174,15 @@ async function submeter(idRecebido,usuario){
   }
 }
 
-async function sincronizar(usuario){
+async function sincronizarComUsuarioId(usuarioId){
   const oficiais=(await metaProvider.listarTemplatesOficiais()).map(validarTemplateOficial);
   const ids=new Set(); oficiais.forEach(function(item){if(ids.has(item.id))throw criarAppError('A Meta retornou IDs de template duplicados.',502);ids.add(item.id);});
-  const resumo=await campanhaModel.sincronizarTemplatesOficiais(oficiais,usuario.id);
+  const resumo=await campanhaModel.sincronizarTemplatesOficiais(oficiais,usuarioId);
   return Object.assign({total:oficiais.length},resumo);
 }
+
+async function sincronizar(usuario){return sincronizarComUsuarioId(usuario.id);}
+async function sincronizarAutomaticamente(){return sincronizarComUsuarioId(null);}
 
 async function processarAtualizacaoDoWebhook(dados) {
   const templateId = String(dados && dados.templateId || '').trim();
@@ -213,4 +216,4 @@ async function configurarEnvio(idRecebido,dados,usuario){
   return campanhaModel.configurarEnvioTemplate(id,configuracao,usuario.id);
 }
 
-module.exports={configurarEnvio,prepararRascunho,processarAtualizacaoDoWebhook,salvarRascunho,submeter,sincronizar,validarConfiguracaoEnvio,validarTemplateOficial};
+module.exports={configurarEnvio,prepararRascunho,processarAtualizacaoDoWebhook,salvarRascunho,submeter,sincronizar,sincronizarAutomaticamente,validarConfiguracaoEnvio,validarTemplateOficial};

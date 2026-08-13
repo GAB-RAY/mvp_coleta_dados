@@ -102,7 +102,9 @@ templates, define nome e os filtros da campanha. A finalidade técnica permanece
 interna. Administradores também podem salvar rascunhos, submetê-los para análise
 e sincronizar templates oficiais existentes na WABA. Os status também são
 atualizados automaticamente pelo webhook oficial; a sincronização manual serve
-como conferência ou contingência. O status não pode ser
+como conferência ou contingência. O backend também reconcilia a lista oficial
+ao iniciar e periodicamente. Templates ausentes da WABA atual permanecem no
+histórico, mas são ocultados das opções operacionais. O status não pode ser
 alterado manualmente: somente `APPROVED` oficial libera novos envios. A
 configuração de imagem, parâmetros e opt-out permanece separada da estrutura
 oficial sincronizada. A finalidade técnica permanece interna para compatibilidade

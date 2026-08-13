@@ -163,6 +163,9 @@ WHATSAPP_PHONE_NUMBER_ID=
 WHATSAPP_BUSINESS_ACCOUNT_ID=
 META_GRAPH_API_VERSION=
 META_REQUISICAO_TIMEOUT_MS=10000
+META_TEMPLATES_SINCRONIZACAO_AUTOMATICA=true
+META_TEMPLATES_SINCRONIZACAO_ATRASO_INICIAL_MS=5000
+META_TEMPLATES_SINCRONIZACAO_INTERVALO_MS=900000
 WHATSAPP_OPTOUT_BUTTON_ID=nao_quero_mais_receber
 ```
 
@@ -470,6 +473,10 @@ eventos normalizados à mensageria. O envio de templates aprovados usa a WhatsAp
 com credenciais exclusivas do backend, timeout, idempotência por tentativa e erros sanitizados.
 O evento oficial `message_template_status_update` atualiza ou importa templates
 automaticamente; a sincronização manual permanece apenas como contingência.
+Além do webhook, o backend reconcilia a lista oficial ao iniciar em produção e
+a cada 15 minutos por padrão. Templates ausentes da WABA configurada são
+preservados no histórico como `NOT_FOUND`, mas deixam de aparecer na lista
+operacional.
 O opt-out oficial recebido pelo webhook revoga mensagens e mantém o contato globalmente bloqueado.
 
 ### 3.13 Relatórios, exportação e backup

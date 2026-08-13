@@ -100,6 +100,12 @@ partir do webhook assinado, pois o recurso removido pode não estar mais
 consultável na Graph API. Eventos repetidos permanecem idempotentes e todas as
 mudanças efetivas geram histórico com origem `webhook_meta`.
 
+Como o webhook não reproduz alterações ocorridas antes da assinatura, o backend
+também executa uma reconciliação oficial ao iniciar em produção e periodicamente.
+O intervalo padrão é de 15 minutos. Registros ausentes da WABA atual são
+preservados como `NOT_FOUND` para auditoria e deixam de aparecer na lista
+operacional.
+
 ## 7. Componentes suportados
 
 - `BODY`, com parâmetros sequenciais e exemplos;
@@ -174,7 +180,7 @@ campanha. Uma sincronização só poderá vinculá-los por correspondência inic
 ## 12. Testes
 
 ```text
-Templates oficiais da Meta: 31 verificações aprovadas.
+Templates oficiais da Meta: 33 verificações aprovadas.
 Integração Meta com mocks: 16 verificações aprovadas.
 Campanhas, lotes e mensageria: 27 verificações aprovadas.
 Webhook de mensageria: 16 verificações aprovadas.

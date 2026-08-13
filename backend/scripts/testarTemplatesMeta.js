@@ -8,6 +8,8 @@ process.env.META_REQUISICAO_TIMEOUT_MS='30';
 process.env.WHATSAPP_OPTOUT_BUTTON_ID='nao_quero_mais_receber';
 
 const banco=require('../src/config/banco');
+const campanhaModel=require('../src/modules/campanhas/campanhaModel');
+const sincronizacaoAutomaticaTemplates=require('../src/modules/campanhas/sincronizacaoAutomaticaTemplates');
 const templateService=require('../src/modules/campanhas/templateMetaService');
 const provider=require('../src/modules/mensageria/metaCloudApiProvider');
 
@@ -73,6 +75,8 @@ async function executar(){
     confirmar(pagina===2&&sync.total===2+oficiaisPreexistentes.length&&externo.meta_status==='rejeitado','Paginacao ou importacao externa falhou.');
     const antigoIndisponivel=(await banco.query("SELECT meta_status_oficial,meta_status FROM modelos_mensagem WHERE id=$1",[antigo.id])).rows[0];
     confirmar(sync.indisponibilizados===1&&antigoIndisponivel.meta_status_oficial==='NOT_FOUND'&&antigoIndisponivel.meta_status==='indisponivel','Template ausente na conta oficial permaneceu aprovado.');
+    const templatesOperacionais=await campanhaModel.listarTemplates();
+    confirmar(!templatesOperacionais.some(function(item){return item.id===antigo.id;}),'Template ausente da WABA atual permaneceu visivel na lista operacional.');
     const aprovado=(await banco.query("SELECT meta_status_oficial,meta_status FROM modelos_mensagem WHERE meta_template_id='900001'")).rows[0];
     confirmar(aprovado.meta_status_oficial==='APPROVED'&&aprovado.meta_status==='aprovado','Mudanca PENDING para APPROVED falhou.');
     pagina=0;const repetido=await templateService.sincronizar(usuario);
@@ -84,6 +88,14 @@ async function executar(){
     await templateService.sincronizar(usuario);
     const desabilitado=(await banco.query("SELECT meta_status_oficial,meta_status FROM modelos_mensagem WHERE meta_template_id='900001'")).rows[0];
     confirmar(desabilitado.meta_status_oficial==='DISABLED'&&desabilitado.meta_status==='indisponivel','Mudanca APPROVED para estado nao elegivel falhou.');
+    provider.definirFetchParaTeste(async function(){return {ok:true,status:200,json:async function(){return {data:[
+      {id:'900001',name:'template_qa_submeter',language:'pt_BR',status:'PENDING',category:'MARKETING',components:preparado.componentes},
+      {id:'900002',name:'template_externo',language:'pt_BR',status:'REJECTED',category:'UTILITY',components:[{type:'BODY',text:'Externo'}]}
+    ].concat(oficiaisPreexistentes)};}};});
+    const sincronizacaoAutomatica=await sincronizacaoAutomaticaTemplates.executarAgora();
+    const atualizadoAutomaticamente=(await banco.query("SELECT meta_status_oficial,meta_status FROM modelos_mensagem WHERE meta_template_id='900001'")).rows[0];
+    const auditoriaAutomatica=(await banco.query("SELECT usuario_id FROM historico_modelos_mensagem_meta WHERE modelo_id=$1 AND origem='sincronizacao_meta' ORDER BY id DESC LIMIT 1",[rascunho.id])).rows[0];
+    confirmar(sincronizacaoAutomatica.executado===true&&sincronizacaoAutomatica.resumo.atualizados===1&&atualizadoAutomaticamente.meta_status_oficial==='PENDING'&&atualizadoAutomaticamente.meta_status==='em_analise'&&auditoriaAutomatica.usuario_id===null,'Reconciliacao automatica nao atualizou o status sem inventar usuario humano.');
 
     const payload=provider.montarPayload({telefone:'5521999999999',nomeContato:'Maria',templateNome:'template_qa_submeter',templateIdioma:'pt_BR',templateComponentes:preparado.componentes,templateConfiguracaoEnvio:preparado.configuracaoEnvio});
     confirmar(payload.template.components[0].parameters[0].image.link==='https://example.com/imagem.jpg','HEADER IMAGE nao entrou no envio.');
@@ -105,7 +117,7 @@ async function executar(){
 
     provider.definirFetchParaTeste(function(url,opcoes){return new Promise(function(resolve,reject){opcoes.signal.addEventListener('abort',function(){const erro=new Error('abort');erro.name='AbortError';reject(erro);});});});
     await rejeitar(provider.listarTemplatesOficiais(),'tempo esperado');
-    console.log('Templates oficiais da Meta: 31 verificacoes aprovadas.');
+    console.log('Templates oficiais da Meta: 33 verificacoes aprovadas.');
   }finally{
     provider.definirFetchParaTeste();
     if(ids.length){await banco.query('DELETE FROM historico_modelos_mensagem_meta WHERE modelo_id=ANY($1::bigint[])',[ids]);await banco.query('DELETE FROM modelos_mensagem WHERE id=ANY($1::bigint[])',[ids]);}

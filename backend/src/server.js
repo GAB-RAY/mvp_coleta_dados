@@ -3,6 +3,7 @@ require('dotenv').config({ quiet: true });
 const aplicacao = require('./app');
 const banco = require('./config/banco');
 const validarAmbiente = require('./config/validarAmbiente');
+const sincronizacaoAutomaticaTemplates = require('./modules/campanhas/sincronizacaoAutomaticaTemplates');
 
 const porta = Number(process.env.PORT || process.env.PORTA) || 3000;
 
@@ -10,6 +11,7 @@ validarAmbiente();
 
 const servidor = aplicacao.listen(porta, function () {
   console.log('Servidor iniciado na porta ' + porta + '.');
+  sincronizacaoAutomaticaTemplates.iniciar();
 });
 
 servidor.requestTimeout = 30000;
@@ -25,6 +27,7 @@ function encerrarAplicacao(motivo, erroFatal) {
   }
 
   encerramentoIniciado = true;
+  sincronizacaoAutomaticaTemplates.parar();
   const codigoSaida = erroFatal ? 1 : 0;
   console.log('Encerrando aplicação: ' + motivo + '.');
 

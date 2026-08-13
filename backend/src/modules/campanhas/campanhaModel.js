@@ -564,7 +564,9 @@ async function listarTemplates() {
       meta_categoria, meta_status, meta_template_id, meta_componentes,
       meta_status_oficial, meta_origem, meta_submetido_em,
       meta_sincronizado_em, meta_configuracao_envio, criado_em, atualizado_em
-    FROM modelos_mensagem ORDER BY ativo DESC, nome
+    FROM modelos_mensagem
+    WHERE meta_status_oficial IS DISTINCT FROM 'NOT_FOUND'
+    ORDER BY ativo DESC, nome
   `);
   return resultado.rows;
 }
