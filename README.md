@@ -8,7 +8,7 @@ integração oficial com a WhatsApp Cloud API.
 
 - Backend: Node.js 24, Express 5, CommonJS, PostgreSQL e SQL parametrizado.
 - Frontend: React 19, React Router 7 e Vite 8.
-- Banco: schema final com 31 tabelas, 166 bairros e 13 migrations registradas.
+- Banco: schema final com 31 tabelas, 166 bairros e 14 migrations registradas.
 - Produção planejada: frontend na Vercel, API e PostgreSQL gerenciado na
   DigitalOcean.
 

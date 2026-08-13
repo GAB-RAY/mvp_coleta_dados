@@ -34,9 +34,17 @@ function listarMigrations() {
 function validarSequencia(migrations) {
   const versoes = new Set();
 
-  migrations.forEach(function (migration) {
+  migrations.forEach(function (migration, indice) {
     if (versoes.has(migration.versao)) {
       throw new Error('Existem duas migrations com a versao ' + migration.versao + '.');
+    }
+
+    const versaoEsperada = String(indice + 1).padStart(3, '0');
+    if (migration.versao !== versaoEsperada) {
+      throw new Error(
+        'A sequencia de migrations possui uma lacuna. Era esperada a versao ' +
+        versaoEsperada + ', mas foi encontrada ' + migration.versao + '.'
+      );
     }
 
     versoes.add(migration.versao);

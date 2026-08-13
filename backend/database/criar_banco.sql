@@ -868,6 +868,7 @@ CREATE INDEX comunicacoes_numero_indice ON public.comunicacoes (numero_whatsapp_
 CREATE INDEX comunicacoes_operador_indice ON public.comunicacoes (operador_usuario_id, criado_em DESC);
 CREATE INDEX historico_comunicacoes_comunicacao_indice ON public.historico_comunicacoes (comunicacao_id, criado_em DESC);
 CREATE INDEX campanhas_status_indice ON public.campanhas (status, criado_em DESC);
+CREATE INDEX campanhas_atualizador_indice ON public.campanhas (atualizado_por_usuario_id);
 CREATE INDEX campanha_lotes_campanha_indice ON public.campanha_lotes (campanha_id, criado_em DESC);
 CREATE INDEX campanha_participacoes_lote_indice ON public.campanha_participacoes (lote_original_id, id);
 CREATE INDEX campanha_participacoes_status_indice ON public.campanha_participacoes (campanha_id, status);
@@ -1330,6 +1331,7 @@ INSERT INTO public.schema_migrations (
   ('010', '010_permitir_importacao_vcf.sql', '7f5d4dff3bf9f62d55868e12a436f350b9a2c1d073a7e8c64c48fe01d6657c5c'),
   ('011', '011_sincronizar_limite_meta.sql', '137c3b4334f0a50e9d851a120074e94ecd2a681e0269caf583c193e58f7cddf6'),
   ('012', '012_identificar_webhook_meta.sql', '18a4295ae9d64f636a34ad7f239f3ee637e6cda1287b2e01faf04c1400adbc0a'),
-  ('013', '013_gerenciar_templates_oficiais_meta.sql', 'a1a455aa7a0438d2e5b2dbbafeb6b2cb256b47a080d9974689a3c097e33d9dc6');
+  ('013', '013_gerenciar_templates_oficiais_meta.sql', 'a1a455aa7a0438d2e5b2dbbafeb6b2cb256b47a080d9974689a3c097e33d9dc6'),
+  ('014', '014_garantir_auditoria_campanhas.sql', 'e856eec3eda0d280534e996e60dad3e2c3d3aa11b95b41f791d0d5d6d36e6f30');
 
 COMMIT;

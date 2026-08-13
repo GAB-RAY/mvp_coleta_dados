@@ -56,6 +56,7 @@ async function validarCatalogo(cliente) {
     'historico_configuracoes_sistema',
     'historico_contatos',
     'historico_eventos',
+    'historico_modelos_mensagem_meta',
     'historico_status_mensageria',
     'importacao_linhas',
     'importacoes',
@@ -228,7 +229,9 @@ async function validarCatalogo(cliente) {
             '009_integrar_meta_cloud_api.sql',
             '010_permitir_importacao_vcf.sql',
             '011_sincronizar_limite_meta.sql',
-            '012_identificar_webhook_meta.sql'
+            '012_identificar_webhook_meta.sql',
+            '013_gerenciar_templates_oficiais_meta.sql',
+            '014_garantir_auditoria_campanhas.sql'
           )
         ) AS migrations_atuais
     `
@@ -241,8 +244,49 @@ async function validarCatalogo(cliente) {
   );
   verificar(configuracoes.rows[0].textos === 3, 'Os três textos ativos não existem.');
   verificar(
-    configuracoes.rows[0].migrations_atuais === 12,
-    'O ledger deve registrar as doze migrations atuais.'
+    configuracoes.rows[0].migrations_atuais === 14,
+    'O ledger deve registrar as quatorze migrations atuais.'
+  );
+
+  const auditoriaCampanhas = await cliente.query(`
+    SELECT
+      coluna.is_nullable,
+      EXISTS (
+        SELECT 1 FROM pg_catalog.pg_constraint
+        WHERE conrelid = 'public.campanhas'::regclass
+          AND conname = 'campanhas_atualizador_fkey'
+          AND contype = 'f'
+      ) AS possui_fkey,
+      EXISTS (
+        SELECT 1 FROM pg_catalog.pg_indexes
+        WHERE schemaname = 'public'
+          AND tablename = 'campanhas'
+          AND indexname = 'campanhas_atualizador_indice'
+      ) AS possui_indice
+    FROM information_schema.columns AS coluna
+    WHERE coluna.table_schema = 'public'
+      AND coluna.table_name = 'campanhas'
+      AND coluna.column_name = 'atualizado_por_usuario_id'
+  `);
+  verificar(
+    auditoriaCampanhas.rowCount === 1 &&
+      auditoriaCampanhas.rows[0].is_nullable === 'NO' &&
+      auditoriaCampanhas.rows[0].possui_fkey === true &&
+      auditoriaCampanhas.rows[0].possui_indice === true,
+    'A auditoria de atualizacao das campanhas nao esta estruturalmente completa.'
+  );
+
+  const identidadeTemplates = await cliente.query(`
+    SELECT 1
+    FROM pg_catalog.pg_indexes
+    WHERE schemaname = 'public'
+      AND tablename = 'modelos_mensagem'
+      AND indexname = 'modelos_mensagem_meta_template_id_unico'
+      AND indexdef ILIKE '%UNIQUE%'
+  `);
+  verificar(
+    identidadeTemplates.rowCount === 1,
+    'O ID oficial dos templates Meta nao possui indice unico.'
   );
 
   const relacionamentoBairro = await cliente.query(

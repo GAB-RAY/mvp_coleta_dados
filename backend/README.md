@@ -102,7 +102,9 @@ O runner cria e consulta `schema_migrations`, verifica o checksum de cada arquiv
 
 As migrations de campanhas/mensageria são `006_criar_campanhas_lotes_mensageria.sql`,
 `007_adicionar_triggers_campanhas.sql`, `009_integrar_meta_cloud_api.sql`,
-`011_sincronizar_limite_meta.sql` e `012_identificar_webhook_meta.sql`. O suporte
+`011_sincronizar_limite_meta.sql`, `012_identificar_webhook_meta.sql`,
+`013_gerenciar_templates_oficiais_meta.sql` e
+`014_garantir_auditoria_campanhas.sql`. O suporte
 ao arquivo de contatos do iPhone foi incorporado por
 `010_permitir_importacao_vcf.sql`.
 
@@ -317,7 +319,7 @@ das implementações de campanhas e Meta ficam nos relatórios `RELATORIO_*.md`.
 Execute novamente os comandos acima antes de cada publicação relevante; não
 trate uma contagem histórica como validação do código atual.
 
-O teste de schema cria um banco temporário vazio, aplica `database/criar_banco.sql`, valida 31 tabelas, treze migrations registradas e 166 bairros e remove o banco temporário ao final.
+O teste de schema cria um banco temporário vazio, aplica `database/criar_banco.sql`, valida 31 tabelas, quatorze migrations registradas e 166 bairros e remove o banco temporário ao final.
 
 O teste de carga de importação gera 15.000 contatos temporários, percorre pré-visualização, confirmação e persistência, valida a rejeição de 20.001 linhas, remove todos os dados de teste e ressincroniza as sequências utilizadas. Ele recusa execução quando `NODE_ENV=production`.
 

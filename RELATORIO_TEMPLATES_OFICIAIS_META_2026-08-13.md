@@ -85,7 +85,8 @@ envio. Também cria `historico_modelos_mensagem_meta` e índices/constraints de
 integridade.
 
 Nenhuma migration anterior foi alterada. O schema de banco vazio foi atualizado
-para 31 tabelas e ledger com 13 migrations.
+para 31 tabelas. Após a correção incremental de compatibilidade das campanhas,
+o ledger atual passou a possuir 14 migrations.
 
 A migration `013` foi aplicada somente no banco local. Uma segunda execução do
 runner confirmou que não havia migration pendente.

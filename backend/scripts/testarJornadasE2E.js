@@ -15,6 +15,7 @@ const SCRIPTS = [
   ['G e I', 'testarEventosExclusoes.js'],
   ['H e I', 'testarPrivacidadeAdministrativa.js'],
   ['J e N', 'testarCampanhas.js'],
+  ['Templates oficiais Meta', 'testarTemplatesMeta.js'],
   ['K e L', 'testarIntegracaoMeta.js'],
   ['K, L e M', 'testarWebhookMensageria.js'],
   ['M', 'testarSincronizacaoLimiteMeta.js'],
@@ -132,7 +133,7 @@ async function validarEstadoFinal(bancoTeste) {
         WHERE nome ILIKE '%teste%' OR nome ILIKE '%mutirao%') AS eventos_qa
   `)).rows[0];
 
-  if (estado.tabelas !== 30 || estado.bairros !== 166 || estado.migrations !== 12) {
+  if (estado.tabelas !== 31 || estado.bairros !== 166 || estado.migrations !== 14) {
     throw new Error('Estrutura do banco isolado divergiu durante as jornadas.');
   }
   if (

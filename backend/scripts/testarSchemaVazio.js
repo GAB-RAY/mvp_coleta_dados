@@ -1,6 +1,7 @@
 require('dotenv').config({ quiet: true });
 
 const assert = require('assert');
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const pg = require('pg');
@@ -66,8 +67,30 @@ async function executar() {
       textos: 3,
       usuarios: 0,
       contatos: 0,
-      migrations: 13
+      migrations: 14
     });
+    const diretorioMigrations = path.join(__dirname, '..', 'database', 'migrations');
+    const migrationsArquivos = fs.readdirSync(diretorioMigrations)
+      .filter(function (nome) { return /^\d{3}_[a-z0-9_]+\.sql$/.test(nome); })
+      .sort()
+      .map(function (nome) {
+        const conteudo = fs.readFileSync(path.join(diretorioMigrations, nome), 'utf8');
+        return {
+          versao: nome.slice(0, 3),
+          nome_arquivo: nome,
+          checksum_sha256: crypto.createHash('sha256').update(conteudo, 'utf8').digest('hex')
+        };
+      });
+    const migrationsLedger = await bancoTeste.query(`
+      SELECT versao, nome_arquivo, checksum_sha256
+      FROM schema_migrations
+      ORDER BY versao
+    `);
+    assert.deepStrictEqual(
+      migrationsLedger.rows,
+      migrationsArquivos,
+      'O ledger do schema final nao corresponde aos arquivos de migration.'
+    );
     console.log('Schema final validado em banco vazio: 31 tabelas e 166 bairros.');
   } finally {
     if (bancoTeste) {
