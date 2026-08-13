@@ -124,6 +124,17 @@ async function iniciarEnvio(tentativaId, agora) {
         participacao.campanha_id, participacao.contato_id, participacao.lote_original_id,
         participacao.reservado_em, campanha.status AS campanha_status,
         contato.telefone_normalizado, contato.bloqueado_para_mensagens,
+        EXISTS (
+          SELECT 1
+          FROM consentimentos AS consentimento_mensagens
+          WHERE consentimento_mensagens.contato_id = contato.id
+            AND consentimento_mensagens.tipo = 'mensagens'
+            AND consentimento_mensagens.ativo = TRUE
+            AND (
+              consentimento_mensagens.estado IN ('recusado', 'revogado')
+              OR consentimento_mensagens.resposta = FALSE
+            )
+        ) AS mensagens_recusadas,
         modelo.ativo AS modelo_ativo, modelo.meta_nome, modelo.meta_idioma,
         modelo.meta_status
       FROM campanha_tentativas tentativa
@@ -142,7 +153,16 @@ async function iniciarEnvio(tentativaId, agora) {
     if (!tentativa.modelo_ativo || tentativa.meta_status !== 'aprovado' || !tentativa.meta_nome || !tentativa.meta_idioma) {
       const erro = new Error('O template precisa estar aprovado e configurado na Meta.'); erro.codigo='TEMPLATE_NAO_APROVADO'; throw erro;
     }
-    if (tentativa.bloqueado_para_mensagens) { const erro = new Error('O contato bloqueou mensagens pelo WhatsApp.'); erro.codigo='CONTATO_BLOQUEADO'; throw erro; }
+    if (tentativa.bloqueado_para_mensagens) {
+      const erro = new Error('O contato bloqueou mensagens pelo WhatsApp.');
+      erro.codigo='CONTATO_BLOQUEADO';
+      throw erro;
+    }
+    if (tentativa.mensagens_recusadas) {
+      const erro = new Error('O contato recusou ou revogou mensagens pelo WhatsApp.');
+      erro.codigo='CONTATO_BLOQUEADO';
+      throw erro;
+    }
     const exclusao = await cliente.query("SELECT 1 FROM solicitacoes_exclusao WHERE contato_id=$1 AND status='pendente'", [tentativa.contato_id]);
     if (exclusao.rows[0]) { const erro = new Error('O contato possui solicitacao de exclusao pendente.'); erro.codigo='CONTATO_BLOQUEADO'; throw erro; }
     const configuracao = await cliente.query(`

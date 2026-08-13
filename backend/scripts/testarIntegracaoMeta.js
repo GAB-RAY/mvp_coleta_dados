@@ -96,6 +96,14 @@ async function executar() {
     await confirmarRejeicao(mensageriaService.enviar(rascunho.tentativa.id),'template precisa estar aprovado');
     confirmar(chamadas===chamadasAntesRascunho,'Template nao aprovado chegou ao provider.');
 
+    const recusado = await criarCenario('8100007', 'aprovado'); cenarios.push(recusado);
+    await banco.query(`INSERT INTO consentimentos
+      (contato_id,contato_id_original,tipo,resposta,texto_apresentado,versao_texto,canal,origem_registro,ativo,estado,origem_id)
+      VALUES ($1,$1,'mensagens',FALSE,'Texto teste','v1','cadastro_manual','resposta_expressa',TRUE,'recusado',(SELECT origem_id FROM contatos WHERE id=$1))`,[recusado.contato.id]);
+    const chamadasAntesRecusa = chamadas;
+    await confirmarRejeicao(mensageriaService.enviar(recusado.tentativa.id),'recusou');
+    confirmar(chamadas===chamadasAntesRecusa,'Contato com recusa expressa chegou ao provider.');
+
     const usadosAgora=(await banco.query("SELECT COUNT(*)::integer total FROM campanha_participacoes WHERE reservado_em>=CURRENT_TIMESTAMP-INTERVAL '24 hours'")).rows[0].total;
     await banco.query("UPDATE configuracoes_sistema SET valor_inteiro=$1 WHERE chave='limite_mensagens_24h'",[Math.max(1,usadosAgora)]);
     const semCapacidade=await criarCenario('8100006','aprovado',new Date(Date.now()-90000000));cenarios.push(semCapacidade);

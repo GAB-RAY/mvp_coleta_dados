@@ -153,7 +153,7 @@ async function realizarLogin(dadosRecebidos, contextoRecebido) {
       perfil: usuario.perfil
     },
     segredoJwt,
-    { expiresIn: tempoExpiracao }
+    { algorithm: 'HS256', expiresIn: tempoExpiracao }
   );
 
   return {

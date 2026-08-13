@@ -2,6 +2,7 @@ require('dotenv').config({ quiet: true });
 
 const assert = require('assert');
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 const aplicacao = require('../src/app');
 const banco = require('../src/config/banco');
 
@@ -27,7 +28,7 @@ async function requisitar(baseUrl, caminho, opcoes) {
   }, opcoes || {}));
   const corpo = await resposta.json();
 
-  return { status: resposta.status, corpo };
+  return { status: resposta.status, corpo, headers: resposta.headers };
 }
 
 async function limpar() {
@@ -74,15 +75,32 @@ async function executar() {
     });
     const baseUrl = 'http://127.0.0.1:' + servidor.address().port;
 
-    assert.strictEqual((await requisitar(baseUrl, '/api/admin/usuarios')).status, 401);
+    const acessoSemToken = await requisitar(baseUrl, '/api/admin/usuarios');
+    assert.strictEqual(acessoSemToken.status, 401);
+    assert.strictEqual(acessoSemToken.headers.get('cache-control'), 'no-store');
 
     const loginAdmin = await login(baseUrl, EMAIL_ADMIN, SENHA);
     assert.strictEqual(loginAdmin.status, 200);
+    assert.strictEqual(loginAdmin.headers.get('cache-control'), 'no-store');
+    assert.strictEqual(loginAdmin.headers.get('pragma'), 'no-cache');
     assert.strictEqual(loginAdmin.corpo.usuario.perfil, 'administrador');
     const cabecalhosAdmin = {
       'Content-Type': 'application/json',
       Authorization: 'Bearer ' + loginAdmin.corpo.token
     };
+    const dadosTokenAdmin = jwt.decode(loginAdmin.corpo.token);
+    const tokenAlgoritmoNaoPermitido = jwt.sign(
+      {
+        id: dadosTokenAdmin.id,
+        email: dadosTokenAdmin.email,
+        perfil: dadosTokenAdmin.perfil
+      },
+      process.env.JWT_SECRET || process.env.JWT_SEGREDO,
+      { algorithm: 'HS384', expiresIn: '5m' }
+    );
+    assert.strictEqual((await requisitar(baseUrl, '/api/admin/usuarios', {
+      headers: { Authorization: 'Bearer ' + tokenAlgoritmoNaoPermitido }
+    })).status, 401);
 
     const loginOperador = await login(baseUrl, EMAIL_OPERADOR, SENHA);
     assert.strictEqual(loginOperador.status, 200);
@@ -132,6 +150,8 @@ async function executar() {
       headers: cabecalhosAdmin
     });
     assert.strictEqual(listagem.status, 200);
+    assert.strictEqual(listagem.headers.get('cache-control'), 'no-store');
+    assert.strictEqual(listagem.headers.get('pragma'), 'no-cache');
     assert.ok(listagem.corpo.usuarios.length >= 2);
     assert.strictEqual(
       Object.prototype.hasOwnProperty.call(listagem.corpo.usuarios[0], 'senhaHash'),

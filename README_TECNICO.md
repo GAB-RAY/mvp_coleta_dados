@@ -441,6 +441,10 @@ idempotência. A reserva usa transação, advisory lock e `FOR UPDATE SKIP LOCKE
 `campanha_participacoes` possui `UNIQUE (campanha_id, contato_id)`: o contato pode
 participar de campanhas distintas, mas não é repetido dentro da mesma campanha.
 
+Na elegibilidade de mensagens, ausência de resposta permanece como “não
+informado” e não bloqueia o contato. Recusa ou revogação expressa, bloqueio ativo
+e solicitação de exclusão pendente impedem tanto a reserva quanto o envio.
+
 Cada participação mantém o lote original. `campanha_tentativas` preserva cada
 processamento e permite reprocessar falhas sem recriar a participação. O histórico
 imutável aceita `pendente`, `enviando`, `enviada`, `entregue`, `lida` e `falhou`,
@@ -582,6 +586,10 @@ O serviço `api.js`:
 
 O token e os dados básicos do usuário são mantidos no armazenamento local do navegador. Respostas 401 removem a sessão e redirecionam para o login. O frontend oculta ações não permitidas, mas o backend continua sendo a autoridade final.
 
+Respostas de login e de rotas administrativas usam `Cache-Control: no-store` e
+`Pragma: no-cache`, evitando que dados privados sejam mantidos no cache HTTP do
+navegador ou de intermediários.
+
 ### 4.4 Formulário público e visual
 
 - nome, bairro e categoria em largura total;
@@ -660,7 +668,10 @@ O conjunto `npm test` executa verificações de:
 - eventos e exclusões;
 - backups.
 
-Último resultado documentado no projeto, em 02/08/2026: 392 verificações do backend aprovadas e build do frontend concluído com 69 módulos transformados.
+Validação direcionada de 13/08/2026: teste de segurança e usuários aprovado,
+auditorias de dependências sem vulnerabilidades conhecidas e build do frontend
+concluído com 70 módulos transformados. Os relatórios `RELATORIO_*.md` preservam
+os resultados datados das suítes específicas de campanhas, mensageria e Meta.
 
 O teste adicional `testar:importacao-carga` valida separadamente 15.000 contatos temporários em um único arquivo, a rejeição de 20.001 linhas, pré-visualização, confirmação, contagem persistida, limpeza automática e ressincronização das sequências utilizadas. O limite aceito de 20.000 linhas também foi executado com sucesso. O script recusa execução em produção.
 

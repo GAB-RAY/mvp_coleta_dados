@@ -1,72 +1,88 @@
-# Central de Comunicação — Acorda RJ
+# ACORDA RJ
 
-Sistema real de coleta e gestão de contatos comunitários. O projeto possui formulário público, painel administrativo, controle de usuários, eventos, consentimentos, pedidos de exclusão, importações e relatórios.
+Sistema de coleta e gestão de contatos comunitários, com formulário público,
+painel administrativo, eventos, importações, privacidade, campanhas em lotes e
+integração oficial com a WhatsApp Cloud API.
 
-## Tecnologias
+## Estado atual
 
-- Backend: Node.js, Express, CommonJS, PostgreSQL, `pg`, bcrypt e JWT.
-- Frontend: React, Vite e JavaScript.
-- Banco oficial local: `criar_banco`.
+- Backend: Node.js 24, Express 5, CommonJS, PostgreSQL e SQL parametrizado.
+- Frontend: React 19, React Router 7 e Vite 8.
+- Banco: schema final com 30 tabelas, 166 bairros e 12 migrations registradas.
+- Produção planejada: frontend na Vercel, API e PostgreSQL gerenciado na
+  DigitalOcean.
 
 ## Funcionalidades
 
-- formulário público responsivo em `/participar`;
-- catálogo de 166 bairros validado no PostgreSQL;
-- categorias de problema centralizadas no backend;
-- consentimentos separados para mensagens e ligações;
-- opt-ins de WhatsApp e ligações desmarcados por padrão e registrados com texto, versão, origem e data;
-- páginas públicas de privacidade, termos e solicitação de exclusão;
-- botão público de WhatsApp configurado por variável de ambiente;
-- login administrativo com JWT e proteção contra tentativas repetidas;
-- perfis `administrador` e `operador`;
-- cadastro, edição, busca, filtros e paginação de contatos;
-- cadastro manual e importação CSV/XLSX;
-- revogações imutáveis com responsável, data, hora e motivo opcional;
-- pedidos de exclusão pendentes, aprovados ou rejeitados;
-- exclusão física do contato somente após aprovação do administrador;
-- formulário geral permanente e formulários exclusivos por evento, todos reutilizando o mesmo componente público;
-- vários eventos podem permanecer ativos simultaneamente, cada um com descrição, data, horário, local/link e período de inscrições;
-- QR Code exclusivo por evento, válido somente enquanto o evento estiver ativo e dentro do período;
-- contato novo segue para o formulário completo; contato existente confirma a inscrição sem preencher tudo novamente;
-- inscrição idempotente: o mesmo contato não é vinculado duas vezes ao mesmo evento;
-- nenhuma informação pessoal do cadastro é devolvida durante a identificação pública;
-- preservação da origem e auditoria das atualizações escolhidas em `Meus dados mudaram`;
-- acesso direto aos participantes e busca por nome ou telefone;
-- eventos em modo somente leitura para operadores; criação e alterações continuam exclusivas do administrador;
-- validação do evento exibido antes de concluir o envio público;
-- lista própria de participantes por evento, com busca, status de inscrição e andamento da comunicação;
-- relatórios clicáveis por bairro, categoria e evento, incluindo necessidades por bairro;
-- exportação de contatos em CSV e Excel exclusiva para administradores;
-- backup de todos os dados em SQL legível, sem estrutura, exclusivo para administradores e com auditoria SHA-256;
-- proteção do formulário público com limite por IP/telefone, cache e controle de concorrência;
-- pool PostgreSQL limitado, tempos máximos, recuperação de conexões e desligamento gracioso;
-- endpoints separados de vida e prontidão para monitoramento em produção;
-- comunicações manuais com WhatsApps da equipe, textos prontos obrigatórios, campanhas, segmentação, campos substituíveis e histórico;
-- abrir ou copiar uma mensagem nunca marca envio; existe uma confirmação humana separada após o envio real;
-- a mesma campanha não pode ser confirmada novamente para o mesmo contato sem aviso, confirmação e motivo registrado;
-- status de atendimento, resposta, recusa, telefone inválido e conclusão são atualizados manualmente;
-- toda comunicação é preparada, aberta e confirmada manualmente pela equipe.
+- formulário responsivo em `/participar`, com idade mínima de 16 anos;
+- bairros vindos do PostgreSQL e categorias vindas do backend;
+- aceite de privacidade obrigatório e autorizações opcionais, versionadas e
+  desmarcadas por padrão;
+- cadastro único por telefone normalizado, sem duplicar números formatados de
+  maneiras diferentes;
+- links exclusivos de eventos em `/participar?evento=<id>`, com QR Code;
+- vários eventos ativos simultaneamente e vínculo único contato/evento;
+- painel com contatos, filtros, paginação, histórico e cadastro interno;
+- importação de VCF, CSV e XLSX, com até 20.000 registros por arquivo;
+- relatórios e exportações CSV/XLSX para administradores;
+- pedidos de exclusão, revogações e trilha de auditoria;
+- backup de dados em SQL, sem estrutura, exclusivo para administradores;
+- usuários com perfis `administrador` e `operador`;
+- campanhas com templates, filtros, prévia, lotes idempotentes, tentativas e
+  histórico técnico;
+- envio por template aprovado através da WhatsApp Cloud API oficial;
+- webhook autenticado por HMAC, idempotente e sem armazenamento do payload
+  bruto;
+- capacidade móvel de 24 horas calculada pelo menor valor entre a proteção
+  interna e o limite oficial finito informado pela Meta;
+- sincronização automática do limite oficial pelo webhook
+  `business_capability_update` e sincronização manual de contingência.
 
-## Permissões
+## Permissões principais
 
 | Ação | Operador | Administrador |
 |---|---:|---:|
-| Consultar, cadastrar e editar contatos | Sim | Sim |
-| Revogar mensagens/ligações | Sim | Sim |
-| Solicitar exclusão | Sim | Sim |
-| Aprovar ou rejeitar exclusão | Não | Sim |
-| Exportar CSV | Não | Sim |
-| Exportar Excel | Não | Sim |
-| Gerar e baixar backup do banco | Não | Sim |
+| Consultar e cadastrar contatos | Sim | Sim |
+| Revogar consentimentos e solicitar exclusão | Sim | Sim |
+| Consultar eventos e participantes | Sim | Sim |
 | Gerenciar eventos | Não | Sim |
-| Consultar participantes e atualizar inscrição | Sim | Sim |
-| Preparar e registrar comunicação manual | Sim | Sim |
-| Gerenciar números, textos prontos e campanhas | Não | Sim |
-| Gerenciar usuários e senhas | Não | Sim |
+| Importar contatos | Sim | Sim |
+| Excluir uma importação e seus contatos próprios | Não | Sim |
+| Exportar CSV/XLSX | Não | Sim |
+| Gerar backup | Não | Sim |
+| Gerenciar usuários | Não | Sim |
+| Criar/editar campanha e template | Não | Sim |
+| Consultar campanhas e criar lotes | Sim | Sim |
+| Alterar proteção interna ou sincronizar a Meta | Não | Sim |
 
-Não existem rotas para apagar diretamente contatos, revogações ou históricos. Ao aprovar um pedido, o administrador confirma uma exclusão física. O registro do pedido e os registros de consentimento/revogação permanecem sem os dados pessoais do contato.
+O backend é a autoridade das permissões. Ocultar controles no frontend é apenas
+uma proteção visual complementar.
 
-Administradores podem definir o próprio nome, alterar a própria senha após confirmar a senha atual, criar operadores e outros administradores e redefinir senhas de operadores. Contas de outros administradores são protegidas contra alterações.
+## Instalação local
+
+Backend:
+
+```powershell
+cd backend
+npm install
+Copy-Item .env.example .env
+npm start
+```
+
+Frontend, em outro terminal:
+
+```powershell
+cd frontend
+npm install
+Copy-Item .env.example .env
+npm run dev
+```
+
+Endereços locais:
+
+- formulário: `http://localhost:5173/participar`;
+- login: `http://localhost:5173/login`;
+- API: `http://localhost:3000/api/teste`.
 
 ## Banco de dados
 
@@ -77,105 +93,60 @@ createdb criar_banco
 psql --set ON_ERROR_STOP=1 --dbname criar_banco --file backend/database/criar_banco.sql
 ```
 
-O schema final já inclui o ledger `schema_migrations` e registra as migrations incorporadas. Ele deve ser usado somente na criação de um banco novo.
+> Nunca execute `criar_banco.sql` sobre um banco que já tenha estrutura ou
+> dados.
 
-> Nunca execute `backend/database/criar_banco.sql` sobre um banco que já possua estrutura ou dados. O próprio script recusa essa execução.
-
-Para atualizar um banco existente, faça e valide o backup e execute:
+Banco existente:
 
 ```powershell
 cd backend
 npm run banco:migrar
 ```
 
-O runner usa `schema_migrations`, checksum SHA-256, transação e advisory lock. Uma migration aplicada nunca é repetida; alterar um arquivo já executado interrompe a operação. O `prestart` executa somente esse runner e não reaplica DDL em toda inicialização.
+O runner usa `schema_migrations`, checksum SHA-256, transações e advisory lock.
+Migrations aplicadas não devem ser editadas nem apagadas.
 
-O schema atual possui 22 tabelas. `schema_migrations` controla a evolução do banco. `numeros_whatsapp`, `modelos_mensagem`, `campanhas`, `comunicacoes` e `historico_comunicacoes` organizam somente o trabalho manual. A tabela `backups_banco` registra cada tentativa de backup, seu responsável, estado, tamanho e hash SHA-256.
+## Variáveis públicas
 
-## Como iniciar
+O frontend usa somente valores públicos:
 
-Backend:
+```env
+VITE_API_URL=http://localhost:3000
+VITE_WHATSAPP_NUMERO=5521999999999
+VITE_PRIVACIDADE_EMAIL=privacidade@exemplo.com
+```
+
+Tokens, segredos, banco e credenciais da Meta pertencem exclusivamente ao
+ambiente do backend. Arquivos `.env` reais não são versionados.
+
+## Validação
 
 ```powershell
 cd backend
-npm install
-npm start
+npm test
+npm run testar:schema-vazio
+
+cd ..\frontend
+npm run build
 ```
 
-Frontend, em outro terminal:
+Os resultados datados das implementações de campanha e Meta ficam nos arquivos
+`RELATORIO_*.md`. Eles são evidências históricas e não substituem uma nova
+execução antes de publicar alterações.
 
-```powershell
-cd frontend
-npm install
-npm run dev
-```
+## Documentação
 
-Endereços padrão:
-
-- formulário: `http://localhost:5173/participar`;
-- login: `http://localhost:5173/login`;
-- API: `http://localhost:3000/api/teste`.
-
-## Configuração pública
-
-No arquivo `frontend/.env`, informe o número com código do país e DDD, somente com números:
-
-```env
-VITE_WHATSAPP_NUMERO=5521999999999
-VITE_PRIVACIDADE_EMAIL=seu-email-de-privacidade@example.com
-```
-
-Reinicie o Vite depois de alterar as variáveis. O botão apenas abre uma conversa;
-ele não envia dados automaticamente. O e-mail é mostrado em `/privacidade`,
-`/termos` e `/excluir-dados` como canal dos titulares. Substitua o endereço de
-exemplo pelo e-mail oficial do projeto antes de iniciar a coleta oficial. O
-formulário aceita somente pessoas com idade inteira entre 16 e 120 anos; as
-autorizações de WhatsApp e ligações permanecem opcionais e desmarcadas.
-
-## Publicação sugerida
-
-- Frontend: Vercel Hobby.
-- Backend: DigitalOcean App Platform 512 MiB.
-- Banco: PostgreSQL gerenciado.
-
-Configure `VITE_API_URL` no frontend e `DATABASE_URL`, `JWT_SECRET`, `JWT_TEMPO_EXPIRACAO`, `FRONTEND_URL` e as configurações de SSL no backend. Aplique `criar_banco.sql` somente no banco vazio antes de iniciar o backend.
-
-Depois do deploy, a Vercel mostra o domínio público na página do projeto e em `Deployments`, normalmente no formato `https://nome-do-projeto.vercel.app`. A partir desse domínio:
-
-- formulário: `https://nome-do-projeto.vercel.app/participar`;
-- login administrativo: `https://nome-do-projeto.vercel.app/login`;
-- painel após autenticação: `https://nome-do-projeto.vercel.app/admin`.
-- privacidade: `https://nome-do-projeto.vercel.app/privacidade`;
-- termos: `https://nome-do-projeto.vercel.app/termos`;
-- exclusão de dados: `https://nome-do-projeto.vercel.app/excluir-dados`.
-
-A URL da DigitalOcean é da API e deve ser configurada em `VITE_API_URL`; ela não é o endereço que a equipe usa para abrir o painel.
-
-O plano de 512 MiB e o PostgreSQL de nó único são adequados para a publicação inicial controlada, mas não oferecem alta disponibilidade completa. Antes de um evento de grande alcance, faça teste de carga no ambiente de homologação. Para eliminar pontos únicos de falha, use pelo menos duas instâncias do backend e PostgreSQL com nó standby.
-
-No App Platform, configure:
-
-- readiness: `/api/saude/pronto`, que valida conexão e tabelas/colunas críticas;
-- liveness: `/api/saude/vivo`;
-- alertas de falha de deploy, reinício, CPU, memória e latência;
-- `NODE_ENV=production` e `DIGITALOCEAN_CONFIAR_IP=true`;
-- conexão PostgreSQL privada/VPC, TLS e trusted sources.
-
-## Documentação técnica
-
+- [Documentação técnica consolidada](README_TECNICO.md)
 - [Backend](backend/README.md)
 - [Frontend](frontend/README.md)
+- [Prompt mestre para continuidade ou reconstrução](PROMPT_MESTRE.md)
+- relatórios datados: `RELATORIO_*.md`.
 
-## Validação atual
+## Produção
 
-Em 02/08/2026:
-
-- schema criado em banco vazio de teste: 22 tabelas e ledger versionado;
-- banco existente atualizado por migrations incrementais com checksum e advisory lock;
-- backup prévio restaurado e validado em banco separado;
-- `npm run testar:importacao-carga`: 15.000 contatos importados e validados, com limpeza automática;
-- limite máximo validado: arquivo único com 20.000 contatos;
-- `npm test`: 392 verificações aprovadas;
-- `npm run build`: 69 módulos transformados;
-- banco principal validado com 166 bairros e integridade estrutural preservada;
-- runner executado novamente sem reaplicar migrations.
+- configure o frontend com a URL HTTPS da API;
+- configure `FRONTEND_URL` no backend com o domínio final do frontend;
+- mantenha segredos somente nos painéis da hospedagem;
+- aplique somente migrations pendentes em bancos existentes;
+- use `/api/saude/vivo` para liveness e `/api/saude/pronto` para readiness;
+- não faça mudanças estruturais sem backup e teste de restauração.

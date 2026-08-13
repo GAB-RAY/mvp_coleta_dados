@@ -17,6 +17,17 @@ function montarConsultaPublico(filtros, somenteAptos) {
   if (somenteAptos) {
     condicoesExtras.push('contato.bloqueado_para_mensagens = FALSE');
     condicoesExtras.push(`NOT EXISTS (
+      SELECT 1
+      FROM consentimentos AS consentimento_mensagens
+      WHERE consentimento_mensagens.contato_id = contato.id
+        AND consentimento_mensagens.tipo = 'mensagens'
+        AND consentimento_mensagens.ativo = TRUE
+        AND (
+          consentimento_mensagens.estado IN ('recusado', 'revogado')
+          OR consentimento_mensagens.resposta = FALSE
+        )
+    )`);
+    condicoesExtras.push(`NOT EXISTS (
       SELECT 1 FROM solicitacoes_exclusao AS solicitacao
       WHERE solicitacao.contato_id = contato.id AND solicitacao.status = 'pendente'
     )`);

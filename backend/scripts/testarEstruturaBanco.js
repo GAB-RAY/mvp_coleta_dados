@@ -63,8 +63,8 @@ async function validarCatalogo(cliente) {
     'numeros_whatsapp',
     'origens',
     'schema_migrations',
-    'solicitacoes_exclusao',
     'sincronizacoes_limite_meta',
+    'solicitacoes_exclusao',
     'tentativas_login',
     'textos_formulario',
     'usuarios'
@@ -224,7 +224,11 @@ async function validarCatalogo(cliente) {
             '005_padronizar_telefones_contatos.sql',
             '006_criar_campanhas_lotes_mensageria.sql',
             '007_adicionar_triggers_campanhas.sql',
-            '008_permitir_backup_sql_dados.sql'
+            '008_permitir_backup_sql_dados.sql',
+            '009_integrar_meta_cloud_api.sql',
+            '010_permitir_importacao_vcf.sql',
+            '011_sincronizar_limite_meta.sql',
+            '012_identificar_webhook_meta.sql'
           )
         ) AS migrations_atuais
     `
@@ -237,8 +241,8 @@ async function validarCatalogo(cliente) {
   );
   verificar(configuracoes.rows[0].textos === 3, 'Os três textos ativos não existem.');
   verificar(
-    configuracoes.rows[0].migrations_atuais === 8,
-    'O ledger deve registrar as oito migrations atuais.'
+    configuracoes.rows[0].migrations_atuais === 12,
+    'O ledger deve registrar as doze migrations atuais.'
   );
 
   const relacionamentoBairro = await cliente.query(

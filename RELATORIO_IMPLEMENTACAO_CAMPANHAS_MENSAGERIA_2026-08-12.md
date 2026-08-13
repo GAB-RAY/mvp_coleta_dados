@@ -20,7 +20,7 @@ O sistema passou a possuir um fluxo próprio para:
 8. criar tentativas vinculadas às participações;
 9. registrar estados técnicos e seu histórico;
 10. registrar falhas e reprocessá-las sem apagar a tentativa anterior;
-11. receber futuramente eventos oficiais por webhook autenticado.
+11. receber eventos oficiais por webhook autenticado.
 
 A arquitetura agora suporta envio real pela Graph API oficial exclusivamente quando as
 credenciais de produção estiverem configuradas. Os testes usam provider simulado e não

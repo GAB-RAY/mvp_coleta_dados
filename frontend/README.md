@@ -98,7 +98,8 @@ de aceitar inscrições, enquanto participantes e históricos permanecem preserv
 ## Campanhas e lotes
 
 O menu `Campanhas` substitui a antiga tela manual. O administrador cria e edita
-templates, define nome, finalidade e os filtros da campanha. Bairro, problema,
+templates, define nome e os filtros da campanha. A finalidade técnica permanece
+interna para compatibilidade e não é exigida na interface. Bairro, problema,
 evento, cadastro incompleto e consentimento usam a mesma semântica dos filtros de
 contatos. A tela mostra público encontrado, apto, não apto, capacidade móvel de
 24 horas, reservas, lotes e estados técnicos.
@@ -157,7 +158,7 @@ Na Vercel, `vercel.json` aplica CSP, bloqueio de iframe, `nosniff`, política de
 npm run build
 ```
 
-Resultado de 02/08/2026: Vite 8.1.5, 69 módulos transformados e build concluído.
+Resultado de 13/08/2026: Vite 8.1.5, 70 módulos transformados e build concluído.
 
 ## Vercel
 

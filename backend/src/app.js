@@ -25,6 +25,12 @@ const tratarErro = require('./middlewares/tratarErro');
 
 const aplicacao = express();
 
+function impedirCacheDeDadosPrivados(requisicao, resposta, proximo) {
+  resposta.setHeader('Cache-Control', 'no-store');
+  resposta.setHeader('Pragma', 'no-cache');
+  return proximo();
+}
+
 const saltosProxy = Number(process.env.TRUST_PROXY_HOPS || 0);
 
 if (Number.isInteger(saltosProxy) && saltosProxy > 0) {
@@ -52,7 +58,9 @@ aplicacao.post(
 );
 aplicacao.use('/api', testeRoutes);
 aplicacao.use('/api/publico/contatos', contatoPublicoRoutes);
+aplicacao.use('/api/autenticacao', impedirCacheDeDadosPrivados);
 aplicacao.use('/api/autenticacao', autenticacaoRoutes);
+aplicacao.use('/api/admin', impedirCacheDeDadosPrivados);
 aplicacao.use('/api/admin', autenticarUsuario);
 aplicacao.use('/api/admin/contatos', contatoAdminRoutes);
 aplicacao.use('/api/admin/origens', origemRoutes);

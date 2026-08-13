@@ -139,19 +139,25 @@ async function rejeitar(id, usuarioId, observacoes) {
     await cliente.query(
       `
         UPDATE contatos AS contato
-        SET bloqueado_para_mensagens = NOT EXISTS (
+        SET bloqueado_para_mensagens = EXISTS (
               SELECT 1 FROM consentimentos AS consentimento
               WHERE consentimento.contato_id = contato.id
                 AND consentimento.tipo = 'mensagens'
                 AND consentimento.ativo = TRUE
-                AND consentimento.estado = 'autorizado'
+                AND (
+                  consentimento.estado IN ('recusado', 'revogado')
+                  OR consentimento.resposta = FALSE
+                )
             ),
-            bloqueado_para_ligacoes = NOT EXISTS (
+            bloqueado_para_ligacoes = EXISTS (
               SELECT 1 FROM consentimentos AS consentimento
               WHERE consentimento.contato_id = contato.id
                 AND consentimento.tipo = 'ligacoes'
                 AND consentimento.ativo = TRUE
-                AND consentimento.estado = 'autorizado'
+                AND (
+                  consentimento.estado IN ('recusado', 'revogado')
+                  OR consentimento.resposta = FALSE
+                )
             )
         WHERE contato.id = $1
       `,

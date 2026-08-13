@@ -139,4 +139,5 @@ async function requisitar(caminho, opcoes) {
   }
 }
 
+export { obterUrlBase };
 export default requisitar;

@@ -38,6 +38,16 @@ async function executar() {
       RETURNING id
     `,[nomes,telefones,bairro,'Saude',origem]);
     contatoIds=inseridos.rows.map(function(item){return item.id;});
+    await banco.query(`
+      INSERT INTO consentimentos (
+        contato_id, contato_id_original, tipo, resposta, texto_apresentado,
+        versao_texto, canal, origem_registro, ativo, estado, origem_id
+      )
+      SELECT id, id, 'mensagens', FALSE, 'Texto de teste', 'teste_v1',
+        'cadastro_manual', 'resposta_expressa', TRUE, 'recusado', origem_id
+      FROM contatos
+      WHERE id = $1
+    `, [contatoIds[contatoIds.length - 1]]);
     await banco.query("UPDATE contatos SET problema='Iluminacao publica' WHERE id=ANY($1::bigint[])",[contatoIds.slice(0,20)]);
     confirmar(contatoIds.length===600,'O teste deve criar 600 contatos.');
 
@@ -47,7 +57,7 @@ async function executar() {
     async function novaCampanha(sufixo,filtros){const campanha=await campanhaService.criar({nome:marca+' '+sufixo,finalidade:'Validacao automatizada',modeloId:templateId,filtros},usuario);nomesCampanhas.push(campanha.id);return campanhaService.alterarStatus(campanha.id,'pronta',usuario);}
     const principal=await novaCampanha('PRINCIPAL',{nome:marca});
     const previaFiltros=await campanhaService.visualizarPreviaFiltros({filtros:{nome:marca},quantidade:20});
-    confirmar(previaFiltros.publicoApto===600&&previaFiltros.contatos.length===20,'Previa de criacao deve listar uma amostra do publico apto.');
+    confirmar(previaFiltros.publicoEncontrado===600&&previaFiltros.publicoApto===599&&previaFiltros.publicoNaoApto===1&&previaFiltros.contatos.length===20,'Previa deve separar contato sem resposta de contato explicitamente recusado.');
     const previaLote=await campanhaService.visualizarPublico(principal.id,250);
     confirmar(previaLote.quantidadeEfetiva===250&&previaLote.contatos.length===250,'Previa do lote deve apresentar os proximos 250 contatos.');
     confirmar(!JSON.stringify(previaLote.contatos).includes(telefones[0]),'Previa nao pode expor o telefone completo.');
@@ -68,9 +78,9 @@ async function executar() {
     confirmar(lote2.lote.tamanho_efetivo===250,'Segundo lote deve reservar outros 250.');
     campanhaService.definirRelogioParaTeste(function(){return new Date(inicio.getTime()+50*60*60*1000);});
     const lote3=await campanhaService.criarLote(principal.id,{tamanho:250,chaveIdempotencia:marca+'-3'},usuario);
-    confirmar(lote3.lote.tamanho_efetivo===100,'Ultimo lote deve ter tamanho efetivo 100.');
+    confirmar(lote3.lote.tamanho_efetivo===99,'Ultimo lote deve ter tamanho efetivo 99, excluindo a recusa expressa.');
     const unicos=(await banco.query('SELECT COUNT(*)::int total,COUNT(DISTINCT contato_id)::int unicos FROM campanha_participacoes WHERE campanha_id=$1',[principal.id])).rows[0];
-    confirmar(unicos.total===600&&unicos.unicos===600,'A campanha deve ter 600 participacoes unicas.');
+    confirmar(unicos.total===599&&unicos.unicos===599,'A campanha deve reservar somente os 599 contatos aptos e unicos.');
 
     campanhaService.definirRelogioParaTeste(function(){return new Date(inicio.getTime()+75*60*60*1000);});
     const segunda=await novaCampanha('SEGUNDA',{nome:marca});
@@ -132,7 +142,7 @@ async function executar() {
     campanhaService.definirRelogioParaTeste(null);
     if(nomesCampanhas.length){await banco.query('DELETE FROM historico_status_mensageria WHERE participacao_id IN (SELECT id FROM campanha_participacoes WHERE campanha_id=ANY($1::bigint[]))',[nomesCampanhas]);await banco.query('DELETE FROM campanha_tentativas WHERE participacao_id IN (SELECT id FROM campanha_participacoes WHERE campanha_id=ANY($1::bigint[]))',[nomesCampanhas]);await banco.query('DELETE FROM campanha_participacoes WHERE campanha_id=ANY($1::bigint[])',[nomesCampanhas]);await banco.query('DELETE FROM campanha_lotes WHERE campanha_id=ANY($1::bigint[])',[nomesCampanhas]);await banco.query('DELETE FROM campanhas WHERE id=ANY($1::bigint[])',[nomesCampanhas]);}
     if(templateId)await banco.query('DELETE FROM modelos_mensagem WHERE id=$1',[templateId]);
-    if(contatoIds.length)await banco.query('DELETE FROM contatos WHERE id=ANY($1::bigint[])',[contatoIds]);
+    if(contatoIds.length){await banco.query('DELETE FROM consentimentos WHERE contato_id=ANY($1::bigint[])',[contatoIds]);await banco.query('DELETE FROM contatos WHERE id=ANY($1::bigint[])',[contatoIds]);}
     if(limiteAnterior)await banco.query("UPDATE configuracoes_sistema SET valor_inteiro=$1 WHERE chave='limite_mensagens_24h'",[limiteAnterior]);
     if(usuario)await banco.query('DELETE FROM historico_configuracoes_sistema WHERE usuario_id=$1 AND motivo LIKE $2',[usuario.id,'TESTE_CAMPANHA_%']);
     await banco.query("DELETE FROM eventos_webhook_mensageria WHERE identificador_externo LIKE 'TESTE_CAMPANHA_%'");

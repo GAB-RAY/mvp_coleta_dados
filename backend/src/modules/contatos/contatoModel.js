@@ -746,6 +746,18 @@ async function registrarRespostaManual(
     );
   }
 
+  if (estado === 'recusado' && tipo === 'mensagens') {
+    await cliente.query(
+      `
+        UPDATE contatos
+        SET bloqueado_para_mensagens = TRUE,
+            atualizado_em = CURRENT_TIMESTAMP
+        WHERE id = $1
+      `,
+      [contatoId]
+    );
+  }
+
   if (estado === 'autorizado' && tipo === 'ligacoes') {
     await cliente.query(
       `
@@ -759,6 +771,19 @@ async function registrarRespostaManual(
             WHERE solicitacao.contato_id = contatos.id
               AND solicitacao.status = 'pendente'
           )
+      `,
+      [contatoId]
+    );
+  }
+
+
+  if (estado === 'recusado' && tipo === 'ligacoes') {
+    await cliente.query(
+      `
+        UPDATE contatos
+        SET bloqueado_para_ligacoes = TRUE,
+            atualizado_em = CURRENT_TIMESTAMP
+        WHERE id = $1
       `,
       [contatoId]
     );

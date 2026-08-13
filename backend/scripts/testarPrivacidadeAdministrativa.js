@@ -7,6 +7,7 @@ const banco = require('../src/config/banco');
 
 const EMAIL = 'privacidade.operador@invalid.local';
 const TELEFONE = '21999987007';
+const TELEFONE_SEM_RESPOSTA = '21999987008';
 const SENHA = 'SenhaPrivacidade123!';
 let total = 0;
 
@@ -28,10 +29,14 @@ async function limpar() {
      WHERE solicitada_por_usuario_id IN (SELECT id FROM usuarios WHERE email = $1)`,
     [EMAIL]
   );
-  const contato = await banco.query('SELECT id FROM contatos WHERE telefone_normalizado = $1', [TELEFONE]);
-  if (contato.rows[0]) {
-    await banco.query('DELETE FROM consentimentos WHERE contato_id = $1', [contato.rows[0].id]);
-    await banco.query('DELETE FROM contatos WHERE id = $1', [contato.rows[0].id]);
+  const contatos = await banco.query(
+    'SELECT id FROM contatos WHERE telefone_normalizado = ANY($1::text[])',
+    [[TELEFONE, TELEFONE_SEM_RESPOSTA]]
+  );
+  if (contatos.rows.length > 0) {
+    const ids = contatos.rows.map(function (item) { return item.id; });
+    await banco.query('DELETE FROM consentimentos WHERE contato_id = ANY($1::bigint[])', [ids]);
+    await banco.query('DELETE FROM contatos WHERE id = ANY($1::bigint[])', [ids]);
   }
   await banco.query('DELETE FROM tentativas_login WHERE email_informado = $1', [EMAIL]);
   await banco.query('DELETE FROM usuarios WHERE email = $1', [EMAIL]);
@@ -68,6 +73,41 @@ async function executar() {
     });
     verificar(login.status === 200, 'Login temporário falhou.');
     const headers = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + login.corpo.token };
+    const cadastroSemResposta = await requisitar(baseUrl, '/api/publico/contatos', {
+      method: 'POST',
+      body: JSON.stringify({
+        nome: 'Contato Sem Resposta', telefone: TELEFONE_SEM_RESPOSTA, idade: 39,
+        bairro: 'Vila Kennedy', problema: 'Sa\u00fade', aceitePrivacidade: true,
+        autorizacaoMensagens: false, autorizacaoLigacoes: false
+      })
+    });
+    verificar(
+      cadastroSemResposta.status === 201,
+      'Cadastro sem resposta de comunicaÃ§Ã£o falhou: HTTP ' +
+        cadastroSemResposta.status + ' - ' + JSON.stringify(cadastroSemResposta.corpo)
+    );
+    const contatoSemResposta = await banco.query(
+      'SELECT id FROM contatos WHERE telefone_normalizado = $1',
+      [TELEFONE_SEM_RESPOSTA]
+    );
+    const usuarioTeste = await banco.query('SELECT id FROM usuarios WHERE email = $1', [EMAIL]);
+    const exclusaoModel = require('../src/modules/exclusoes/solicitacaoExclusaoModel');
+    const pedidoSemResposta = await exclusaoModel.solicitar(
+      contatoSemResposta.rows[0].id,
+      usuarioTeste.rows[0].id,
+      null
+    );
+    await exclusaoModel.rejeitar(pedidoSemResposta.id, usuarioTeste.rows[0].id, null);
+    const estadoSemResposta = await banco.query(
+      `SELECT bloqueado_para_mensagens, bloqueado_para_ligacoes
+       FROM contatos WHERE id = $1`,
+      [contatoSemResposta.rows[0].id]
+    );
+    verificar(
+      estadoSemResposta.rows[0].bloqueado_para_mensagens === false &&
+        estadoSemResposta.rows[0].bloqueado_para_ligacoes === false,
+      'Rejeitar exclusÃ£o transformou ausÃªncia de resposta em bloqueio.'
+    );
     const lista = await requisitar(baseUrl, '/api/admin/contatos?telefone=' + TELEFONE, { headers });
     const contatoId = lista.corpo.contatos[0].id;
 

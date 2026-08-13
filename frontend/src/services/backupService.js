@@ -1,4 +1,4 @@
-import requisitar from './api';
+import requisitar, { obterUrlBase } from './api';
 import { obterToken } from '../utils/armazenamentoToken';
 
 function obterNomeArquivo(resposta, nomePadrao) {
@@ -16,7 +16,7 @@ async function listarBackups(sinal) {
 }
 
 async function gerarBackup() {
-  const urlBase = import.meta.env.VITE_API_URL.replace(/\/+$/, '');
+  const urlBase = obterUrlBase();
   const resposta = await fetch(urlBase + '/api/admin/backups/banco', {
     method: 'POST',
     headers: { Authorization: 'Bearer ' + obterToken() }

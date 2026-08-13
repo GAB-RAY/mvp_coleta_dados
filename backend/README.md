@@ -59,8 +59,8 @@ META_REQUISICAO_TIMEOUT_MS=10000
 WHATSAPP_OPTOUT_BUTTON_ID=nao_quero_mais_receber
 ```
 
-As duas variáveis do webhook são placeholders para a futura configuração
-oficial. As credenciais Meta ficam somente no ambiente do backend e nunca no frontend.
+As credenciais Meta ficam somente no ambiente do backend e nunca no frontend.
+Os valores do `.env.example` são placeholders e não devem conter dados reais.
 
 Também é possível usar `DATABASE_URL`. O `.env` não deve ser versionado.
 
@@ -101,8 +101,10 @@ npm run banco:migrar
 O runner cria e consulta `schema_migrations`, verifica o checksum de cada arquivo, serializa execuções concorrentes com advisory lock e aplica cada migration em transação própria. Nunca edite uma migration já registrada; crie a próxima versão.
 
 As migrations de campanhas/mensageria são `006_criar_campanhas_lotes_mensageria.sql`,
-`007_adicionar_triggers_campanhas.sql`, `009_integrar_meta_cloud_api.sql` e
-`011_sincronizar_limite_meta.sql`. O suporte ao arquivo de contatos do iPhone foi incorporado por `010_permitir_importacao_vcf.sql`.
+`007_adicionar_triggers_campanhas.sql`, `009_integrar_meta_cloud_api.sql`,
+`011_sincronizar_limite_meta.sql` e `012_identificar_webhook_meta.sql`. O suporte
+ao arquivo de contatos do iPhone foi incorporado por
+`010_permitir_importacao_vcf.sql`.
 
 O `database/criar_banco.sql` continua exclusivo para banco vazio e já registra as migrations incorporadas. Nunca execute o schema completo em banco com estrutura ou dados.
 
@@ -157,6 +159,9 @@ As colunas anteriores de compatibilidade em `contatos` foram mantidas apenas qua
   frontend as envia conforme o estado visível das caixas no momento do envio.
 - No formulário público, ambas começam desmarcadas. `mensagens` representa o
   opt-in específico para WhatsApp; uma resposta não marcada não cria autorização.
+- Para campanhas, consentimento de mensagens não informado permanece elegível.
+  Recusa ou revogação expressa, bloqueio ativo e exclusão pendente impedem a
+  reserva e o envio.
 - `consentimentos` guarda separadamente tipo, resposta, estado, texto, versão,
   canal, origem, data, revogação, motivo e vínculo com o registro anterior.
 - Revogar cria um novo registro ligado ao anterior por `registro_anterior_id`; nenhuma rota apaga revogações.
@@ -302,31 +307,22 @@ npm run testar:schema-vazio
 npm run testar:importacao-carga
 ```
 
-Resultado de 02/08/2026: 392 verificações aprovadas.
+Em 13/08/2026, a validação de segurança e usuários foi executada novamente com
+sucesso, incluindo autenticação, perfis, senhas, bloqueio de tentativas e
+cabeçalhos `no-store` das respostas privadas. Os resultados completos e datados
+das implementações de campanhas e Meta ficam nos relatórios `RELATORIO_*.md`.
+Execute novamente os comandos acima antes de cada publicação relevante; não
+trate uma contagem histórica como validação do código atual.
 
-- estrutura, 166 bairros, migrations, eventos simultâneos e integridade: 22;
-- normalização de nomes importados: 7;
-- cadastro público, idade mínima, opt-in opcional, textos públicos e metadados versionados: 42;
-- administração e filtros: 43;
-- cadastro manual: 24;
-- importações: 30;
-- relatórios, necessidades por bairro e permissões CSV/Excel: 25;
-- segurança e usuários: 54;
-- privacidade e bloqueio durante pedido de exclusão: 16;
-- eventos, QR exclusivo, identificação por nome e telefone, contato novo, reinscrição idempotente, atualização auditada, busca de participantes, permissões, exclusão lógica de eventos e exclusão física aprovada de contatos: 54;
-- campanhas, lotes, limite móvel, filtros, concorrência, duplicidade,
-  tentativas, reprocessamento e auditoria: `npm run testar:campanhas`;
-- verificação e assinatura do webhook: `npm run testar:webhook`;
-- backups, permissões, conteúdo de dados, ausência de estrutura, integridade e auditoria: 22.
-- resiliência, rate limit, concorrência, saúde, pool e configuração: 22.
-
-O teste de schema cria um banco temporário vazio, aplica `database/criar_banco.sql`, valida 30 tabelas, onze migrations registradas e 166 bairros e remove o banco temporário ao final.
+O teste de schema cria um banco temporário vazio, aplica `database/criar_banco.sql`, valida 30 tabelas, doze migrations registradas e 166 bairros e remove o banco temporário ao final.
 
 O teste de carga de importação gera 15.000 contatos temporários, percorre pré-visualização, confirmação e persistência, valida a rejeição de 20.001 linhas, remove todos os dados de teste e ressincroniza as sequências utilizadas. Ele recusa execução quando `NODE_ENV=production`.
 
 VCF, CSV e XLSX aceitam até 5 MB e 20.000 registros. O limite de arquivo permanece conservador para o plano de 512 MiB, pois arquivos XLSX são descompactados em memória. Pré-visualização e confirmação trabalham em lotes parametrizados de 500. Se um lote apresentar falha inesperada, a confirmação retorna ao processamento isolado das linhas daquele lote, preservando o relatório individual. Um advisory lock do PostgreSQL permite somente uma confirmação de importação por vez; tentativas simultâneas recebem `409`, sem ocupar todo o pool necessário ao formulário público.
 
-O backup mais recente anterior à atualização estrutural está fora do repositório em `C:\Users\gabriellindo\Backups\A_Voz_do_Bairro\criar_banco\2026-07-23_170901\`, com SHA-256 `E2E3B6C244B64D989BD0B1FD5EA261F5E386B4704504BE8A792AD4A51741A9A3`. A restauração validada `criar_banco_backup_20260723_170901` foi mantida para conferência.
+Backups operacionais devem permanecer fora do repositório. Registre o caminho,
+o hash SHA-256 e o resultado do teste de restauração em um inventário privado,
+nunca neste README público.
 
 ## Pendências reais
 

@@ -28,7 +28,7 @@ async function autenticarUsuario(requisicao, resposta, proximo) {
   }
 
   try {
-    const dadosDoToken = jwt.verify(token, segredoJwt);
+    const dadosDoToken = jwt.verify(token, segredoJwt, { algorithms: ['HS256'] });
     const usuario = await usuarioModel.buscarPorId(dadosDoToken.id);
 
     if (!usuario || usuario.ativo !== true) {

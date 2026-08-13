@@ -1,4 +1,4 @@
-import requisitar from './api';
+import requisitar, { obterUrlBase } from './api';
 import { obterToken } from '../utils/armazenamentoToken';
 
 function obterNomeArquivo(resposta, nomePadrao) {
@@ -29,7 +29,7 @@ async function buscarResumo(filtros, sinal) {
 }
 
 async function baixarArquivo(filtros, formato) {
-  const urlBase = import.meta.env.VITE_API_URL.replace(/\/+$/, '');
+  const urlBase = obterUrlBase();
   const resposta = await fetch(
     urlBase + '/api/admin/relatorios/exportar.' + formato + '?' + criarParametros(filtros),
     {

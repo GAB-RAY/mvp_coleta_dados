@@ -58,11 +58,11 @@ Considere este cenário somente quando não houver implementação aproveitável
 
 #### Estado de referência deste documento
 
-Na atualização de 31/07/2026, o repositório já possuía backend, frontend e
-schema completo implementados. O schema atual possui 29 tabelas e 166 bairros.
-A suíte do backend concluiu 392 verificações e o build do frontend transformou
-69 módulos. Esses resultados servem como referência de regressão, não como
-substitutos para uma nova execução dos testes no ambiente recebido.
+Na atualização de 13/08/2026, o repositório já possuía backend, frontend e
+schema completo implementados. O schema atual possui 30 tabelas, 166 bairros e
+12 migrations registradas. Os resultados dos relatórios datados servem como
+referência de regressão, não como substitutos para uma nova execução dos testes
+no ambiente recebido.
 
 No cenário de continuidade, parta do princípio de que a base descrita abaixo pode estar pronta e primeiro confirme isso. No cenário de reconstrução, use todas as seções seguintes como contrato do resultado final.
 
@@ -369,8 +369,12 @@ Regras:
 - participação preserva o lote original e possui várias tentativas quando houver reprocessamento;
 - estados técnicos: `pendente`, `enviando`, `enviada`, `entregue`, `lida` e `falhou`;
 - preservar histórico imutável de transições e erro externo sanitizado;
-- preparar webhook oficial com HMAC sobre corpo bruto e idempotência;
-- não chamar Graph API, não enviar mensagem real e não configurar credenciais Meta nesta etapa;
+- processar webhook oficial com HMAC sobre corpo bruto e idempotência;
+- enviar exclusivamente templates aprovados pela WhatsApp Cloud API oficial,
+  com credenciais somente no backend, timeout e erros sanitizados;
+- sincronizar automaticamente mudanças oficiais de capacidade recebidas em
+  `business_capability_update`, sem inferir valores;
+- manter o botão administrativo de sincronização como contingência;
 - tabelas e rotas manuais antigas permanecem apenas como histórico, sem menu ou endpoint operacional.
 
 ### 9. Autenticação e usuários
@@ -645,6 +649,7 @@ Tabelas obrigatórias:
 27. `configuracoes_sistema`;
 28. `historico_configuracoes_sistema`;
 29. `eventos_webhook_mensageria`.
+30. `sincronizacoes_limite_meta`.
 
 Implementar chaves estrangeiras, checks, índices e triggers para:
 
@@ -705,6 +710,9 @@ Com JWT:
 - `PUT /api/admin/eventos/:id`, somente admin;
 - `POST /api/admin/eventos/:id/ativar`, somente admin;
 - `POST /api/admin/eventos/:id/encerrar`, somente admin;
+- `DELETE /api/admin/eventos/:id`, somente admin;
+- `GET /api/admin/eventos/:id/participantes`;
+- `PATCH /api/admin/eventos/:id/participantes/:contatoId`;
 - `GET /api/admin/solicitacoes-exclusao`, somente admin;
 - `POST /api/admin/solicitacoes-exclusao/:id/aprovar`, somente admin;
 - `POST /api/admin/solicitacoes-exclusao/:id/rejeitar`, somente admin;
@@ -713,6 +721,7 @@ Com JWT:
 - `GET /api/admin/usuarios`, somente admin;
 - `POST /api/admin/usuarios`, somente admin;
 - `PATCH /api/admin/usuarios/meu-perfil`, somente admin;
+- `PATCH /api/admin/usuarios/meu-perfil/senha`, somente admin;
 - `PATCH /api/admin/usuarios/:id/senha`, somente admin e somente alvo operador.
 - `GET /api/admin/campanhas`;
 - `POST /api/admin/campanhas`, somente admin;
@@ -721,6 +730,7 @@ Com JWT:
 - `GET /api/admin/campanhas/:id/publico`;
 - `GET /api/admin/campanhas/:id/lotes`;
 - `POST /api/admin/campanhas/:id/lotes`;
+- `GET /api/admin/campanhas/:id/lotes/:loteId/contatos`;
 - `GET /api/admin/campanhas/:id/falhas`;
 - `GET /api/admin/campanhas/templates`;
 - `POST /api/admin/campanhas/templates`, somente admin;
@@ -728,6 +738,7 @@ Com JWT:
 - `GET /api/admin/campanhas/configuracao/limite`;
 - `PUT /api/admin/campanhas/configuracao/limite`, somente admin;
 - `POST /api/admin/mensageria/tentativas/:id/reprocessar`.
+- `POST /api/admin/mensageria/tentativas/:id/enviar`.
 
 Usar um formato uniforme de erro:
 
@@ -826,6 +837,14 @@ BACKUP_CONEXAO_TEMPO_LIMITE_SEGUNDOS=10
 BACKUP_MAX_FILA_BANCO=2
 BACKUP_BANCO_TAMANHO_MAXIMO_BYTES=2147483648
 RELATORIO_LIMITE_REGISTROS=50000
+WHATSAPP_WEBHOOK_VERIFY_TOKEN=
+META_APP_SECRET=
+WHATSAPP_ACCESS_TOKEN=
+WHATSAPP_PHONE_NUMBER_ID=
+WHATSAPP_BUSINESS_ACCOUNT_ID=
+META_GRAPH_API_VERSION=
+META_REQUISICAO_TIMEOUT_MS=10000
+WHATSAPP_OPTOUT_BUTTON_ID=nao_quero_mais_receber
 ```
 
 Frontend `.env.example`:
@@ -833,6 +852,7 @@ Frontend `.env.example`:
 ```env
 VITE_API_URL=http://localhost:3000
 VITE_WHATSAPP_NUMERO=5521999999999
+VITE_PRIVACIDADE_EMAIL=privacidade@exemplo.com
 ```
 
 ### 21. Testes obrigatórios
