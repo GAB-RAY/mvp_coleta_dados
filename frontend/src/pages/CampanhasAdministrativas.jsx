@@ -278,15 +278,22 @@ function CampanhasAdministrativas(){
     <CabecalhoAdministrativo aoSair={sair} titulo="Campanhas" subtitulo="Crie campanhas, confira o público e organize os próximos lotes."/>
     {mensagem&&<MensagemRetorno mensagem={mensagem} tipo="informacao"/>}
 
-    <section className="resumo-capacidade-campanha">
-      <div className="metricas-capacidade-campanha">
-        <div><span>Limite oficial Meta</span><strong>{capacidade?(!capacidade.tierMeta?'Não sincronizado':capacidade.limiteMeta===null?'Ilimitado':Number(capacidade.limiteMeta).toLocaleString('pt-BR')):'—'}</strong>{capacidade&&capacidade.tierMeta&&<small>{capacidade.tierMeta}</small>}{capacidade&&capacidade.sincronizadoEm&&<small>Atualizado em {new Date(capacidade.sincronizadoEm).toLocaleString('pt-BR')}</small>}</div>
-        <div><span>Proteção interna</span><strong>{capacidade?Number(capacidade.limiteInterno).toLocaleString('pt-BR'):'—'}</strong></div>
-        <div className="capacidade-efetiva-destaque"><span>Capacidade operacional efetiva</span><strong>{capacidade?Number(capacidade.limite).toLocaleString('pt-BR'):'—'}</strong></div>
-        <div><span>Utilizado nas últimas 24h</span><strong>{capacidade?Number(capacidade.utilizado).toLocaleString('pt-BR'):'—'}</strong></div>
-        <div><span>Capacidade restante</span><strong>{capacidade?Number(capacidade.disponivel).toLocaleString('pt-BR'):'—'}</strong></div>
+    <section className="resumo-capacidade-campanha" aria-labelledby="titulo-capacidade-campanha">
+      <div className="cabecalho-capacidade-campanha">
+        <div className="capacidade-restante-campanha">
+          <span id="titulo-capacidade-campanha">Capacidade restante</span>
+          <strong>{capacidade?Number(capacidade.disponivel).toLocaleString('pt-BR'):'—'} <small>disponíveis de {capacidade?Number(capacidade.limite).toLocaleString('pt-BR'):'—'}</small></strong>
+        </div>
+        <span className="status-sincronizacao-capacidade"><span className="indicador-sincronizacao-capacidade" aria-hidden="true"/>Sincronização automática ativa</span>
       </div>
-      {administrador&&<div className="acoes-capacidade-campanha"><small>Atualização automática ativa. A sincronização manual serve para conferência ou contingência.</small><button className="botao botao-secundario" type="button" onClick={sincronizarMeta}>Sincronizar Meta</button><button className="botao botao-secundario" type="button" onClick={salvarLimite}>Alterar proteção interna</button></div>}
+      <dl className="metricas-capacidade-campanha">
+        <div><dt>Limite oficial Meta</dt><dd>{capacidade?(!capacidade.tierMeta?'Não sincronizado':capacidade.limiteMeta===null?'Ilimitado':Number(capacidade.limiteMeta).toLocaleString('pt-BR')):'—'}</dd></div>
+        <div><dt>Proteção interna</dt><dd>{capacidade?Number(capacidade.limiteInterno).toLocaleString('pt-BR'):'—'}</dd></div>
+        <div><dt>Utilizado nas últimas 24h</dt><dd>{capacidade?Number(capacidade.utilizado).toLocaleString('pt-BR'):'—'}</dd></div>
+        <div><dt>Tier Meta</dt><dd>{capacidade&&capacidade.tierMeta?capacidade.tierMeta:'—'}</dd></div>
+        <div><dt>Última atualização</dt><dd>{capacidade&&capacidade.sincronizadoEm?new Date(capacidade.sincronizadoEm).toLocaleString('pt-BR'):'—'}</dd></div>
+      </dl>
+      {administrador&&<div className="acoes-capacidade-campanha"><button className="botao botao-secundario" type="button" onClick={sincronizarMeta}>Sincronizar agora</button><button className="botao botao-secundario" type="button" onClick={salvarLimite}>Alterar proteção interna</button></div>}
     </section>
 
     <section className="cartao campanhas-listagem">

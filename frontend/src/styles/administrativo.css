@@ -2905,37 +2905,83 @@
 }
 
 .resumo-capacidade-campanha {
+  display: grid;
+  border: 1px solid var(--campanha-borda);
+  border-radius: 12px;
+  margin-bottom: 1rem;
+  padding: 1rem 1.1rem;
+  gap: 0.85rem;
+  background: #fff;
+  box-shadow: 0 6px 18px rgba(75, 45, 27, 0.04);
+}
+
+.cabecalho-capacidade-campanha {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border: 1px solid var(--campanha-borda);
-  border-left: 4px solid var(--admin-laranja);
-  border-radius: 12px;
-  margin-bottom: 1rem;
-  padding: 0.9rem 1rem;
   gap: 1rem;
-  background: var(--campanha-fundo-suave);
+}
+
+.capacidade-restante-campanha {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.capacidade-restante-campanha > span {
+  color: var(--admin-texto-suave);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.capacidade-restante-campanha > strong {
+  color: var(--admin-laranja-escuro);
+  font-size: clamp(1.45rem, 2.5vw, 1.9rem);
+  line-height: 1.1;
+}
+
+.capacidade-restante-campanha > strong small {
+  color: var(--admin-texto);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.status-sincronizacao-capacidade {
+  display: inline-flex;
+  align-items: center;
+  color: var(--admin-texto-suave);
+  font-size: 0.73rem;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+
+.indicador-sincronizacao-capacidade {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: #2f9e63;
 }
 
 .metricas-capacidade-campanha {
   display: grid;
-  flex: 1;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-  gap: 0.75rem;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  border-top: 1px solid #f3e8e0;
+  margin: 0;
+  padding-top: 0.75rem;
+  gap: 0.55rem 1rem;
 }
 
 .acoes-capacidade-campanha {
   display: flex;
   flex-wrap: wrap;
-  max-width: 24rem;
+  justify-content: flex-end;
   gap: 0.5rem;
 }
 
-.acoes-capacidade-campanha > small {
-  width: 100%;
-  color: var(--admin-texto-suave);
-  font-size: 0.72rem;
-  line-height: 1.35;
+.acoes-capacidade-campanha .botao {
+  min-height: 2.35rem;
+  padding-block: 0.55rem;
 }
 
 .metricas-capacidade-campanha > div {
@@ -2943,24 +2989,19 @@
   gap: 0.12rem;
 }
 
-.resumo-capacidade-campanha span,
-.resumo-capacidade-campanha small {
+.metricas-capacidade-campanha dt {
   color: var(--admin-texto-suave);
-  font-size: 0.75rem;
+  font-size: 0.7rem;
+  line-height: 1.25;
 }
 
-.resumo-capacidade-campanha strong {
+.metricas-capacidade-campanha dd {
+  overflow-wrap: anywhere;
+  margin: 0;
   color: var(--admin-texto);
-  font-size: 1.15rem;
-}
-
-.metricas-capacidade-campanha .capacidade-efetiva-destaque {
-  border-left: 3px solid var(--admin-laranja);
-  padding-left: 0.65rem;
-}
-
-.metricas-capacidade-campanha .capacidade-efetiva-destaque strong {
-  color: var(--admin-laranja-escuro);
+  font-size: 0.84rem;
+  font-weight: 700;
+  line-height: 1.3;
 }
 
 .campanhas-listagem,
@@ -3421,10 +3462,14 @@
   .grade-criacao-campanha {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .metricas-capacidade-campanha {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 760px) {
-  .resumo-capacidade-campanha,
+  .cabecalho-capacidade-campanha,
   .cabecalho-campanha-aberta,
   .cabecalho-lista-previa,
   .controle-tamanho-lote {
@@ -3440,12 +3485,16 @@
   }
 
   .metricas-capacidade-campanha {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .acoes-capacidade-campanha,
   .acoes-capacidade-campanha .botao {
     width: 100%;
+  }
+
+  .status-sincronizacao-capacidade {
+    white-space: normal;
   }
 
   .rodape-cartao-campanha {
@@ -3471,6 +3520,10 @@
 }
 
 @media (max-width: 560px) {
+  .metricas-capacidade-campanha {
+    grid-template-columns: 1fr;
+  }
+
   .grade-criacao-campanha {
     grid-template-columns: 1fr;
   }
