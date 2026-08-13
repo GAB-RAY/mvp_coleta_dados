@@ -68,21 +68,17 @@
   gap: 0.65rem;
 }
 
-.simbolo-projeto {
-  width: 18px;
-  height: 18px;
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.8;
+.marca-cabecalho-publico {
+  color: #ffffff;
 }
 
-.nome-projeto {
-  color: #ffffff;
+.marca-cabecalho-publico .marca-acorda-rj-simbolo {
+  width: 2rem;
+  height: 2rem;
+}
+
+.marca-cabecalho-publico .marca-acorda-rj-nome {
   font-size: 0.88rem;
-  font-weight: 850;
-  letter-spacing: 0.06em;
 }
 
 .responsavel-cabecalho-publico {
@@ -597,9 +593,13 @@
   gap: 0.25rem;
 }
 
-.identificacao-rodape > span {
-  font-weight: 800;
-  letter-spacing: 0.08em;
+.marca-rodape-publico {
+  color: #2a2522;
+}
+
+.marca-rodape-publico .marca-acorda-rj-simbolo {
+  width: 2rem;
+  height: 2rem;
 }
 
 .identificacao-rodape p {
@@ -732,7 +732,7 @@
     justify-content: flex-start;
   }
 
-  .nome-projeto {
+  .marca-cabecalho-publico .marca-acorda-rj-nome {
     font-size: 0.8rem;
     letter-spacing: 0.08em;
   }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import CampoFormulario from '../components/CampoFormulario';
+import MarcaAcordaRJ from '../components/MarcaAcordaRJ';
 import MensagemRetorno from '../components/MensagemRetorno';
 import { realizarLogin } from '../services/autenticacaoService';
 import { obterToken, salvarToken, salvarUsuario } from '../utils/armazenamentoToken';
@@ -70,7 +71,7 @@ function Login() {
         <Link className="link-voltar" to="/">← Voltar ao formulário</Link>
 
         <div className="cabecalho-login">
-          <span className="marca-sistema">ACORDA RJ</span>
+          <MarcaAcordaRJ className="marca-login" />
           <h1 id="titulo-login">Acesso administrativo</h1>
           <p>Entre com suas credenciais para acessar a gestão de contatos.</p>
         </div>

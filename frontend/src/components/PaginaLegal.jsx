@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import MarcaAcordaRJ from './MarcaAcordaRJ';
 
 function obterEmailPrivacidade() {
   return String(import.meta.env.VITE_PRIVACIDADE_EMAIL || '').trim();
@@ -11,8 +12,7 @@ function PaginaLegal(propriedades) {
     <main className="pagina-legal">
       <header className="cabecalho-legal">
         <Link className="marca-legal" to="/participar" aria-label="Ir para o formulário público">
-          <span aria-hidden="true">AV</span>
-          <strong>ACORDA RJ</strong>
+          <MarcaAcordaRJ />
         </Link>
         <span>Diogo Ventura · Rio de Janeiro</span>
       </header>

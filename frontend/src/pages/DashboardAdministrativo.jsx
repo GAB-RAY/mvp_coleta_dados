@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import CabecalhoAdministrativo from '../components/CabecalhoAdministrativo';
 import Carregando from '../components/Carregando';
+import MarcaAcordaRJ from '../components/MarcaAcordaRJ';
 import MensagemRetorno from '../components/MensagemRetorno';
 import { listarContatos } from '../services/contatoService';
 import { buscarResumo } from '../services/relatorioService';
@@ -242,7 +243,7 @@ function ColunaLateralDashboard(propriedades) {
     <aside className="coluna-dashboard-lateral">
       <section className="cartao painel-lateral-dashboard">
         <div className="cabecalho-painel-lateral">
-          <span className="mini-simbolo-admin">RJ</span>
+          <MarcaAcordaRJ className="mini-simbolo-admin" somenteSimbolo />
           <div><strong>Central ativa</strong><small>Dados atualizados</small></div>
           <span className="ponto-status-admin" title="Sistema disponível" />
         </div>

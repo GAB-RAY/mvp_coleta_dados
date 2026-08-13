@@ -14,9 +14,21 @@
   padding: clamp(1.5rem, 5vw, 2.5rem);
 }
 
-.pagina-login .marca-sistema,
 .pagina-login .link-voltar {
   color: #d44700;
+}
+
+.marca-login {
+  color: #0f2742;
+}
+
+.marca-login .marca-acorda-rj-simbolo {
+  width: 3.25rem;
+  height: 3.25rem;
+}
+
+.marca-login .marca-acorda-rj-nome {
+  font-size: 0.95rem;
 }
 
 .pagina-login .campo-input:focus {

@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { obterUsuario } from '../utils/armazenamentoToken';
+import MarcaAcordaRJ from './MarcaAcordaRJ';
 
 const ITENS_NAVEGACAO = [
   { caminho: '/admin', rotulo: 'Visão geral', icone: 'visao-geral', exato: true },
@@ -116,13 +117,7 @@ function CabecalhoAdministrativo(propriedades) {
   return (
     <>
       <aside className="barra-lateral-admin">
-        <div className="marca-admin">
-          <span className="simbolo-marca-admin" aria-hidden="true">RJ</span>
-          <div>
-            <strong>ACORDA</strong>
-            <span>RJ</span>
-          </div>
-        </div>
+        <MarcaAcordaRJ className="marca-admin" />
 
         <nav className="navegacao-admin" aria-label="Navegação administrativa">
           <span className="rotulo-navegacao-admin">Gestão</span>

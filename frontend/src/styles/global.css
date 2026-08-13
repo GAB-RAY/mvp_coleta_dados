@@ -65,12 +65,31 @@ p {
   box-shadow: var(--sombra-cartao);
 }
 
-.marca-sistema {
-  color: var(--cor-primaria);
-  font-size: 0.8rem;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+.marca-acorda-rj {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.55rem;
+  color: inherit;
+}
+
+.marca-acorda-rj-simbolo {
+  display: block;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: 0 0 auto;
+  object-fit: contain;
+}
+
+.marca-acorda-rj-nome {
+  overflow: hidden;
+  color: inherit;
+  font-size: 0.84rem;
+  font-weight: 850;
+  letter-spacing: 0.07em;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .etiqueta-pagina {

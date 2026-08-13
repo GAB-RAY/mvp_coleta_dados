@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import CampoFormulario from '../components/CampoFormulario';
 import CampoSelecao from '../components/CampoSelecao';
 import CampoSelecaoPesquisavel from '../components/CampoSelecaoPesquisavel';
+import MarcaAcordaRJ from '../components/MarcaAcordaRJ';
 import MensagemRetorno from '../components/MensagemRetorno';
 import {
   TEXTO_AVISO_PRIVACIDADE,
@@ -375,11 +376,7 @@ function FormularioPublico() {
       <header className="cabecalho-publico">
         <div className="conteudo-cabecalho-publico">
           <div className="identidade-projeto">
-            <svg className="simbolo-projeto" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M4 11v2h4l6 4V7l-6 4H4Z" />
-              <path d="M17 9c1.3 1.4 1.3 4.6 0 6M19.5 6.5c3 3 3 8 0 11" />
-            </svg>
-            <span className="nome-projeto">ACORDA RJ</span>
+            <MarcaAcordaRJ className="marca-cabecalho-publico" />
           </div>
           <span className="responsavel-cabecalho-publico">
             Diogo Ventura · Rio de Janeiro
@@ -712,7 +709,7 @@ function FormularioPublico() {
 
       <footer className="rodape-publico">
         <div className="identificacao-rodape">
-          <span>ACORDA RJ</span>
+          <MarcaAcordaRJ className="marca-rodape-publico" />
           <p>
             <strong>Responsável pela iniciativa e pelo tratamento dos dados:</strong>{' '}
             Diogo Ventura.
