@@ -2,6 +2,7 @@ const criarAppError = require('../../utils/AppError');
 const model = require('./mensageriaModel');
 const metaProvider = require('./metaCloudApiProvider');
 const limiteMetaService = require('../campanhas/limiteMetaService');
+const templateMetaService = require('../campanhas/templateMetaService');
 
 let obterAgora = function () { return new Date(); };
 
@@ -74,6 +75,17 @@ async function processarWebhook(payload) {
             processado: atualizado,
             motivo: atualizado ? 'limite_meta_atualizado' : 'limite_meta_invalido'
           });
+        }
+        continue;
+      }
+      if (mudanca && mudanca.field === 'message_template_status_update') {
+        const contaEsperada = String(process.env.WHATSAPP_BUSINESS_ACCOUNT_ID || '');
+        const contaRecebida = String(entrada.id || '');
+        if (contaEsperada && contaRecebida === contaEsperada) {
+          alteracoes.push(await templateMetaService.processarAtualizacaoDoWebhook({
+            templateId: valor.message_template_id,
+            evento: valor.event
+          }));
         }
         continue;
       }

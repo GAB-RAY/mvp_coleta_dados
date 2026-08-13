@@ -103,8 +103,9 @@ O runner cria e consulta `schema_migrations`, verifica o checksum de cada arquiv
 As migrations de campanhas/mensageria são `006_criar_campanhas_lotes_mensageria.sql`,
 `007_adicionar_triggers_campanhas.sql`, `009_integrar_meta_cloud_api.sql`,
 `011_sincronizar_limite_meta.sql`, `012_identificar_webhook_meta.sql`,
-`013_gerenciar_templates_oficiais_meta.sql` e
-`014_garantir_auditoria_campanhas.sql`. O suporte
+`013_gerenciar_templates_oficiais_meta.sql`,
+`014_garantir_auditoria_campanhas.sql` e
+`015_atualizar_templates_por_webhook_meta.sql`. O suporte
 ao arquivo de contatos do iPhone foi incorporado por
 `010_permitir_importacao_vcf.sql`.
 

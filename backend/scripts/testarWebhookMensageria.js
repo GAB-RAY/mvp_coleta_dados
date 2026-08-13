@@ -1,6 +1,7 @@
 require('dotenv').config({ quiet: true });
 const crypto = require('crypto');
 const controller = require('../src/modules/mensageria/webhookController');
+const mensageriaService = require('../src/modules/mensageria/mensageriaService');
 const banco = require('../src/config/banco');
 
 let verificacoes=0;
@@ -11,6 +12,9 @@ async function executar(){
   process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN='token-fake-teste';
   process.env.META_APP_SECRET='segredo-fake-teste';
   process.env.WHATSAPP_BUSINESS_ACCOUNT_ID='987654321';
+  process.env.WHATSAPP_PHONE_NUMBER_ID='123456789';
+  process.env.WHATSAPP_ACCESS_TOKEN='token-fake-webhook-template';
+  process.env.META_GRAPH_API_VERSION='v99.0';
   const ultimoLimiteId=(await banco.query('SELECT COALESCE(MAX(id),0)::bigint id FROM sincronizacoes_limite_meta')).rows[0].id;
   let resposta=respostaFake();
   controller.verificar({query:{'hub.mode':'subscribe','hub.verify_token':'token-fake-teste','hub.challenge':'12345'}},resposta);
@@ -58,6 +62,62 @@ async function executar(){
   await controller.receber({body:corpoLimiteAusente,get:function(){return assinaturaLimiteAusente;}},resposta,function(erro){throw erro;});
   const sucessosAposAusente=(await banco.query("SELECT COUNT(*)::int total FROM sincronizacoes_limite_meta WHERE id>$1 AND origem='webhook_meta' AND status='sucesso'",[ultimoLimiteId])).rows[0].total;
   confirmar(resposta.codigo===200&&sucessosAposAusente===2,'Webhook sem campo oficial deve ser ignorado sem alterar o limite.');
+
+  const sufixo=String(Date.now());
+  const templateExistenteId=sufixo+'01';
+  const templateNovoId=sufixo+'02';
+  const nomeExistente='template_webhook_existente_'+sufixo;
+  const nomeNovo='template_webhook_novo_'+sufixo;
+  let consultasTemplateExistente=0;
+  const administrador=(await banco.query("SELECT id FROM usuarios WHERE perfil='administrador' AND ativo=TRUE ORDER BY id LIMIT 1")).rows[0];
+  if(!administrador)throw new Error('O teste de webhook requer um administrador ativo.');
+  const modeloExistente=(await banco.query(`INSERT INTO modelos_mensagem
+    (nome,categoria,texto,ativo,criado_por_usuario_id,atualizado_por_usuario_id,
+     meta_nome,meta_idioma,meta_categoria,meta_status,meta_template_id,
+     meta_componentes,meta_status_oficial,meta_origem)
+    VALUES ($1,'QA','Mensagem QA',TRUE,$2,$2,$3,'pt_BR','MARKETING','em_analise',$4,
+      '[{"type":"BODY","text":"Mensagem QA"}]'::jsonb,'PENDING','meta') RETURNING id`,
+  ['Template webhook existente '+sufixo,administrador.id,nomeExistente,templateExistenteId])).rows[0];
+  mensageriaService.definirProviderParaTeste(async function(url){
+    if(url.includes('/'+templateExistenteId+'?')){consultasTemplateExistente+=1;return {ok:true,status:200,json:async function(){return {id:templateExistenteId,name:nomeExistente,language:'pt_BR',status:'APPROVED',category:'MARKETING',components:[{type:'BODY',text:'Mensagem QA'}]};}};}
+    if(url.includes('/'+templateNovoId+'?'))return {ok:true,status:200,json:async function(){return {id:templateNovoId,name:nomeNovo,language:'pt_BR',status:'PENDING',category:'UTILITY',components:[{type:'BODY',text:'Novo template QA'}]};}};
+    throw new Error('Consulta Meta inesperada no webhook: '+url);
+  });
+  const payloadTemplate=function(id,nome,evento){return {object:'whatsapp_business_account',entry:[{id:'987654321',time:Date.now(),changes:[{field:'message_template_status_update',value:{event:evento,message_template_id:id,message_template_name:nome,message_template_language:'pt_BR'}}]}]};};
+  const corpoTemplate=Buffer.from(JSON.stringify(payloadTemplate(templateExistenteId,nomeExistente,'APPROVED')));
+  const assinaturaTemplate='sha256='+crypto.createHmac('sha256',process.env.META_APP_SECRET).update(corpoTemplate).digest('hex');
+  resposta=respostaFake();
+  await controller.receber({body:corpoTemplate,get:function(){return assinaturaTemplate;}},resposta,function(erro){throw erro;});
+  const aprovadoWebhook=(await banco.query('SELECT meta_status_oficial,meta_status FROM modelos_mensagem WHERE id=$1',[modeloExistente.id])).rows[0];
+  confirmar(resposta.codigo===200&&aprovadoWebhook.meta_status_oficial==='APPROVED'&&aprovadoWebhook.meta_status==='aprovado','Webhook nao atualizou automaticamente o template aprovado.');
+  resposta=respostaFake();
+  await controller.receber({body:corpoTemplate,get:function(){return assinaturaTemplate;}},resposta,function(erro){throw erro;});
+  const historicosRepetidos=(await banco.query("SELECT COUNT(*)::int total FROM historico_modelos_mensagem_meta WHERE modelo_id=$1 AND origem='webhook_meta'",[modeloExistente.id])).rows[0].total;
+  confirmar(historicosRepetidos===1,'Webhook repetido duplicou o historico do template.');
+  const corpoTemplateExcluido=Buffer.from(JSON.stringify(payloadTemplate(templateExistenteId,nomeExistente,'DELETED')));
+  const assinaturaTemplateExcluido='sha256='+crypto.createHmac('sha256',process.env.META_APP_SECRET).update(corpoTemplateExcluido).digest('hex');
+  resposta=respostaFake();
+  await controller.receber({body:corpoTemplateExcluido,get:function(){return assinaturaTemplateExcluido;}},resposta,function(erro){throw erro;});
+  const excluidoWebhook=(await banco.query('SELECT meta_status_oficial,meta_status FROM modelos_mensagem WHERE id=$1',[modeloExistente.id])).rows[0];
+  confirmar(resposta.codigo===200&&excluidoWebhook.meta_status_oficial==='DELETED'&&excluidoWebhook.meta_status==='indisponivel','Webhook de exclusao deve indisponibilizar o template sem consulta complementar.');
+  resposta=respostaFake();
+  await controller.receber({body:corpoTemplateExcluido,get:function(){return assinaturaTemplateExcluido;}},resposta,function(erro){throw erro;});
+  const historicosAposExclusao=(await banco.query("SELECT COUNT(*)::int total FROM historico_modelos_mensagem_meta WHERE modelo_id=$1 AND origem='webhook_meta'",[modeloExistente.id])).rows[0].total;
+  confirmar(historicosAposExclusao===2&&consultasTemplateExistente===2,'Webhook de exclusao repetido deve ser idempotente e nao consultar um recurso removido.');
+  const corpoTemplateNovo=Buffer.from(JSON.stringify(payloadTemplate(templateNovoId,nomeNovo,'PENDING')));
+  const assinaturaTemplateNovo='sha256='+crypto.createHmac('sha256',process.env.META_APP_SECRET).update(corpoTemplateNovo).digest('hex');
+  resposta=respostaFake();
+  await controller.receber({body:corpoTemplateNovo,get:function(){return assinaturaTemplateNovo;}},resposta,function(erro){throw erro;});
+  const importadoWebhook=(await banco.query('SELECT id,meta_status_oficial,meta_status,criado_por_usuario_id FROM modelos_mensagem WHERE meta_template_id=$1',[templateNovoId])).rows[0];
+  confirmar(resposta.codigo===200&&importadoWebhook&&importadoWebhook.meta_status_oficial==='PENDING'&&importadoWebhook.meta_status==='em_analise'&&importadoWebhook.criado_por_usuario_id===null,'Webhook nao importou automaticamente o novo template em analise.');
+  const corpoTemplateInvalido=Buffer.from(JSON.stringify(payloadTemplate('',nomeNovo,'DESCONHECIDO')));
+  const assinaturaTemplateInvalido='sha256='+crypto.createHmac('sha256',process.env.META_APP_SECRET).update(corpoTemplateInvalido).digest('hex');
+  resposta=respostaFake();
+  await controller.receber({body:corpoTemplateInvalido,get:function(){return assinaturaTemplateInvalido;}},resposta,function(erro){throw erro;});
+  confirmar(resposta.codigo===200,'Evento de template invalido deve ser ignorado com seguranca.');
+  await banco.query('DELETE FROM historico_modelos_mensagem_meta WHERE modelo_id=ANY($1::bigint[])',[[modeloExistente.id,importadoWebhook.id]]);
+  await banco.query('DELETE FROM modelos_mensagem WHERE id=ANY($1::bigint[])',[[modeloExistente.id,importadoWebhook.id]]);
+  mensageriaService.definirProviderParaTeste();
   await banco.query('DELETE FROM eventos_webhook_mensageria WHERE identificador_externo=$1',['recebida:'+identificador]);
   await banco.query('DELETE FROM sincronizacoes_limite_meta WHERE id>$1',[ultimoLimiteId]);
   console.log('Webhook de mensageria: '+verificacoes+' verificacoes aprovadas.');

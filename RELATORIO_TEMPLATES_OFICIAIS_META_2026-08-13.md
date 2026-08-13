@@ -86,10 +86,19 @@ integridade.
 
 Nenhuma migration anterior foi alterada. O schema de banco vazio foi atualizado
 para 31 tabelas. Após a correção incremental de compatibilidade das campanhas,
-o ledger atual passou a possuir 14 migrations.
+o ledger atual passou a possuir 15 migrations. A migration `015` permite que
+templates e mudanças de status recebidos automaticamente pelo webhook oficial
+sejam auditados sem atribuir a operação a um usuário humano inexistente.
 
-A migration `013` foi aplicada somente no banco local. Uma segunda execução do
-runner confirmou que não havia migration pendente.
+As migrations `013`, `014` e `015` foram aplicadas somente no banco local. Uma
+segunda execução do runner confirmou que não havia migration pendente.
+
+O webhook oficial `message_template_status_update` atualiza os estados sem
+depender do botão manual. Estados finais como `DELETED`, `DISABLED`, `FLAGGED`
+e `PENDING_DELETION` são aplicados diretamente a templates já conhecidos a
+partir do webhook assinado, pois o recurso removido pode não estar mais
+consultável na Graph API. Eventos repetidos permanecem idempotentes e todas as
+mudanças efetivas geram histórico com origem `webhook_meta`.
 
 ## 7. Componentes suportados
 
@@ -165,10 +174,10 @@ campanha. Uma sincronização só poderá vinculá-los por correspondência inic
 ## 12. Testes
 
 ```text
-Templates oficiais da Meta: 30 verificações aprovadas.
+Templates oficiais da Meta: 31 verificações aprovadas.
 Integração Meta com mocks: 16 verificações aprovadas.
 Campanhas, lotes e mensageria: 27 verificações aprovadas.
-Webhook de mensageria: 10 verificações aprovadas.
+Webhook de mensageria: 16 verificações aprovadas.
 Schema vazio: 31 tabelas e 166 bairros.
 Frontend: 70 módulos, build aprovado.
 Migration runner: nenhuma migration pendente na segunda execução.
@@ -179,6 +188,9 @@ Os cenários cobriram submissão válida, ID, `PENDING`, `APPROVED`, `REJECTED`,
 `DISABLED`, imagem, botões, quick reply, CTA, parâmetros, template externo,
 paginação, sincronização repetida, concorrência, timeout, token inválido,
 resposta malformada e bloqueio de envio incompleto/não aprovado.
+Também foram validados atualização automática, importação automática de
+template novo, exclusão sem consulta complementar e repetição idempotente do
+evento oficial.
 
 ## 13. Resultado e pendências
 
@@ -191,7 +203,10 @@ resposta malformada e bloqueio de envio incompleto/não aprovado.
 
 ### AINDA EXIGE VALIDAÇÃO REAL/PRODUÇÃO
 
-- aplicar a migration `013` no banco de produção pelo runner normal;
+- aplicar as migrations pendentes, inclusive a `015`, no banco de produção pelo
+  runner normal;
+- confirmar no painel da Meta que o webhook está inscrito no campo
+  `message_template_status_update`;
 - confirmar permissões reais do token sobre a WABA;
 - sincronizar a lista real de templates;
 - submeter um template de homologação e observar a análise da Meta;

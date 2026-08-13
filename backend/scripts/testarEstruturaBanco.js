@@ -231,7 +231,8 @@ async function validarCatalogo(cliente) {
             '011_sincronizar_limite_meta.sql',
             '012_identificar_webhook_meta.sql',
             '013_gerenciar_templates_oficiais_meta.sql',
-            '014_garantir_auditoria_campanhas.sql'
+            '014_garantir_auditoria_campanhas.sql',
+            '015_atualizar_templates_por_webhook_meta.sql'
           )
         ) AS migrations_atuais
     `
@@ -244,8 +245,8 @@ async function validarCatalogo(cliente) {
   );
   verificar(configuracoes.rows[0].textos === 3, 'Os três textos ativos não existem.');
   verificar(
-    configuracoes.rows[0].migrations_atuais === 14,
-    'O ledger deve registrar as quatorze migrations atuais.'
+    configuracoes.rows[0].migrations_atuais === 15,
+    'O ledger deve registrar as quinze migrations atuais.'
   );
 
   const auditoriaCampanhas = await cliente.query(`
@@ -287,6 +288,33 @@ async function validarCatalogo(cliente) {
   verificar(
     identidadeTemplates.rowCount === 1,
     'O ID oficial dos templates Meta nao possui indice unico.'
+  );
+
+  const webhookTemplates = await cliente.query(`
+    SELECT
+      COUNT(*) FILTER (WHERE coluna.is_nullable='YES')::integer AS colunas_sistema_nulas,
+      EXISTS (
+        SELECT 1 FROM pg_catalog.pg_constraint
+        WHERE conrelid='public.historico_modelos_mensagem_meta'::regclass
+          AND conname='historico_modelos_mensagem_meta_acao_valida'
+          AND pg_get_constraintdef(oid) ILIKE '%webhook_status%'
+      ) AS acao_webhook,
+      EXISTS (
+        SELECT 1 FROM pg_catalog.pg_constraint
+        WHERE conrelid='public.historico_modelos_mensagem_meta'::regclass
+          AND conname='historico_modelos_mensagem_meta_origem_valida'
+          AND pg_get_constraintdef(oid) ILIKE '%webhook_meta%'
+      ) AS origem_webhook
+    FROM information_schema.columns AS coluna
+    WHERE coluna.table_schema='public'
+      AND coluna.table_name='modelos_mensagem'
+      AND coluna.column_name IN ('criado_por_usuario_id','atualizado_por_usuario_id')
+  `);
+  verificar(
+    webhookTemplates.rows[0].colunas_sistema_nulas === 2 &&
+      webhookTemplates.rows[0].acao_webhook === true &&
+      webhookTemplates.rows[0].origem_webhook === true,
+    'A auditoria automatica de templates recebidos pelo webhook nao esta completa.'
   );
 
   const relacionamentoBairro = await cliente.query(

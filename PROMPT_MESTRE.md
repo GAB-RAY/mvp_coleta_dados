@@ -60,7 +60,7 @@ Considere este cenário somente quando não houver implementação aproveitável
 
 Na atualização de 13/08/2026, o repositório já possuía backend, frontend e
 schema completo implementados. O schema atual possui 31 tabelas, 166 bairros e
-14 migrations registradas. Os resultados dos relatórios datados servem como
+15 migrations registradas. Os resultados dos relatórios datados servem como
 referência de regressão, não como substitutos para uma nova execução dos testes
 no ambiente recebido.
 
@@ -370,6 +370,8 @@ Regras:
 - estados técnicos: `pendente`, `enviando`, `enviada`, `entregue`, `lida` e `falhou`;
 - preservar histórico imutável de transições e erro externo sanitizado;
 - processar webhook oficial com HMAC sobre corpo bruto e idempotência;
+- atualizar e importar templates pelo evento oficial
+  `message_template_status_update`, mantendo a sincronização manual somente como contingência;
 - enviar exclusivamente templates aprovados pela WhatsApp Cloud API oficial,
   com credenciais somente no backend, timeout e erros sanitizados;
 - sincronizar automaticamente mudanças oficiais de capacidade recebidas em

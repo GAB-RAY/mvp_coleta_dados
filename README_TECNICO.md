@@ -468,6 +468,8 @@ o challenge. O POST calcula HMAC SHA-256 sobre os bytes exatos do corpo bruto,
 usa comparação segura, limita o corpo, não armazena payload bruto e encaminha
 eventos normalizados à mensageria. O envio de templates aprovados usa a WhatsApp Cloud API oficial,
 com credenciais exclusivas do backend, timeout, idempotência por tentativa e erros sanitizados.
+O evento oficial `message_template_status_update` atualiza ou importa templates
+automaticamente; a sincronização manual permanece apenas como contingência.
 O opt-out oficial recebido pelo webhook revoga mensagens e mantém o contato globalmente bloqueado.
 
 ### 3.13 Relatórios, exportação e backup

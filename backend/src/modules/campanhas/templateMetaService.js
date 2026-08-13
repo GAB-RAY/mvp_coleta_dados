@@ -181,6 +181,29 @@ async function sincronizar(usuario){
   return Object.assign({total:oficiais.length},resumo);
 }
 
+async function processarAtualizacaoDoWebhook(dados) {
+  const templateId = String(dados && dados.templateId || '').trim();
+  const evento = String(dados && dados.evento || '').trim().toUpperCase();
+  const eventosOficiais = new Set([
+    'APPROVED', 'IN_APPEAL', 'PENDING', 'REJECTED', 'PENDING_DELETION',
+    'DELETED', 'DISABLED', 'FLAGGED', 'REINSTATED'
+  ]);
+  if (!/^\d+$/.test(templateId) || !eventosOficiais.has(evento)) {
+    return { processado: false, motivo: 'evento_template_invalido' };
+  }
+  const estadosFinaisSemConsulta = new Set([
+    'PENDING_DELETION', 'DELETED', 'DISABLED', 'FLAGGED'
+  ]);
+  if (estadosFinaisSemConsulta.has(evento)) {
+    return campanhaModel.atualizarStatusTemplateExistenteDoWebhook(templateId, evento);
+  }
+  const oficial = validarTemplateOficial(await metaProvider.buscarTemplateOficialPorId(templateId));
+  if (oficial.id !== templateId) {
+    return { processado: false, motivo: 'template_oficial_divergente' };
+  }
+  return campanhaModel.sincronizarTemplateOficialDoWebhook(oficial);
+}
+
 async function configurarEnvio(idRecebido,dados,usuario){
   const id=Number(idRecebido);if(!Number.isInteger(id)||id<1)throw criarAppError('Template invalido.',400);
   const template=await campanhaModel.buscarTemplatePorId(id);
@@ -190,4 +213,4 @@ async function configurarEnvio(idRecebido,dados,usuario){
   return campanhaModel.configurarEnvioTemplate(id,configuracao,usuario.id);
 }
 
-module.exports={configurarEnvio,prepararRascunho,salvarRascunho,submeter,sincronizar,validarConfiguracaoEnvio,validarTemplateOficial};
+module.exports={configurarEnvio,prepararRascunho,processarAtualizacaoDoWebhook,salvarRascunho,submeter,sincronizar,validarConfiguracaoEnvio,validarTemplateOficial};

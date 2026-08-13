@@ -215,6 +215,19 @@ async function buscarTemplateOficialPorNome(nome) {
   return resposta.corpo.data;
 }
 
+async function buscarTemplateOficialPorId(idRecebido) {
+  const id = String(idRecebido || '').trim();
+  if (!/^\d+$/.test(id)) {
+    throw criarErroIntegracao('O identificador oficial do template e invalido.', 'META_TEMPLATE_INVALIDO', 400, false);
+  }
+  const parametros = new URLSearchParams({ fields: 'id,name,language,status,category,components' });
+  const resposta = await requisitarMeta(id + '?' + parametros.toString(), { method: 'GET' }, 'template');
+  if (!resposta.corpo || String(resposta.corpo.id || '') !== id) {
+    throw criarErroIntegracao('A Meta retornou um template invalido.', 'META_RESPOSTA_INVALIDA', resposta.status, true);
+  }
+  return resposta.corpo;
+}
+
 async function consultarLimiteMensageria() {
   const configuracao = obterConfiguracao();
   const parametros = new URLSearchParams({ fields: 'whatsapp_business_manager_messaging_limit' });
@@ -227,7 +240,7 @@ async function consultarLimiteMensageria() {
 function definirFetchParaTeste(funcao) { executarFetch = funcao || function () { return fetch.apply(globalThis, arguments); }; }
 
 module.exports = {
-  buscarTemplateOficialPorNome, consultarLimiteMensageria, criarTemplateOficial,
+  buscarTemplateOficialPorId, buscarTemplateOficialPorNome, consultarLimiteMensageria, criarTemplateOficial,
   definirFetchParaTeste, enviarTemplate, listarTemplatesOficiais, montarPayload,
   validarConfiguracaoParaEnvio
 };

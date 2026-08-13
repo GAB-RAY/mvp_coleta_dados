@@ -435,8 +435,8 @@ CREATE TABLE public.modelos_mensagem (
   texto TEXT NOT NULL,
   evento_id BIGINT,
   ativo BOOLEAN NOT NULL DEFAULT TRUE,
-  criado_por_usuario_id BIGINT NOT NULL,
-  atualizado_por_usuario_id BIGINT NOT NULL,
+  criado_por_usuario_id BIGINT,
+  atualizado_por_usuario_id BIGINT,
   meta_nome VARCHAR(512),
   meta_idioma VARCHAR(35),
   meta_categoria VARCHAR(50),
@@ -478,10 +478,10 @@ CREATE TABLE public.historico_modelos_mensagem_meta (
   criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT historico_modelos_mensagem_meta_acao_valida CHECK (
     acao IN ('rascunho_criado', 'rascunho_atualizado', 'configuracao_envio',
-      'submissao', 'sincronizacao', 'vinculo_inicial')
+      'submissao', 'sincronizacao', 'vinculo_inicial', 'webhook_status')
   ),
   CONSTRAINT historico_modelos_mensagem_meta_origem_valida CHECK (
-    origem IN ('sistema', 'api_meta', 'sincronizacao_meta')
+    origem IN ('sistema', 'api_meta', 'sincronizacao_meta', 'webhook_meta')
   ),
   CONSTRAINT historico_modelos_mensagem_meta_detalhes_validos CHECK (
     jsonb_typeof(detalhes) = 'object'
@@ -1332,6 +1332,7 @@ INSERT INTO public.schema_migrations (
   ('011', '011_sincronizar_limite_meta.sql', '137c3b4334f0a50e9d851a120074e94ecd2a681e0269caf583c193e58f7cddf6'),
   ('012', '012_identificar_webhook_meta.sql', '18a4295ae9d64f636a34ad7f239f3ee637e6cda1287b2e01faf04c1400adbc0a'),
   ('013', '013_gerenciar_templates_oficiais_meta.sql', 'a1a455aa7a0438d2e5b2dbbafeb6b2cb256b47a080d9974689a3c097e33d9dc6'),
-  ('014', '014_garantir_auditoria_campanhas.sql', 'e856eec3eda0d280534e996e60dad3e2c3d3aa11b95b41f791d0d5d6d36e6f30');
+  ('014', '014_garantir_auditoria_campanhas.sql', 'e856eec3eda0d280534e996e60dad3e2c3d3aa11b95b41f791d0d5d6d36e6f30'),
+  ('015', '015_atualizar_templates_por_webhook_meta.sql', 'a7942ed6fbc44d230200ffca95baffa1626bbf089cca5081fff6f4a030596b9d');
 
 COMMIT;

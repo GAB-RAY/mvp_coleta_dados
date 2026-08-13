@@ -29,6 +29,10 @@ function dadosRascunho(sufixo){return {
 async function executar(){
   const usuario=(await banco.query("SELECT id FROM usuarios WHERE ativo=TRUE AND perfil='administrador' ORDER BY id LIMIT 1")).rows[0];
   if(!usuario)throw new Error('O teste requer um administrador local ativo.');
+  const oficiaisPreexistentes=(await banco.query(`SELECT meta_template_id AS id,meta_nome AS name,
+    meta_idioma AS language,meta_status_oficial AS status,meta_categoria AS category,
+    COALESCE(meta_componentes,'[]'::jsonb) AS components FROM modelos_mensagem
+    WHERE meta_template_id IS NOT NULL`)).rows;
   const ids=[];let posts=0;let pagina=0;
   try{
     const preparado=templateService.prepararRascunho(dadosRascunho('valido'));
@@ -52,22 +56,31 @@ async function executar(){
     const persistido=await banco.query('SELECT meta_template_id,meta_status_oficial,meta_status FROM modelos_mensagem WHERE id=$1',[rascunho.id]);
     confirmar(persistido.rows[0].meta_template_id==='900001'&&persistido.rows[0].meta_status_oficial==='PENDING'&&persistido.rows[0].meta_status==='em_analise','ID ou PENDING nao foi persistido.');
 
+    const antigo=(await banco.query(`INSERT INTO modelos_mensagem
+      (nome,categoria,texto,ativo,meta_nome,meta_idioma,meta_categoria,meta_status,
+       meta_template_id,meta_status_oficial,meta_origem,criado_por_usuario_id,atualizado_por_usuario_id)
+      VALUES ('Template antigo QA','QA','Antigo',TRUE,'template_antigo_qa','pt_BR','MARKETING',
+       'aprovado','900099','APPROVED','meta',$1,$1) RETURNING id`,[usuario.id])).rows[0];
+    ids.push(antigo.id);
+
     provider.definirFetchParaTeste(async function(url){
       pagina+=1;
-      if(!url.includes('after='))return {ok:true,status:200,json:async function(){return {data:[{id:'900001',name:'template_qa_submeter',language:'pt_BR',status:'APPROVED',category:'MARKETING',components:preparado.componentes}],paging:{next:'oficial',cursors:{after:'cursor2'}}};}};
+      if(!url.includes('after='))return {ok:true,status:200,json:async function(){return {data:[{id:'900001',name:'template_qa_submeter',language:'pt_BR',status:'APPROVED',category:'MARKETING',components:preparado.componentes}].concat(oficiaisPreexistentes),paging:{next:'oficial',cursors:{after:'cursor2'}}};}};
       return {ok:true,status:200,json:async function(){return {data:[{id:'900002',name:'template_externo',language:'pt_BR',status:'REJECTED',category:'UTILITY',components:[{type:'BODY',text:'Externo'}]}]};}};
     });
     const sync=await templateService.sincronizar(usuario);
     const externo=(await banco.query("SELECT id,meta_status FROM modelos_mensagem WHERE meta_template_id='900002'")).rows[0];ids.push(externo.id);
-    confirmar(pagina===2&&sync.total===2&&externo.meta_status==='rejeitado','Paginacao ou importacao externa falhou.');
+    confirmar(pagina===2&&sync.total===2+oficiaisPreexistentes.length&&externo.meta_status==='rejeitado','Paginacao ou importacao externa falhou.');
+    const antigoIndisponivel=(await banco.query("SELECT meta_status_oficial,meta_status FROM modelos_mensagem WHERE id=$1",[antigo.id])).rows[0];
+    confirmar(sync.indisponibilizados===1&&antigoIndisponivel.meta_status_oficial==='NOT_FOUND'&&antigoIndisponivel.meta_status==='indisponivel','Template ausente na conta oficial permaneceu aprovado.');
     const aprovado=(await banco.query("SELECT meta_status_oficial,meta_status FROM modelos_mensagem WHERE meta_template_id='900001'")).rows[0];
     confirmar(aprovado.meta_status_oficial==='APPROVED'&&aprovado.meta_status==='aprovado','Mudanca PENDING para APPROVED falhou.');
     pagina=0;const repetido=await templateService.sincronizar(usuario);
-    confirmar(repetido.criados===0&&repetido.inalterados===2,'Sincronizacao repetida nao foi idempotente: '+JSON.stringify(repetido));
+    confirmar(repetido.criados===0&&repetido.inalterados===2+oficiaisPreexistentes.length,'Sincronizacao repetida nao foi idempotente: '+JSON.stringify(repetido));
     provider.definirFetchParaTeste(async function(){return {ok:true,status:200,json:async function(){return {data:[
       {id:'900001',name:'template_qa_submeter',language:'pt_BR',status:'DISABLED',category:'MARKETING',components:preparado.componentes},
       {id:'900002',name:'template_externo',language:'pt_BR',status:'REJECTED',category:'UTILITY',components:[{type:'BODY',text:'Externo'}]}
-    ]};}};});
+    ].concat(oficiaisPreexistentes)};}};});
     await templateService.sincronizar(usuario);
     const desabilitado=(await banco.query("SELECT meta_status_oficial,meta_status FROM modelos_mensagem WHERE meta_template_id='900001'")).rows[0];
     confirmar(desabilitado.meta_status_oficial==='DISABLED'&&desabilitado.meta_status==='indisponivel','Mudanca APPROVED para estado nao elegivel falhou.');
@@ -92,7 +105,7 @@ async function executar(){
 
     provider.definirFetchParaTeste(function(url,opcoes){return new Promise(function(resolve,reject){opcoes.signal.addEventListener('abort',function(){const erro=new Error('abort');erro.name='AbortError';reject(erro);});});});
     await rejeitar(provider.listarTemplatesOficiais(),'tempo esperado');
-    console.log('Templates oficiais da Meta: 30 verificacoes aprovadas.');
+    console.log('Templates oficiais da Meta: 31 verificacoes aprovadas.');
   }finally{
     provider.definirFetchParaTeste();
     if(ids.length){await banco.query('DELETE FROM historico_modelos_mensagem_meta WHERE modelo_id=ANY($1::bigint[])',[ids]);await banco.query('DELETE FROM modelos_mensagem WHERE id=ANY($1::bigint[])',[ids]);}
