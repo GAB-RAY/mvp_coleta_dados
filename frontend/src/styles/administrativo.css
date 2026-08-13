@@ -2927,7 +2927,15 @@
 .acoes-capacidade-campanha {
   display: flex;
   flex-wrap: wrap;
+  max-width: 24rem;
   gap: 0.5rem;
+}
+
+.acoes-capacidade-campanha > small {
+  width: 100%;
+  color: var(--admin-texto-suave);
+  font-size: 0.72rem;
+  line-height: 1.35;
 }
 
 .metricas-capacidade-campanha > div {
@@ -2944,6 +2952,15 @@
 .resumo-capacidade-campanha strong {
   color: var(--admin-texto);
   font-size: 1.15rem;
+}
+
+.metricas-capacidade-campanha .capacidade-efetiva-destaque {
+  border-left: 3px solid var(--admin-laranja);
+  padding-left: 0.65rem;
+}
+
+.metricas-capacidade-campanha .capacidade-efetiva-destaque strong {
+  color: var(--admin-laranja-escuro);
 }
 
 .campanhas-listagem,

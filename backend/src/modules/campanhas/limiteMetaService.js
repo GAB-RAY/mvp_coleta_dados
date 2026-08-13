@@ -82,12 +82,12 @@ async function registrarLimiteDoWebhook(valor) {
     await campanhaModel.registrarSincronizacaoLimiteMeta({
       tier: limite.tier,
       limite: limite.limite,
-      origem: 'webhook',
+      origem: 'webhook_meta',
       usuarioId: null
     });
     return true;
   } catch (erro) {
-    await registrarFalha('webhook', erro, null);
+    await registrarFalha('webhook_meta', erro, null);
     return false;
   }
 }

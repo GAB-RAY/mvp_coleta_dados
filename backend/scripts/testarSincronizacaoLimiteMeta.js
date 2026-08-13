@@ -117,12 +117,36 @@ async function executar() {
     capacidade = await campanhaModel.obterCapacidade(new Date());
     confirmar(capacidade.limite === 250, 'Indisponibilidade nao pode liberar capacidade.');
 
+    await banco.query(
+      "UPDATE configuracoes_sistema SET valor_inteiro = 150 WHERE chave = 'limite_mensagens_24h'"
+    );
     const webhookAtualizado = await limiteMetaService.registrarLimiteDoWebhook('TIER_2K');
     confirmar(webhookAtualizado === true, 'Webhook oficial valido deve ser aceito.');
-    const webhookReducao = await limiteMetaService.registrarLimiteDoWebhook(250);
+    capacidade = await campanhaModel.obterCapacidade(new Date());
+    confirmar(
+      capacidade.limiteMeta === 2000 && capacidade.limiteInterno === 150 && capacidade.limite === 150,
+      'Limite oficial maior nao pode ultrapassar a protecao interna.'
+    );
+    const webhookReducao = await limiteMetaService.registrarLimiteDoWebhook(50);
     confirmar(webhookReducao === true, 'Reducao numerica do webhook deve ser aceita.');
     capacidade = await campanhaModel.obterCapacidade(new Date());
-    confirmar(capacidade.limite === 250, 'Reducao recebida por webhook deve valer para novas operacoes.');
+    confirmar(
+      capacidade.limiteMeta === 50 && capacidade.limite === 50,
+      'Limite oficial menor deve reduzir imediatamente a capacidade efetiva.'
+    );
+    const quantidadeAntesDuplicado = Number((await banco.query(
+      "SELECT COUNT(*) AS total FROM sincronizacoes_limite_meta WHERE id > $1 AND origem = 'webhook_meta' AND status = 'sucesso'",
+      [ultimoId]
+    )).rows[0].total);
+    const webhookDuplicado = await limiteMetaService.registrarLimiteDoWebhook(50);
+    const quantidadeDepoisDuplicado = Number((await banco.query(
+      "SELECT COUNT(*) AS total FROM sincronizacoes_limite_meta WHERE id > $1 AND origem = 'webhook_meta' AND status = 'sucesso'",
+      [ultimoId]
+    )).rows[0].total);
+    confirmar(
+      webhookDuplicado === true && quantidadeDepoisDuplicado === quantidadeAntesDuplicado,
+      'Webhook repetido deve ser idempotente e nao duplicar a auditoria.'
+    );
     const webhookInvalido = await limiteMetaService.registrarLimiteDoWebhook({});
     confirmar(webhookInvalido === false, 'Webhook com limite invalido deve ser ignorado com seguranca.');
 
@@ -145,6 +169,10 @@ async function executar() {
     confirmar(
       auditoria.some(function (item) { return item.status === 'falha'; }),
       'Falhas de sincronizacao devem ser auditadas sem dados sensiveis.'
+    );
+    confirmar(
+      auditoria.some(function (item) { return item.status === 'sucesso' && item.origem === 'webhook_meta' && item.usuario_id === null; }),
+      'Atualizacao automatica deve registrar a origem webhook_meta sem usuario manual.'
     );
 
     console.log('Sincronizacao segura do limite Meta: ' + verificacoes + ' verificacoes aprovadas.');

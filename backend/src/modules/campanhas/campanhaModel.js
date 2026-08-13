@@ -493,27 +493,43 @@ async function registrarSincronizacaoLimiteMeta(dados) {
     await cliente.query('BEGIN');
     await cliente.query('SELECT pg_advisory_xact_lock(41027, 0)');
     const anterior = await cliente.query(`
-      SELECT limite_novo, tier_novo
+      SELECT limite_novo, tier_novo, origem
       FROM sincronizacoes_limite_meta
       WHERE status = 'sucesso'
       ORDER BY id DESC
       LIMIT 1
     `);
     const registroAnterior = anterior.rows[0] || {};
+    const limiteAnterior = registroAnterior.limite_novo === undefined
+      ? null
+      : registroAnterior.limite_novo;
+    const tierAnterior = registroAnterior.tier_novo || null;
+
+    if (
+      dados.origem === 'webhook_meta' &&
+      registroAnterior.origem === 'webhook_meta' &&
+      limiteAnterior === dados.limite &&
+      tierAnterior === dados.tier
+    ) {
+      await cliente.query('COMMIT');
+      return { alterado: false };
+    }
+
     await cliente.query(`
       INSERT INTO sincronizacoes_limite_meta (
         limite_anterior, limite_novo, tier_anterior, tier_novo,
         origem, status, usuario_id
       ) VALUES ($1, $2, $3, $4, $5, 'sucesso', $6)
     `, [
-      registroAnterior.limite_novo === undefined ? null : registroAnterior.limite_novo,
+      limiteAnterior,
       dados.limite,
-      registroAnterior.tier_novo || null,
+      tierAnterior,
       dados.tier,
       dados.origem,
       dados.usuarioId || null
     ]);
     await cliente.query('COMMIT');
+    return { alterado: true };
   } catch (erro) {
     await cliente.query('ROLLBACK');
     throw erro;

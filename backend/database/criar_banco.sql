@@ -615,7 +615,7 @@ CREATE TABLE public.sincronizacoes_limite_meta (
     limite_novo IS NULL OR limite_novo > 0
   ),
   CONSTRAINT sincronizacoes_limite_meta_origem_valida CHECK (
-    origem IN ('consulta_api', 'webhook')
+    origem IN ('consulta_api', 'webhook', 'webhook_meta')
   ),
   CONSTRAINT sincronizacoes_limite_meta_status_valido CHECK (
     status IN ('sucesso', 'falha')
@@ -1288,6 +1288,7 @@ INSERT INTO public.schema_migrations (
   ('008', '008_permitir_backup_sql_dados.sql', '0adcd0770538a7ce9a90edf3e9d325b9eb7a6d4faf9058c94eb02c6fd07be51d'),
   ('009', '009_integrar_meta_cloud_api.sql', '8187b63d67bfcd575e3c62c2feb5ee144a585118ba450b961312176e4d520fa5'),
   ('010', '010_permitir_importacao_vcf.sql', '7f5d4dff3bf9f62d55868e12a436f350b9a2c1d073a7e8c64c48fe01d6657c5c'),
-  ('011', '011_sincronizar_limite_meta.sql', '137c3b4334f0a50e9d851a120074e94ecd2a681e0269caf583c193e58f7cddf6');
+  ('011', '011_sincronizar_limite_meta.sql', '137c3b4334f0a50e9d851a120074e94ecd2a681e0269caf583c193e58f7cddf6'),
+  ('012', '012_identificar_webhook_meta.sql', '18a4295ae9d64f636a34ad7f239f3ee637e6cda1287b2e01faf04c1400adbc0a');
 
 COMMIT;

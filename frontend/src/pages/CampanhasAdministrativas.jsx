@@ -254,7 +254,7 @@ function CampanhasAdministrativas(){
 
   async function salvarLimite(){
     if(!capacidade)return;
-    const valor=window.prompt('Novo limite móvel de 24 horas:',String(capacidade.limite));
+    const valor=window.prompt('Nova proteção interna de 24 horas:',String(capacidade.limiteInterno));
     if(!valor)return;
     const motivo=window.prompt('Informe o motivo da alteração:');
     if(!motivo)return;
@@ -280,13 +280,13 @@ function CampanhasAdministrativas(){
 
     <section className="resumo-capacidade-campanha">
       <div className="metricas-capacidade-campanha">
-        <div><span>Limite efetivo atual</span><strong>{capacidade?capacidade.limite:'—'}</strong></div>
-        <div><span>Proteção interna</span><strong>{capacidade?capacidade.limiteInterno:'—'}</strong></div>
-        <div><span>Limite oficial Meta</span><strong>{capacidade?(capacidade.tierMeta||'Não sincronizado'):'—'}</strong>{capacidade&&capacidade.sincronizadoEm&&<small>Atualizado em {new Date(capacidade.sincronizadoEm).toLocaleString('pt-BR')}</small>}</div>
-        <div><span>Utilizado nas últimas 24h</span><strong>{capacidade?capacidade.utilizado:'—'}</strong></div>
-        <div><span>Capacidade disponível</span><strong>{capacidade?capacidade.disponivel:'—'}</strong></div>
+        <div><span>Limite oficial Meta</span><strong>{capacidade?(!capacidade.tierMeta?'Não sincronizado':capacidade.limiteMeta===null?'Ilimitado':Number(capacidade.limiteMeta).toLocaleString('pt-BR')):'—'}</strong>{capacidade&&capacidade.tierMeta&&<small>{capacidade.tierMeta}</small>}{capacidade&&capacidade.sincronizadoEm&&<small>Atualizado em {new Date(capacidade.sincronizadoEm).toLocaleString('pt-BR')}</small>}</div>
+        <div><span>Proteção interna</span><strong>{capacidade?Number(capacidade.limiteInterno).toLocaleString('pt-BR'):'—'}</strong></div>
+        <div className="capacidade-efetiva-destaque"><span>Capacidade operacional efetiva</span><strong>{capacidade?Number(capacidade.limite).toLocaleString('pt-BR'):'—'}</strong></div>
+        <div><span>Utilizado nas últimas 24h</span><strong>{capacidade?Number(capacidade.utilizado).toLocaleString('pt-BR'):'—'}</strong></div>
+        <div><span>Capacidade restante</span><strong>{capacidade?Number(capacidade.disponivel).toLocaleString('pt-BR'):'—'}</strong></div>
       </div>
-      {administrador&&<div className="acoes-capacidade-campanha"><button className="botao botao-secundario" type="button" onClick={sincronizarMeta}>Sincronizar Meta</button><button className="botao botao-secundario" type="button" onClick={salvarLimite}>Alterar proteção interna</button></div>}
+      {administrador&&<div className="acoes-capacidade-campanha"><small>Atualização automática ativa. A sincronização manual serve para conferência ou contingência.</small><button className="botao botao-secundario" type="button" onClick={sincronizarMeta}>Sincronizar Meta</button><button className="botao botao-secundario" type="button" onClick={salvarLimite}>Alterar proteção interna</button></div>}
     </section>
 
     <section className="cartao campanhas-listagem">
