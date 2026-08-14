@@ -158,6 +158,7 @@ BACKUP_BANCO_TAMANHO_MAXIMO_BYTES=2147483648
 RELATORIO_LIMITE_REGISTROS=50000
 WHATSAPP_WEBHOOK_VERIFY_TOKEN=
 META_APP_SECRET=
+META_APP_ID=
 WHATSAPP_ACCESS_TOKEN=
 WHATSAPP_PHONE_NUMBER_ID=
 WHATSAPP_BUSINESS_ACCOUNT_ID=
@@ -296,6 +297,7 @@ Todas exigem JWT.
 | `GET` | `/api/admin/campanhas/:id/falhas` | operador/admin; falhas atuais aptas a reprocessamento |
 | `GET/POST/PUT` | `/api/admin/campanhas/templates` | leitura operador/admin; escrita admin |
 | `POST` | `/api/admin/campanhas/templates/sincronizar-meta` | sincronização oficial paginada; admin |
+| `POST` | `/api/admin/campanhas/templates/imagem-exemplo` | upload oficial do exemplo JPG/PNG para obter o `header_handle`; admin |
 | `POST` | `/api/admin/campanhas/templates/:id/submeter-meta` | submissão oficial para análise; admin |
 | `PUT` | `/api/admin/campanhas/templates/:id/configuracao-envio` | parâmetros locais de envio; admin |
 | `GET` | `/api/admin/campanhas/configuracao/limite` | operador/admin |

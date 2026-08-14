@@ -20,6 +20,7 @@ function obterConfiguracao() {
     token: process.env.WHATSAPP_ACCESS_TOKEN,
     phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID,
     businessAccountId: process.env.WHATSAPP_BUSINESS_ACCOUNT_ID,
+    appId: process.env.META_APP_ID,
     versao: process.env.META_GRAPH_API_VERSION
   };
   if (!configuracao.token || !configuracao.phoneNumberId || !configuracao.businessAccountId || !configuracao.versao) {
@@ -186,6 +187,59 @@ async function criarTemplateOficial(payload) {
   return resposta.corpo;
 }
 
+async function prepararImagemExemplo(conteudo, tipoMime) {
+  const configuracao = obterConfiguracao();
+  if (!configuracao.appId || !/^\d+$/.test(configuracao.appId)) {
+    throw criarErroIntegracao(
+      'O aplicativo da Meta nao esta configurado para preparar imagens de template.',
+      'META_APP_NAO_CONFIGURADO',
+      503,
+      false
+    );
+  }
+  if (!Buffer.isBuffer(conteudo) || conteudo.length === 0) {
+    throw criarErroIntegracao('A imagem de exemplo e invalida.', 'META_IMAGEM_INVALIDA', 400, false);
+  }
+
+  const parametros = new URLSearchParams({
+    file_length: String(conteudo.length),
+    file_type: tipoMime
+  });
+  const sessao = await requisitarMeta(
+    configuracao.appId + '/uploads?' + parametros.toString(),
+    { method: 'POST' },
+    'template'
+  );
+  const identificadorSessao = textoSeguro(sessao.corpo && sessao.corpo.id, 4000);
+  if (!identificadorSessao || !identificadorSessao.startsWith('upload:')) {
+    throw criarErroIntegracao(
+      'A Meta nao confirmou a preparacao da imagem de exemplo.',
+      'META_RESPOSTA_INVALIDA',
+      sessao.status,
+      true
+    );
+  }
+
+  const upload = await requisitarMeta(identificadorSessao, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/octet-stream',
+      file_offset: '0'
+    },
+    body: conteudo
+  }, 'template');
+  const handle = textoSeguro(upload.corpo && upload.corpo.h, 4000);
+  if (!handle) {
+    throw criarErroIntegracao(
+      'A Meta nao confirmou a imagem de exemplo do template.',
+      'META_RESPOSTA_INVALIDA',
+      upload.status,
+      true
+    );
+  }
+  return { handle };
+}
+
 async function listarTemplatesOficiais() {
   const configuracao = obterConfiguracao();
   const templates = [];
@@ -241,6 +295,6 @@ function definirFetchParaTeste(funcao) { executarFetch = funcao || function () {
 
 module.exports = {
   buscarTemplateOficialPorId, buscarTemplateOficialPorNome, consultarLimiteMensageria, criarTemplateOficial,
-  definirFetchParaTeste, enviarTemplate, listarTemplatesOficiais, montarPayload,
+  definirFetchParaTeste, enviarTemplate, listarTemplatesOficiais, montarPayload, prepararImagemExemplo,
   validarConfiguracaoParaEnvio
 };

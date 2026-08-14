@@ -14,6 +14,7 @@ function enviarTentativa(id){return requisitar('/api/admin/mensageria/tentativas
 function criarLoteCampanha(id,tamanho,chaveIdempotencia){return requisitar('/api/admin/campanhas/'+id+'/lotes',{method:'POST',autenticado:true,body:JSON.stringify({tamanho,chaveIdempotencia})});}
 function listarTemplates(){return requisitar('/api/admin/campanhas/templates',{method:'GET',autenticado:true});}
 function criarTemplate(dados){return requisitar('/api/admin/campanhas/templates',{method:'POST',autenticado:true,body:JSON.stringify(dados)});}
+function prepararImagemTemplate(arquivo){const formulario=new FormData();formulario.append('imagem',arquivo);return requisitar('/api/admin/campanhas/templates/imagem-exemplo',{method:'POST',autenticado:true,body:formulario});}
 function atualizarTemplate(id,dados){return requisitar('/api/admin/campanhas/templates/'+id,{method:'PUT',autenticado:true,body:JSON.stringify(dados)});}
 function submeterTemplateMeta(id){return requisitar('/api/admin/campanhas/templates/'+id+'/submeter-meta',{method:'POST',autenticado:true});}
 function sincronizarTemplatesMeta(){return requisitar('/api/admin/campanhas/templates/sincronizar-meta',{method:'POST',autenticado:true});}
@@ -22,4 +23,4 @@ function obterCapacidade(){return requisitar('/api/admin/campanhas/configuracao/
 function atualizarLimite(valor,motivo){return requisitar('/api/admin/campanhas/configuracao/limite',{method:'PUT',autenticado:true,body:JSON.stringify({valor,motivo})});}
 function sincronizarLimiteMeta(){return requisitar('/api/admin/campanhas/configuracao/limite/sincronizar-meta',{method:'POST',autenticado:true});}
 
-export {alterarStatusCampanha,atualizarCampanha,atualizarLimite,atualizarTemplate,configurarEnvioTemplate,criarCampanha,criarLoteCampanha,criarTemplate,enviarTentativa,listarCampanhas,listarContatosLote,listarFalhasCampanha,listarLotesCampanha,listarTemplates,obterCapacidade,reprocessarTentativa,sincronizarLimiteMeta,sincronizarTemplatesMeta,submeterTemplateMeta,visualizarPreviaFiltros,visualizarPublicoCampanha};
+export {alterarStatusCampanha,atualizarCampanha,atualizarLimite,atualizarTemplate,configurarEnvioTemplate,criarCampanha,criarLoteCampanha,criarTemplate,enviarTentativa,listarCampanhas,listarContatosLote,listarFalhasCampanha,listarLotesCampanha,listarTemplates,obterCapacidade,prepararImagemTemplate,reprocessarTentativa,sincronizarLimiteMeta,sincronizarTemplatesMeta,submeterTemplateMeta,visualizarPreviaFiltros,visualizarPublicoCampanha};

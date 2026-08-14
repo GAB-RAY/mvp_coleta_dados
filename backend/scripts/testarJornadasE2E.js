@@ -166,6 +166,7 @@ async function executar() {
       DATABASE_URL: criarUrlBanco(NOME_BANCO),
       NODE_ENV: 'test',
       META_GRAPH_API_VERSION: 'v99.0',
+      META_APP_ID: '1122334455',
       WHATSAPP_ACCESS_TOKEN: 'token-qa-falso',
       WHATSAPP_PHONE_NUMBER_ID: '123456789',
       WHATSAPP_BUSINESS_ACCOUNT_ID: '987654321'

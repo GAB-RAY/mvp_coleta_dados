@@ -403,25 +403,31 @@ async function criarLoteAtomico(campanhaId, tamanhoSolicitado, chave, usuarioId,
     `, [campanhaId, tamanhoSolicitado, candidatos.rows.length, ordemResultado.rows[0].ordem, chave, usuarioId, agora]);
     const lote = loteResultado.rows[0];
 
-    for (const candidato of candidatos.rows) {
-      const participacaoResultado = await cliente.query(`
+    const contatoIds = candidatos.rows.map(function (candidato) {
+      return candidato.id;
+    });
+    await cliente.query(`
+      WITH novas_participacoes AS (
         INSERT INTO campanha_participacoes (
           campanha_id, contato_id, lote_original_id, status, reservado_em, atualizado_em
-        ) VALUES ($1, $2, $3, 'pendente', $4, $4)
+        )
+        SELECT $1, contato_id, $2, 'pendente', $3, $3
+        FROM UNNEST($4::bigint[]) AS contato_id
         RETURNING id
-      `, [campanhaId, candidato.id, lote.id, agora]);
-      const participacaoId = participacaoResultado.rows[0].id;
-      const tentativaResultado = await cliente.query(`
-        INSERT INTO campanha_tentativas (participacao_id, numero_tentativa, status, iniciada_em, criado_em)
-        VALUES ($1, 1, 'pendente', $2, $2)
-        RETURNING id
-      `, [participacaoId, agora]);
-      await cliente.query(`
-        INSERT INTO historico_status_mensageria (
-          participacao_id, tentativa_id, status_anterior, status_novo, origem, criado_em
-        ) VALUES ($1, $2, NULL, 'pendente', 'reserva', $3)
-      `, [participacaoId, tentativaResultado.rows[0].id, agora]);
-    }
+      ), novas_tentativas AS (
+        INSERT INTO campanha_tentativas (
+          participacao_id, numero_tentativa, status, iniciada_em, criado_em
+        )
+        SELECT id, 1, 'pendente', $3, $3
+        FROM novas_participacoes
+        RETURNING id, participacao_id
+      )
+      INSERT INTO historico_status_mensageria (
+        participacao_id, tentativa_id, status_anterior, status_novo, origem, criado_em
+      )
+      SELECT participacao_id, id, NULL, 'pendente', 'reserva', $3
+      FROM novas_tentativas
+    `, [campanhaId, lote.id, agora, contatoIds]);
 
     await cliente.query("UPDATE campanhas SET status = 'ativa', ativada_em = COALESCE(ativada_em, $2), atualizado_em = $2 WHERE id = $1", [campanhaId, agora]);
     await cliente.query('COMMIT');

@@ -8,6 +8,23 @@ function texto(valor, nome, maximo, obrigatorio) {
   return resultado;
 }
 
+function validarImagemExemplo(arquivo) {
+  if (!arquivo || !Buffer.isBuffer(arquivo.buffer) || arquivo.buffer.length === 0) {
+    throw criarAppError('Selecione uma imagem JPG ou PNG.', 400);
+  }
+  const tipoMime = String(arquivo.mimetype || '').toLowerCase();
+  const jpeg = tipoMime === 'image/jpeg' &&
+    arquivo.buffer.length >= 3 && arquivo.buffer[0] === 0xff &&
+    arquivo.buffer[1] === 0xd8 && arquivo.buffer[2] === 0xff;
+  const png = tipoMime === 'image/png' &&
+    arquivo.buffer.length >= 8 &&
+    arquivo.buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+  if (!jpeg && !png) {
+    throw criarAppError('A imagem de exemplo deve ser um arquivo JPG ou PNG valido.', 400);
+  }
+  return { conteudo: arquivo.buffer, tipoMime };
+}
+
 function contarVariaveis(conteudo) {
   const encontradas = Array.from(conteudo.matchAll(/\{\{(\d+)\}\}/g), function(item){return Number(item[1]);});
   if (!encontradas.length) return 0;
@@ -159,6 +176,11 @@ function validarTemplateOficial(item) {
 
 async function salvarRascunho(id,dados,usuario){return campanhaModel.salvarTemplate(id,prepararRascunho(dados||{}),usuario.id);}
 
+async function prepararImagem(arquivo) {
+  const imagem = validarImagemExemplo(arquivo);
+  return metaProvider.prepararImagemExemplo(imagem.conteudo, imagem.tipoMime);
+}
+
 async function submeter(idRecebido,usuario){
   const id=Number(idRecebido); if(!Number.isInteger(id)||id<1)throw criarAppError('Template invalido.',400);
   try{return await campanhaModel.submeterTemplateAtomico(id,usuario.id,async function(template){
@@ -216,4 +238,4 @@ async function configurarEnvio(idRecebido,dados,usuario){
   return campanhaModel.configurarEnvioTemplate(id,configuracao,usuario.id);
 }
 
-module.exports={configurarEnvio,prepararRascunho,processarAtualizacaoDoWebhook,salvarRascunho,submeter,sincronizar,sincronizarAutomaticamente,validarConfiguracaoEnvio,validarTemplateOficial};
+module.exports={configurarEnvio,prepararImagem,prepararRascunho,processarAtualizacaoDoWebhook,salvarRascunho,submeter,sincronizar,sincronizarAutomaticamente,validarConfiguracaoEnvio,validarTemplateOficial};

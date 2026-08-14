@@ -51,6 +51,7 @@ BACKUP_BANCO_TAMANHO_MAXIMO_BYTES=2147483648
 RELATORIO_LIMITE_REGISTROS=50000
 WHATSAPP_WEBHOOK_VERIFY_TOKEN=
 META_APP_SECRET=
+META_APP_ID=
 WHATSAPP_ACCESS_TOKEN=
 WHATSAPP_PHONE_NUMBER_ID=
 WHATSAPP_BUSINESS_ACCOUNT_ID=
@@ -238,6 +239,7 @@ Administrativas com JWT:
 | GET | `/api/admin/campanhas/:id/falhas` | operador/admin; falhas atuais aptas a reprocessamento |
 | GET/POST/PUT | `/api/admin/campanhas/templates` | leitura operador/admin; escrita admin |
 | POST | `/api/admin/campanhas/templates/sincronizar-meta` | importa e atualiza templates oficiais; admin |
+| POST | `/api/admin/campanhas/templates/imagem-exemplo` | prepara JPG/PNG de exemplo pela API oficial da Meta; admin |
 | POST | `/api/admin/campanhas/templates/:id/submeter-meta` | envia rascunho para análise da Meta; admin |
 | PUT | `/api/admin/campanhas/templates/:id/configuracao-envio` | configura parâmetros de envio sem editar a estrutura oficial; admin |
 | GET | `/api/admin/campanhas/configuracao/limite` | operador/admin |
@@ -323,7 +325,7 @@ das implementações de campanhas e Meta ficam nos relatórios `RELATORIO_*.md`.
 Execute novamente os comandos acima antes de cada publicação relevante; não
 trate uma contagem histórica como validação do código atual.
 
-O teste de schema cria um banco temporário vazio, aplica `database/criar_banco.sql`, valida 31 tabelas, quatorze migrations registradas e 166 bairros e remove o banco temporário ao final.
+O teste de schema cria um banco temporário vazio, aplica `database/criar_banco.sql`, valida 31 tabelas, quinze migrations registradas e 166 bairros e remove o banco temporário ao final.
 
 O teste de carga de importação gera 15.000 contatos temporários, percorre pré-visualização, confirmação e persistência, valida a rejeição de 20.001 linhas, remove todos os dados de teste e ressincroniza as sequências utilizadas. Ele recusa execução quando `NODE_ENV=production`.
 

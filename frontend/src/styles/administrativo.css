@@ -3144,6 +3144,17 @@
   font-weight: 720;
 }
 
+.grade-criacao-campanha label > small {
+  color: var(--admin-texto-suave);
+  font-size: 0.68rem;
+  font-weight: 520;
+  line-height: 1.45;
+}
+
+.campo-arquivo-template {
+  padding: 0.55rem;
+}
+
 .opcao-cadastro-incompleto {
   display: flex !important;
   align-items: center;

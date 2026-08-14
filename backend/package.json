@@ -23,6 +23,7 @@
     "testar:webhook": "node scripts/testarWebhookMensageria.js",
     "testar:meta": "node scripts/testarIntegracaoMeta.js",
     "testar:templates-meta": "node scripts/testarTemplatesMeta.js",
+    "testar:fluxo-campanhas-meta": "node scripts/testarFluxoCampanhasMetaIsolado.js",
     "testar:limite-meta": "node scripts/testarSincronizacaoLimiteMeta.js",
     "testar:importacoes": "node scripts/testarImportacoes.js",
     "testar:importacao-carga": "node scripts/testarImportacaoCarga.js",

@@ -4,7 +4,7 @@ import CabecalhoAdministrativo from '../components/CabecalhoAdministrativo';
 import MensagemRetorno from '../components/MensagemRetorno';
 import Carregando from '../components/Carregando';
 import { obterUsuario, removerToken } from '../utils/armazenamentoToken';
-import { buscarOpcoesFormulario } from '../services/contatoService';
+import { buscarOpcoesFormulario, listarOrigens } from '../services/contatoService';
 import { listarEventos } from '../services/eventoService';
 import {
   alterarStatusCampanha,
@@ -21,6 +21,7 @@ import {
   listarLotesCampanha,
   listarTemplates,
   obterCapacidade,
+  prepararImagemTemplate,
   reprocessarTentativa,
   sincronizarLimiteMeta,
   sincronizarTemplatesMeta,
@@ -29,8 +30,8 @@ import {
   visualizarPublicoCampanha
 } from '../services/campanhaService';
 
-const CAMPANHA_INICIAL={nome:'',modeloId:'',bairro:'',problema:'',eventoId:'',autorizacaoMensagens:'',cadastroIncompleto:false};
-const TEMPLATE_INICIAL={nome:'',categoria:'Geral',conteudo:'',ativo:true,metaNome:'',metaIdioma:'pt_BR',metaCategoria:'MARKETING',cabecalhoTipo:'nenhum',cabecalhoTexto:'',cabecalhoExemplo:'',imagemHandle:'',imagemEnvio:'',rodape:'',botaoTipo:'nenhum',botaoTexto:'',botaoUrl:'',botaoExemplo:'',botaoValorEnvio:'',botaoTelefone:'',botaoOptOut:false,parametrosCorpo:[]};
+const CAMPANHA_INICIAL={nome:'',modeloId:'',bairro:'',problema:'',origem:'',idadeMinima:'',idadeMaxima:'',eventoId:'',autorizacaoMensagens:'',cadastroIncompleto:false};
+const TEMPLATE_INICIAL={nome:'',categoria:'Geral',conteudo:'',ativo:true,metaNome:'',metaIdioma:'pt_BR',metaCategoria:'MARKETING',cabecalhoTipo:'nenhum',cabecalhoTexto:'',cabecalhoExemplo:'',imagemHandle:'',imagemArquivo:null,imagemEnvio:'',rodape:'',botaoTipo:'nenhum',botaoTexto:'',botaoUrl:'',botaoExemplo:'',botaoValorEnvio:'',botaoTelefone:'',botaoOptOut:false,parametrosCorpo:[]};
 
 function quantidadeParametros(texto){const numeros=Array.from(String(texto||'').matchAll(/\{\{(\d+)\}\}/g),function(item){return Number(item[1]);});return numeros.length?Math.max.apply(null,numeros):0;}
 
@@ -78,6 +79,7 @@ function CampanhasAdministrativas(){
   const [capacidade,setCapacidade]=useState(null);
   const [bairros,setBairros]=useState([]);
   const [problemas,setProblemas]=useState([]);
+  const [origens,setOrigens]=useState([]);
   const [eventos,setEventos]=useState([]);
   const [formulario,setFormulario]=useState(CAMPANHA_INICIAL);
   const [previaCriacao,setPreviaCriacao]=useState(null);
@@ -94,13 +96,15 @@ function CampanhasAdministrativas(){
   const [contatosLote,setContatosLote]=useState([]);
   const [carregandoLote,setCarregandoLote]=useState(false);
   const [criandoLote,setCriandoLote]=useState(false);
+  const [salvandoCampanha,setSalvandoCampanha]=useState(false);
+  const [salvandoTemplate,setSalvandoTemplate]=useState(false);
   const [mensagem,setMensagem]=useState('');
   const [carregando,setCarregando]=useState(true);
 
   async function carregar(){
     setCarregando(true);
     try{
-      const resultados=await Promise.allSettled([listarCampanhas(),listarTemplates(),obterCapacidade(),buscarOpcoesFormulario(),listarEventos()]);
+      const resultados=await Promise.allSettled([listarCampanhas(),listarTemplates(),obterCapacidade(),buscarOpcoesFormulario(),listarEventos(),listarOrigens()]);
       const falhaAutenticacao=resultados.find(function(resultado){return resultado.status==='rejected'&&resultado.reason.statusHttp===401;});
       if(falhaAutenticacao){removerToken();navegacao('/login',{replace:true});return [];}
 
@@ -116,6 +120,7 @@ function CampanhasAdministrativas(){
         setProblemas(resultados[3].value.categoriasProblema||[]);
       }
       if(resultados[4].status==='fulfilled')setEventos(resultados[4].value.eventos||[]);
+      if(resultados[5].status==='fulfilled')setOrigens(resultados[5].value.origens||[]);
 
       const falhaCampanhas=resultados[0].status==='rejected';
       const falhaTemplates=resultados[1].status==='rejected';
@@ -148,6 +153,9 @@ function CampanhasAdministrativas(){
     const filtros={};
     if(formulario.bairro)filtros.bairro=formulario.bairro;
     if(formulario.problema)filtros.problema=formulario.problema;
+    if(formulario.origem)filtros.origem=formulario.origem;
+    if(formulario.idadeMinima)filtros.idadeMinima=formulario.idadeMinima;
+    if(formulario.idadeMaxima)filtros.idadeMaxima=formulario.idadeMaxima;
     if(formulario.eventoId)filtros.eventoId=formulario.eventoId;
     if(formulario.autorizacaoMensagens)filtros.autorizacaoMensagens=formulario.autorizacaoMensagens;
     if(formulario.cadastroIncompleto)filtros.cadastroIncompleto='true';
@@ -159,7 +167,7 @@ function CampanhasAdministrativas(){
     setPreviaCriacao(null);
   }
   function limparFiltrosCriacao(){
-    setFormulario(Object.assign({},formulario,{bairro:'',problema:'',eventoId:'',autorizacaoMensagens:'',cadastroIncompleto:false}));
+    setFormulario(Object.assign({},formulario,{bairro:'',problema:'',origem:'',idadeMinima:'',idadeMaxima:'',eventoId:'',autorizacaoMensagens:'',cadastroIncompleto:false}));
     setPreviaCriacao(null);
     setMensagem('Filtros removidos. A próxima prévia considerará todos os contatos aptos.');
   }
@@ -174,7 +182,9 @@ function CampanhasAdministrativas(){
 
   async function salvarCampanha(evento){
     evento.preventDefault();
+    if(salvandoCampanha)return;
     if(!previaCriacao){setMensagem('Veja a prévia do público antes de criar a campanha.');return;}
+    setSalvandoCampanha(true);
     try{
       const resposta=await criarCampanha({
         nome:formulario.nome,
@@ -188,20 +198,31 @@ function CampanhasAdministrativas(){
       setPreviaCriacao(null);
       setMostrarCriacao(false);
       await abrirCampanha(resposta.campanha,250);
-    }catch(erro){setMensagem(erro.message);}
+    }catch(erro){setMensagem(erro.message);}finally{setSalvandoCampanha(false);}
   }
 
   async function salvarTemplate(evento){
     evento.preventDefault();
+    if(salvandoTemplate)return;
+    setSalvandoTemplate(true);
     try{
       const componentes=[];
       const configuracaoEnvio={corpo:[],botoes:[]};
+      let imagemHandle=template.imagemHandle;
+      if(template.cabecalhoTipo==='imagem'&&!templateOficialEdicao&&template.imagemArquivo){
+        setMensagem('Preparando a imagem de exemplo na Meta...');
+        const respostaImagem=await prepararImagemTemplate(template.imagemArquivo);
+        imagemHandle=respostaImagem.imagem.handle;
+      }
       if(template.cabecalhoTipo==='texto'){
         componentes.push({type:'HEADER',format:'TEXT',text:template.cabecalhoTexto,exemplos:template.cabecalhoExemplo?[template.cabecalhoExemplo]:[]});
         if(quantidadeParametros(template.cabecalhoTexto))configuracaoEnvio.cabecalho={tipo:'texto',parametros:[{origem:'nome_contato'}]};
       }
       if(template.cabecalhoTipo==='imagem'){
-        componentes.push({type:'HEADER',format:'IMAGE',handleExemplo:template.imagemHandle});
+        if(!templateOficialEdicao){
+          if(!imagemHandle)throw new Error('Selecione a imagem de exemplo usada na analise da Meta.');
+          componentes.push({type:'HEADER',format:'IMAGE',handleExemplo:imagemHandle});
+        }
         configuracaoEnvio.cabecalho={tipo:'imagem',origem:'link',valor:template.imagemEnvio};
       }
       componentes.push({type:'BODY',text:template.conteudo,exemplos:template.parametrosCorpo.map(function(item){return item.exemplo;})});
@@ -221,7 +242,7 @@ function CampanhasAdministrativas(){
       setTemplateEdicao(null);
       setTemplateOficialEdicao(false);
       await carregar();
-    }catch(erro){setMensagem(erro.message);}
+    }catch(erro){setMensagem(erro.message);}finally{setSalvandoTemplate(false);}
   }
   function editarTemplate(item){
     const componentes=item.meta_componentes||[];
@@ -238,7 +259,7 @@ function CampanhasAdministrativas(){
     const primeiroBotao=botoes&&botoes.buttons&&botoes.buttons[0];
     const configuracaoBotao=(envio.botoes||[]).find(function(botao){return botao.indice===0;})||{};
     const botaoTipo=!primeiroBotao?'nenhum':(primeiroBotao.type==='QUICK_REPLY'?'quick':(primeiroBotao.type==='URL'?'url':'telefone'));
-    setTemplate({nome:item.nome,categoria:item.categoria,conteudo:item.texto,ativo:item.ativo,metaNome:item.meta_nome||'',metaIdioma:item.meta_idioma||'pt_BR',metaCategoria:item.meta_categoria||'MARKETING',cabecalhoTipo:cabecalho?(cabecalho.format==='IMAGE'?'imagem':'texto'):'nenhum',cabecalhoTexto:cabecalho&&cabecalho.text||'',cabecalhoExemplo:cabecalho&&cabecalho.example&&cabecalho.example.header_text&&cabecalho.example.header_text[0]||'',imagemHandle:cabecalho&&cabecalho.example&&cabecalho.example.header_handle&&cabecalho.example.header_handle[0]||'',imagemEnvio:envio.cabecalho&&envio.cabecalho.valor||'',rodape:rodape&&rodape.text||'',botaoTipo,botaoTexto:primeiroBotao&&primeiroBotao.text||'',botaoUrl:primeiroBotao&&primeiroBotao.url||'',botaoExemplo:primeiroBotao&&primeiroBotao.example&&primeiroBotao.example[0]||'',botaoValorEnvio:configuracaoBotao.valor||'',botaoTelefone:primeiroBotao&&primeiroBotao.phone_number||'',botaoOptOut:configuracaoBotao.origem==='opt_out',parametrosCorpo:parametros});
+    setTemplate({nome:item.nome,categoria:item.categoria,conteudo:item.texto,ativo:item.ativo,metaNome:item.meta_nome||'',metaIdioma:item.meta_idioma||'pt_BR',metaCategoria:item.meta_categoria||'MARKETING',cabecalhoTipo:cabecalho?(cabecalho.format==='IMAGE'?'imagem':'texto'):'nenhum',cabecalhoTexto:cabecalho&&cabecalho.text||'',cabecalhoExemplo:cabecalho&&cabecalho.example&&cabecalho.example.header_text&&cabecalho.example.header_text[0]||'',imagemHandle:cabecalho&&cabecalho.example&&cabecalho.example.header_handle&&cabecalho.example.header_handle[0]||'',imagemArquivo:null,imagemEnvio:envio.cabecalho&&envio.cabecalho.valor||'',rodape:rodape&&rodape.text||'',botaoTipo,botaoTexto:primeiroBotao&&primeiroBotao.text||'',botaoUrl:primeiroBotao&&primeiroBotao.url||'',botaoExemplo:primeiroBotao&&primeiroBotao.example&&primeiroBotao.example[0]||'',botaoValorEnvio:configuracaoBotao.valor||'',botaoTelefone:primeiroBotao&&primeiroBotao.phone_number||'',botaoOptOut:configuracaoBotao.origem==='opt_out',parametrosCorpo:parametros});
   }
   function alterarTextoTemplate(evento){const conteudo=evento.target.value;const quantidade=quantidadeParametros(conteudo);const parametros=Array.from({length:quantidade},function(_,indice){return template.parametrosCorpo[indice]||{origem:indice===0?'nome_contato':'fixo',valor:'',exemplo:''};});setTemplate(Object.assign({},template,{conteudo,parametrosCorpo:parametros}));}
   function alterarParametroCorpo(indice,campo,valor){setTemplate(Object.assign({},template,{parametrosCorpo:template.parametrosCorpo.map(function(item,posicao){return posicao===indice?Object.assign({},item,{[campo]:valor}):item;})}));}
@@ -387,12 +408,15 @@ function CampanhasAdministrativas(){
           <label>Mensagem que será usada<select className="campo-input" name="modeloId" value={formulario.modeloId} onChange={alterar} required><option value="">Selecione uma mensagem</option>{templates.filter(function(item){return item.ativo;}).map(function(item){return <option key={item.id} value={item.id}>{item.nome}</option>;})}</select></label>
           <label>Bairro<select className="campo-input" name="bairro" value={formulario.bairro} onChange={alterar}><option value="">Todos</option><option value="nao_informado">Não informado</option>{bairros.map(function(item){return <option key={item} value={item}>{item}</option>;})}</select></label>
           <label>Problema<select className="campo-input" name="problema" value={formulario.problema} onChange={alterar}><option value="">Todos</option><option value="nao_informado">Não informado</option>{problemas.map(function(item){return <option key={item} value={item}>{item}</option>;})}</select></label>
+          <label>Origem<select className="campo-input" name="origem" value={formulario.origem} onChange={alterar}><option value="">Todas</option><option value="nao_informado">Não informado</option>{origens.map(function(item){return <option key={item.id} value={item.nome}>{item.nome}</option>;})}</select></label>
+          <label>Idade mínima<input className="campo-input" type="number" min="16" max="120" name="idadeMinima" value={formulario.idadeMinima} onChange={alterar}/></label>
+          <label>Idade máxima<input className="campo-input" type="number" min="16" max="120" name="idadeMaxima" value={formulario.idadeMaxima} onChange={alterar}/></label>
           <label>Evento<select className="campo-input" name="eventoId" value={formulario.eventoId} onChange={alterar}><option value="">Todos</option><option value="sem_evento">Sem evento</option>{eventos.map(function(item){return <option key={item.id} value={item.id}>{item.nome}</option>;})}</select></label>
           <label>Autorização para mensagens<select className="campo-input" name="autorizacaoMensagens" value={formulario.autorizacaoMensagens} onChange={alterar}><option value="">Todas as situações</option><option value="nao_informado">Não informado</option><option value="autorizado">Autorizado</option><option value="recusado">Recusado</option><option value="revogado">Revogado</option></select></label>
           <label className="opcao-cadastro-incompleto"><input type="checkbox" name="cadastroIncompleto" checked={formulario.cadastroIncompleto} onChange={alterar}/> Somente cadastros incompletos</label>
         </fieldset>
         <p className="aviso-combinacao-filtros">Os filtros funcionam juntos: o contato precisa corresponder a todas as opções selecionadas. A prévia não envia mensagens.</p>
-        <div className="acoes-fluxo-campanha"><button className="botao botao-secundario" type="button" onClick={limparFiltrosCriacao}>Limpar filtros</button><button className="botao botao-secundario" type="button" onClick={verPreviaCriacao}>Ver prévia do público</button>{previaCriacao&&<button className="botao botao-primario" type="submit">Criar campanha</button>}</div>
+        <div className="acoes-fluxo-campanha"><button className="botao botao-secundario" type="button" onClick={limparFiltrosCriacao} disabled={salvandoCampanha}>Limpar filtros</button><button className="botao botao-secundario" type="button" onClick={verPreviaCriacao} disabled={salvandoCampanha}>Ver prévia do público</button>{previaCriacao&&<button className="botao botao-primario" type="submit" disabled={salvandoCampanha}>{salvandoCampanha?'Criando campanha...':'Criar campanha'}</button>}</div>
       </form>
       {previaCriacao&&<div className="bloco-previa-campanha"><div className="metricas-previa-campanha"><article><span>Encontrados</span><strong>{formatarQuantidade(previaCriacao.publicoEncontrado)}</strong><small>Correspondem aos filtros escolhidos.</small></article><article><span>Aptos para a campanha</span><strong>{formatarQuantidade(previaCriacao.publicoApto)}</strong><small>Podem participar desta campanha.</small></article><article><span>Não aptos</span><strong>{formatarQuantidade(previaCriacao.publicoNaoApto)}</strong><small>Foram encontrados, mas estão impedidos.</small></article></div>{Number(previaCriacao.publicoEncontrado)>0&&Number(previaCriacao.publicoApto)===0&&<p className="aviso-estado-campanha">Os filtros encontraram contatos, mas nenhum pode participar desta campanha. Revise os filtros ou as condições desses cadastros.</p>}{previaUltrapassaCapacidade&&<p className="aviso-capacidade-publico"><strong>{formatarQuantidade(aptosPrevia)} contatos estão aptos, mas a capacidade restante permite até {formatarQuantidade(capacidadeDisponivel)} neste momento.</strong><span>A campanha pode ser criada normalmente. Depois, escolha um lote dentro da capacidade disponível.</span></p>}<div className="cabecalho-lista-previa"><div><h3>Contatos da prévia</h3><p>Os telefones estão protegidos e mostram somente os últimos dígitos.</p></div><span>{formatarQuantidade(previaCriacao.contatos.length)} exibidos</span></div><ListaContatosCampanha contatos={previaCriacao.contatos} vazia={Number(previaCriacao.publicoEncontrado)===0?'Nenhum contato corresponde aos filtros escolhidos. Revise os filtros e gere uma nova prévia.':'Nenhum contato pode participar desta campanha com os filtros atuais.'}/><p className="aviso-lista-limitada">{textoPreviaPublico(previaCriacao)}</p><p className="ajuda-criar-campanha">Criar a campanha salva o público e as configurações. Nenhuma mensagem será enviada até que um lote seja criado e o envio seja iniciado.</p></div>}
     </section>}
@@ -434,7 +458,7 @@ function CampanhasAdministrativas(){
         <label>Categoria oficial<select className="campo-input" value={template.metaCategoria} disabled={templateOficialEdicao} onChange={function(evento){setTemplate(Object.assign({},template,{metaCategoria:evento.target.value}));}}><option value="MARKETING">Marketing</option><option value="UTILITY">Utilidade</option></select></label>
         <label>Cabeçalho<select className="campo-input" value={template.cabecalhoTipo} disabled={templateOficialEdicao} onChange={function(evento){setTemplate(Object.assign({},template,{cabecalhoTipo:evento.target.value}));}}><option value="nenhum">Sem cabeçalho</option><option value="texto">Texto</option><option value="imagem">Imagem</option></select></label>
         {template.cabecalhoTipo==='texto'&&<><label>Texto do cabeçalho<input className="campo-input" value={template.cabecalhoTexto} onChange={function(evento){setTemplate(Object.assign({},template,{cabecalhoTexto:evento.target.value}));}} placeholder="Opcionalmente use {{1}} para o nome" required/></label>{quantidadeParametros(template.cabecalhoTexto)>0&&<label>Exemplo do nome no cabeçalho<input className="campo-input" value={template.cabecalhoExemplo} onChange={function(evento){setTemplate(Object.assign({},template,{cabecalhoExemplo:evento.target.value}));}} required/></label>}</>}
-        {template.cabecalhoTipo==='imagem'&&<><label>Identificador da imagem de exemplo<input className="campo-input" value={template.imagemHandle} onChange={function(evento){setTemplate(Object.assign({},template,{imagemHandle:evento.target.value}));}} required/></label><label>URL HTTPS da imagem para envio<input className="campo-input" type="url" value={template.imagemEnvio} onChange={function(evento){setTemplate(Object.assign({},template,{imagemEnvio:evento.target.value}));}} required/></label></>}
+        {template.cabecalhoTipo==='imagem'&&<><label>Imagem de exemplo para análise<input className="campo-input campo-arquivo-template" type="file" accept="image/jpeg,image/png" disabled={templateOficialEdicao} required={!templateOficialEdicao&&!template.imagemHandle} onChange={function(evento){setTemplate(Object.assign({},template,{imagemArquivo:evento.target.files&&evento.target.files[0]||null}));}}/><small>{templateOficialEdicao?'A imagem de exemplo já pertence ao template oficial.':template.imagemArquivo?'Imagem selecionada e pronta para preparar ao salvar.':template.imagemHandle?'Imagem de exemplo já preparada. Selecione outra somente para substituir.':'Selecione um JPG ou PNG de até 5 MB.'}</small></label><label>URL HTTPS da imagem usada nos envios<input className="campo-input" type="url" value={template.imagemEnvio} onChange={function(evento){setTemplate(Object.assign({},template,{imagemEnvio:evento.target.value}));}} required/><small>Esta imagem pode ser diferente do exemplo enviado para aprovação e precisa permanecer publicamente acessível.</small></label></>}
         <label className="campo-template-conteudo">Texto principal<textarea className="campo-input" value={template.conteudo} disabled={templateOficialEdicao} onChange={alterarTextoTemplate} placeholder="Use {{1}}, {{2}}... para valores personalizados." required/></label>
         {template.parametrosCorpo.map(function(parametro,indice){return <div className="configuracao-parametro-template" key={'parametro-'+indice}><strong>Parâmetro {'{{'+(indice+1)+'}}'}</strong><label>Exemplo para análise<input className="campo-input" value={parametro.exemplo} onChange={function(evento){alterarParametroCorpo(indice,'exemplo',evento.target.value);}} required={!templateOficialEdicao}/></label><label>Valor no envio<select className="campo-input" value={parametro.origem} onChange={function(evento){alterarParametroCorpo(indice,'origem',evento.target.value);}}><option value="nome_contato">Nome do contato</option><option value="fixo">Texto fixo</option></select></label>{parametro.origem==='fixo'&&<label>Texto fixo<input className="campo-input" value={parametro.valor} onChange={function(evento){alterarParametroCorpo(indice,'valor',evento.target.value);}} required/></label>}</div>;})}
         <label className="campo-template-conteudo">Rodapé opcional<input className="campo-input" value={template.rodape} disabled={templateOficialEdicao} onChange={function(evento){setTemplate(Object.assign({},template,{rodape:evento.target.value}));}}/></label>
@@ -444,7 +468,7 @@ function CampanhasAdministrativas(){
         {template.botaoTipo==='telefone'&&<label>Telefone do botão<input className="campo-input" value={template.botaoTelefone} disabled={templateOficialEdicao} onChange={function(evento){setTemplate(Object.assign({},template,{botaoTelefone:evento.target.value}));}} required/></label>}
         {template.botaoTipo==='quick'&&<label className="opcao-cadastro-incompleto"><input type="checkbox" checked={template.botaoOptOut} onChange={function(evento){setTemplate(Object.assign({},template,{botaoOptOut:evento.target.checked}));}}/> Este botão é o descadastro “Não quero mais receber”</label>}
         <label className="opcao-cadastro-incompleto"><input type="checkbox" checked={template.ativo} onChange={function(evento){setTemplate(Object.assign({},template,{ativo:evento.target.checked}));}}/> Template ativo</label>
-      </fieldset><p className="aviso-estado-campanha">{templateOficialEdicao?'A estrutura oficial não é alterada aqui. Salve apenas os valores usados no envio.':'Salvar cria somente um rascunho interno. Enviar para análise não envia mensagens aos contatos.'}</p><div className="acoes-fluxo-campanha"><button className="botao botao-primario" type="submit">{templateOficialEdicao?'Salvar configuração de envio':'Salvar rascunho'}</button>{templateEdicao&&<button className="botao botao-secundario" type="button" onClick={function(){setTemplateEdicao(null);setTemplateOficialEdicao(false);setTemplate(TEMPLATE_INICIAL);}}>Cancelar edição</button>}</div></form>
+      </fieldset><p className="aviso-estado-campanha">{templateOficialEdicao?'A estrutura oficial não é alterada aqui. Salve apenas os valores usados no envio.':'Salvar cria somente um rascunho interno. Enviar para análise não envia mensagens aos contatos.'}</p><div className="acoes-fluxo-campanha"><button className="botao botao-primario" type="submit" disabled={salvandoTemplate}>{salvandoTemplate?'Salvando...':(templateOficialEdicao?'Salvar configuração de envio':'Salvar rascunho')}</button>{templateEdicao&&<button className="botao botao-secundario" type="button" disabled={salvandoTemplate} onClick={function(){setTemplateEdicao(null);setTemplateOficialEdicao(false);setTemplate(TEMPLATE_INICIAL);}}>Cancelar edição</button>}</div></form>
       <div className="lista-templates-campanha">{templates.map(function(item){return <article key={item.id}><div><strong>{item.nome}</strong><span>{item.meta_nome||'Sem nome oficial'} · {item.meta_idioma||'Idioma não informado'} · {item.meta_categoria||item.categoria}</span><span className={'status-campanha status-'+item.meta_status}>{textoStatus(item.meta_status||'rascunho')}</span>{item.meta_sincronizado_em&&<small>Atualizado em {new Date(item.meta_sincronizado_em).toLocaleString('pt-BR')}</small>}</div><div className="acoes-template-meta"><button className="botao botao-secundario" type="button" onClick={function(){editarTemplate(item);}}>{item.meta_template_id?'Configurar envio':'Editar rascunho'}</button>{!item.meta_template_id&&<button className="botao botao-primario" type="button" onClick={function(){submeterTemplate(item);}}>Enviar para análise da Meta</button>}</div></article>;})}</div>
     </div></details>}
 

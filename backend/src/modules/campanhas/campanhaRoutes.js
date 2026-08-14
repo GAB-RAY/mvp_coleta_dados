@@ -1,10 +1,26 @@
 const express = require('express');
+const multer = require('multer');
 const controller = require('./campanhaController');
 const autorizarAdministrador = require('../../middlewares/autorizarAdministrador');
+const criarAppError = require('../../utils/AppError');
 const roteador = express.Router();
+const uploadImagem = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024, files: 1 }
+});
+
+function receberImagem(requisicao, resposta, proximo) {
+  uploadImagem.single('imagem')(requisicao, resposta, function (erro) {
+    if (erro) {
+      return proximo(criarAppError('A imagem deve ser JPG ou PNG e ter no maximo 5 MB.', 400));
+    }
+    return proximo();
+  });
+}
 
 roteador.get('/templates', controller.listarTemplates);
 roteador.post('/templates/sincronizar-meta', autorizarAdministrador, controller.sincronizarTemplatesMeta);
+roteador.post('/templates/imagem-exemplo', autorizarAdministrador, receberImagem, controller.prepararImagemTemplate);
 roteador.post('/templates', autorizarAdministrador, controller.criarTemplate);
 roteador.post('/templates/:id/submeter-meta', autorizarAdministrador, controller.submeterTemplate);
 roteador.put('/templates/:id/configuracao-envio', autorizarAdministrador, controller.configurarEnvioTemplate);

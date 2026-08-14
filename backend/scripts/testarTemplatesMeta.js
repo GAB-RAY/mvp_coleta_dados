@@ -3,6 +3,7 @@ require('dotenv').config({ quiet: true });
 process.env.WHATSAPP_ACCESS_TOKEN='token-falso-template';
 process.env.WHATSAPP_PHONE_NUMBER_ID='123456789';
 process.env.WHATSAPP_BUSINESS_ACCOUNT_ID='987654321';
+process.env.META_APP_ID='1122334455';
 process.env.META_GRAPH_API_VERSION='v99.0';
 process.env.META_REQUISICAO_TIMEOUT_MS='30';
 process.env.WHATSAPP_OPTOUT_BUTTON_ID='nao_quero_mais_receber';
@@ -13,7 +14,8 @@ const sincronizacaoAutomaticaTemplates=require('../src/modules/campanhas/sincron
 const templateService=require('../src/modules/campanhas/templateMetaService');
 const provider=require('../src/modules/mensageria/metaCloudApiProvider');
 
-function confirmar(condicao,mensagem){if(!condicao)throw new Error(mensagem);}
+let verificacoes=0;
+function confirmar(condicao,mensagem){if(!condicao)throw new Error(mensagem);verificacoes+=1;}
 async function rejeitar(promessa,trecho){try{await promessa;}catch(erro){confirmar(erro.message.toLowerCase().includes(trecho.toLowerCase()),'Erro inesperado: '+erro.message);return;}throw new Error('A operacao deveria falhar.');}
 
 function dadosRascunho(sufixo){return {
@@ -39,6 +41,21 @@ async function executar(){
   try{
     const preparado=templateService.prepararRascunho(dadosRascunho('valido'));
     confirmar(preparado.componentes.length===4&&preparado.configuracaoEnvio.botoes[0].origem==='opt_out','Template com imagem, parametro e quick reply nao foi normalizado.');
+    const imagemPng=Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),Buffer.from('imagem-falsa-qa')]);
+    let etapaUpload=0;
+    provider.definirFetchParaTeste(async function(url,opcoes){
+      etapaUpload+=1;
+      confirmar(opcoes.headers.Authorization==='Bearer token-falso-template','Token do upload nao ficou restrito ao backend.');
+      if(etapaUpload===1){
+        confirmar(url.includes('/v99.0/1122334455/uploads?')&&url.includes('file_type=image%2Fpng'),'Sessao oficial de upload foi montada incorretamente.');
+        return {ok:true,status:200,json:async function(){return {id:'upload:sessao-falsa'};}};
+      }
+      confirmar(url.endsWith('/v99.0/upload:sessao-falsa')&&opcoes.headers.file_offset==='0'&&Buffer.isBuffer(opcoes.body),'Conteudo binario nao foi enviado para a sessao oficial.');
+      return {ok:true,status:200,json:async function(){return {h:'4::handle-oficial-falso'};}};
+    });
+    const imagemPreparada=await templateService.prepararImagem({buffer:imagemPng,mimetype:'image/png'});
+    confirmar(etapaUpload===2&&imagemPreparada.handle==='4::handle-oficial-falso','Upload oficial da imagem de exemplo nao retornou o handle esperado.');
+    await rejeitar(templateService.prepararImagem({buffer:Buffer.from('nao-e-imagem'),mimetype:'image/png'}),'jpg ou png valido');
     await rejeitar(Promise.resolve().then(function(){return templateService.prepararRascunho(Object.assign({},dadosRascunho('invalido'),{componentes:[{type:'BODY',text:'Oi {{2}}',exemplos:['X']}]}));}),'sequenciais');
     await rejeitar(Promise.resolve().then(function(){const dados=dadosRascunho('botao_sem_configuracao');dados.configuracaoEnvio.botoes=[];return templateService.prepararRascunho(dados);}), 'configure todos os botoes');
 
@@ -117,7 +134,7 @@ async function executar(){
 
     provider.definirFetchParaTeste(function(url,opcoes){return new Promise(function(resolve,reject){opcoes.signal.addEventListener('abort',function(){const erro=new Error('abort');erro.name='AbortError';reject(erro);});});});
     await rejeitar(provider.listarTemplatesOficiais(),'tempo esperado');
-    console.log('Templates oficiais da Meta: 33 verificacoes aprovadas.');
+    console.log('Templates oficiais da Meta: '+verificacoes+' verificacoes aprovadas.');
   }finally{
     provider.definirFetchParaTeste();
     if(ids.length){await banco.query('DELETE FROM historico_modelos_mensagem_meta WHERE modelo_id=ANY($1::bigint[])',[ids]);await banco.query('DELETE FROM modelos_mensagem WHERE id=ANY($1::bigint[])',[ids]);}
