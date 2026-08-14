@@ -123,7 +123,9 @@ async function iniciarEnvio(tentativaId, agora) {
       SELECT tentativa.id, tentativa.status, tentativa.participacao_id,
         participacao.campanha_id, participacao.contato_id, participacao.lote_original_id,
         participacao.reservado_em, campanha.status AS campanha_status,
-        contato.nome AS contato_nome, contato.telefone_normalizado, contato.bloqueado_para_mensagens,
+        contato.nome AS contato_nome, contato.bairro AS contato_bairro,
+        contato.problema AS contato_problema, contato.telefone_normalizado,
+        contato.bloqueado_para_mensagens,
         EXISTS (
           SELECT 1
           FROM consentimentos AS consentimento_mensagens

@@ -152,6 +152,8 @@ async function enviar(tentativaIdRecebido) {
     const resultado = await metaProvider.enviarTemplate({
       telefone: tentativa.telefone_normalizado,
       nomeContato: tentativa.contato_nome,
+      bairroContato: tentativa.contato_bairro,
+      problemaContato: tentativa.contato_problema,
       templateNome: tentativa.meta_nome,
       templateIdioma: tentativa.meta_idioma,
       templateComponentes: tentativa.meta_componentes,

@@ -56,6 +56,17 @@ async function executar(){
     const imagemPreparada=await templateService.prepararImagem({buffer:imagemPng,mimetype:'image/png'});
     confirmar(etapaUpload===2&&imagemPreparada.handle==='4::handle-oficial-falso','Upload oficial da imagem de exemplo nao retornou o handle esperado.');
     await rejeitar(templateService.prepararImagem({buffer:Buffer.from('nao-e-imagem'),mimetype:'image/png'}),'jpg ou png valido');
+    let uploadEnvio=0;
+    provider.definirFetchParaTeste(async function(url,opcoes){
+      uploadEnvio+=1;
+      confirmar(url.endsWith('/v99.0/123456789/media')&&opcoes.method==='POST','Endpoint oficial de upload da imagem de envio incorreto.');
+      confirmar(opcoes.body instanceof FormData&&opcoes.body.get('messaging_product')==='whatsapp','Formulario oficial da imagem de envio incorreto.');
+      const arquivo=opcoes.body.get('file');
+      confirmar(arquivo&&arquivo.type==='image/png','Arquivo da imagem de envio nao foi preservado.');
+      return {ok:true,status:200,json:async function(){return {id:'media-id-falso'};}};
+    });
+    const imagemEnvio=await templateService.prepararImagemEnvio({buffer:imagemPng,mimetype:'image/png',originalname:'campanha.png'});
+    confirmar(uploadEnvio===1&&imagemEnvio.id==='media-id-falso','Media ID oficial nao permaneceu interno no backend.');
     await rejeitar(Promise.resolve().then(function(){return templateService.prepararRascunho(Object.assign({},dadosRascunho('invalido'),{componentes:[{type:'BODY',text:'Oi {{2}}',exemplos:['X']}]}));}),'sequenciais');
     await rejeitar(Promise.resolve().then(function(){const dados=dadosRascunho('botao_sem_configuracao');dados.configuracaoEnvio.botoes=[];return templateService.prepararRascunho(dados);}), 'configure todos os botoes');
 
@@ -118,6 +129,17 @@ async function executar(){
     confirmar(payload.template.components[0].parameters[0].image.link==='https://example.com/imagem.jpg','HEADER IMAGE nao entrou no envio.');
     confirmar(payload.template.components[1].parameters[0].text==='Maria','Parametro do BODY nao foi resolvido.');
     confirmar(payload.template.components[2].parameters[0].payload==='nao_quero_mais_receber','Payload de opt-out foi alterado.');
+    const duasVariaveis=templateService.prepararRascunho({nome:'Duas variaveis',categoria:'QA',metaNome:'duas_variaveis_qa',metaIdioma:'pt_BR',metaCategoria:'MARKETING',ativo:true,
+      componentes:[{type:'BODY',text:'Ola {{1}}, o bairro {{2}} precisa de atencao.',exemplos:['Maria','Centro']}],
+      configuracaoEnvio:{corpo:[{origem:'nome_contato'},{origem:'bairro'}],botoes:[]}});
+    const payloadDuas=provider.montarPayload({telefone:'5521999999999',nomeContato:'Maria',bairroContato:'Centro',templateNome:'duas_variaveis_qa',templateIdioma:'pt_BR',templateComponentes:duasVariaveis.componentes,templateConfiguracaoEnvio:duasVariaveis.configuracaoEnvio});
+    confirmar(payloadDuas.template.components[0].parameters[0].text==='Maria'&&payloadDuas.template.components[0].parameters[1].text==='Centro','Mapeamento visivel de {{1}} e {{2}} nao chegou ao payload.');
+    await rejeitar(Promise.resolve().then(function(){return provider.montarPayload({telefone:'5521999999999',nomeContato:'Maria',bairroContato:null,templateNome:'duas_variaveis_qa',templateIdioma:'pt_BR',templateComponentes:duasVariaveis.componentes,templateConfiguracaoEnvio:duasVariaveis.configuracaoEnvio});}),'nao possui a informacao necessaria para preencher {{2}}');
+    const semVariaveis=templateService.prepararRascunho({nome:'Sem variaveis',categoria:'QA',metaNome:'sem_variaveis_qa',metaIdioma:'pt_BR',metaCategoria:'UTILITY',ativo:true,componentes:[{type:'BODY',text:'Mensagem sem valores personalizados.'}],configuracaoEnvio:{corpo:[],botoes:[]}});
+    confirmar(semVariaveis.configuracaoEnvio.corpo.length===0,'Template sem variaveis recebeu configuracao indevida.');
+    const configuracaoImagemId=templateService.validarConfiguracaoEnvio(preparado.componentes,{cabecalho:{tipo:'imagem',origem:'id',valor:'media-id-falso'},corpo:[{origem:'nome_contato'}],botoes:[{indice:0,subtipo:'quick_reply',origem:'opt_out'}]});
+    const payloadImagemId=provider.montarPayload({telefone:'5521999999999',nomeContato:'Maria',templateNome:'imagem_id_qa',templateIdioma:'pt_BR',templateComponentes:preparado.componentes,templateConfiguracaoEnvio:configuracaoImagemId});
+    confirmar(payloadImagemId.template.components[0].parameters[0].image.id==='media-id-falso','Media ID nao foi usado no HEADER IMAGE.');
 
     const cta=templateService.prepararRascunho({nome:'CTA QA',categoria:'QA',metaNome:'cta_qa',metaIdioma:'pt_BR',metaCategoria:'UTILITY',ativo:true,
       componentes:[{type:'BODY',text:'Consulte seu cadastro'},{type:'BUTTONS',buttons:[{type:'URL',text:'Consultar',url:'https://example.com/{{1}}',exemplo:'codigo-teste'}]}],

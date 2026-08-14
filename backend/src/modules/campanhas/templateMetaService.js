@@ -107,13 +107,13 @@ function validarConfiguracaoEnvio(componentes, configuracao) {
   const corpo=Array.isArray(resultado.corpo)?resultado.corpo:[];
   if(corpo.length!==quantidadeBody)throw criarAppError('Configure o valor de envio de cada parametro do texto principal.',400);
   corpo.forEach(function(item){
-    if(!item||!['nome_contato','fixo'].includes(item.origem))throw criarAppError('Origem de parametro do texto principal invalida.',400);
+    if(!item||!['nome_contato','bairro','problema','fixo'].includes(item.origem))throw criarAppError('Escolha o que deve aparecer em cada valor personalizado.',400);
     if(item.origem==='fixo')texto(item.valor,'Valor fixo do parametro',1000,true);
   });
   const header=componentes.find(function(item){return item.type==='HEADER';});
   if(header&&header.format==='TEXT'&&contarVariaveis(header.text)){
     if(!resultado.cabecalho||resultado.cabecalho.tipo!=='texto'||!Array.isArray(resultado.cabecalho.parametros)||resultado.cabecalho.parametros.length!==1)throw criarAppError('Configure o parametro do cabecalho de texto.',400);
-    if(!['nome_contato','fixo'].includes(resultado.cabecalho.parametros[0].origem))throw criarAppError('Origem do parametro do cabecalho invalida.',400);
+    if(!['nome_contato','bairro','problema','fixo'].includes(resultado.cabecalho.parametros[0].origem))throw criarAppError('Escolha o que deve aparecer no cabecalho.',400);
     if(resultado.cabecalho.parametros[0].origem==='fixo')texto(resultado.cabecalho.parametros[0].valor,'Valor fixo do cabecalho',1000,true);
   }
   if(header&&header.format==='IMAGE'){
@@ -181,6 +181,11 @@ async function prepararImagem(arquivo) {
   return metaProvider.prepararImagemExemplo(imagem.conteudo, imagem.tipoMime);
 }
 
+async function prepararImagemEnvio(arquivo) {
+  const imagem = validarImagemExemplo(arquivo);
+  return metaProvider.prepararImagemEnvio(imagem.conteudo, imagem.tipoMime, arquivo.originalname);
+}
+
 async function submeter(idRecebido,usuario){
   const id=Number(idRecebido); if(!Number.isInteger(id)||id<1)throw criarAppError('Template invalido.',400);
   try{return await campanhaModel.submeterTemplateAtomico(id,usuario.id,async function(template){
@@ -238,4 +243,4 @@ async function configurarEnvio(idRecebido,dados,usuario){
   return campanhaModel.configurarEnvioTemplate(id,configuracao,usuario.id);
 }
 
-module.exports={configurarEnvio,prepararImagem,prepararRascunho,processarAtualizacaoDoWebhook,salvarRascunho,submeter,sincronizar,sincronizarAutomaticamente,validarConfiguracaoEnvio,validarTemplateOficial};
+module.exports={configurarEnvio,prepararImagem,prepararImagemEnvio,prepararRascunho,processarAtualizacaoDoWebhook,salvarRascunho,submeter,sincronizar,sincronizarAutomaticamente,validarConfiguracaoEnvio,validarTemplateOficial};

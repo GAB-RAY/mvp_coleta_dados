@@ -210,6 +210,7 @@ async function submeterTemplate(id, usuario) { return templateMetaService.submet
 async function sincronizarTemplatesMeta(usuario) { return templateMetaService.sincronizar(usuario); }
 async function configurarEnvioTemplate(id, dados, usuario) { return templateMetaService.configurarEnvio(id, dados, usuario); }
 async function prepararImagemTemplate(arquivo) { return templateMetaService.prepararImagem(arquivo); }
+async function prepararImagemEnvioTemplate(arquivo) { return templateMetaService.prepararImagemEnvio(arquivo); }
 
 function definirRelogioParaTeste(funcao) {
   obterAgora = funcao || function () { return new Date(); };
@@ -218,6 +219,6 @@ function definirRelogioParaTeste(funcao) {
 module.exports = {
   alterarStatus, atualizar, atualizarLimite, configurarEnvioTemplate, criar, criarLote,
   definirRelogioParaTeste, listar, listarContatosLote, listarFalhas, listarLotes,
-  listarTemplates, obterLimite, prepararImagemTemplate, salvarTemplate, sincronizarLimiteMeta, visualizarPreviaFiltros,
+  listarTemplates, obterLimite, prepararImagemEnvioTemplate, prepararImagemTemplate, salvarTemplate, sincronizarLimiteMeta, visualizarPreviaFiltros,
   visualizarPublico, submeterTemplate, sincronizarTemplatesMeta
 };

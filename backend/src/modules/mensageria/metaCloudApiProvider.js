@@ -32,9 +32,21 @@ function obterConfiguracao() {
   return configuracao;
 }
 
-function resolverParametro(parametro, comando) {
-  if (parametro.origem === 'nome_contato') return comando.nomeContato;
-  return parametro.valor;
+function resolverParametro(parametro, comando, posicao) {
+  const origens = {
+    nome_contato: comando.nomeContato,
+    bairro: comando.bairroContato,
+    problema: comando.problemaContato,
+    fixo: parametro.valor
+  };
+  const valor = textoSeguro(origens[parametro.origem], 1000);
+  if (!valor) {
+    throw criarErroIntegracao(
+      'Este contato nao possui a informacao necessaria para preencher {{' + posicao + '}}.',
+      'TEMPLATE_DADO_AUSENTE', 422, false
+    );
+  }
+  return valor;
 }
 
 function contarVariaveis(conteudo) {
@@ -87,8 +99,8 @@ function montarComponentesEnvio(comando) {
     } else if (cabecalho.tipo === 'texto' && Array.isArray(cabecalho.parametros) && cabecalho.parametros.length) {
       componentes.push({
         type: 'header',
-        parameters: cabecalho.parametros.map(function (item) {
-          return { type: 'text', text: resolverParametro(item, comando) };
+        parameters: cabecalho.parametros.map(function (item, indice) {
+          return { type: 'text', text: resolverParametro(item, comando, indice + 1) };
         })
       });
     }
@@ -96,8 +108,8 @@ function montarComponentesEnvio(comando) {
   if (Array.isArray(configuracao.corpo) && configuracao.corpo.length) {
     componentes.push({
       type: 'body',
-      parameters: configuracao.corpo.map(function (item) {
-        return { type: 'text', text: resolverParametro(item, comando) };
+      parameters: configuracao.corpo.map(function (item, indice) {
+        return { type: 'text', text: resolverParametro(item, comando, indice + 1) };
       })
     });
   }
@@ -105,7 +117,7 @@ function montarComponentesEnvio(comando) {
     configuracao.botoes.forEach(function (botao) {
       const valor = botao.origem === 'opt_out'
         ? process.env.WHATSAPP_OPTOUT_BUTTON_ID
-        : resolverParametro(botao, comando);
+        : resolverParametro(botao, comando, 1);
       if (!valor) throw criarErroIntegracao('A configuracao do botao do template e invalida.', 'TEMPLATE_META_INVALIDO', 409, false);
       componentes.push({
         type: 'button',
@@ -143,6 +155,7 @@ function prepararErroMeta(resposta, corpo, operacao) {
   const codigo = textoSeguro(externo.code || externo.error_subcode, 80) || 'META_HTTP_' + resposta.status;
   let mensagem = resposta.status === 401 ? 'A credencial da Meta foi recusada.' : 'A Meta recusou a operacao solicitada.';
   if (operacao === 'template') mensagem = resposta.status === 401 ? mensagem : 'A Meta recusou o template. Revise os campos e exemplos informados.';
+  if (operacao === 'imagem') mensagem = resposta.status === 401 ? 'A conexao com a Meta precisa ser conferida pelo administrador.' : 'Nao foi possivel enviar a imagem. Verifique o arquivo e tente novamente.';
   return criarErroIntegracao(mensagem, codigo, resposta.status, resposta.status >= 500 || resposta.status === 429);
 }
 
@@ -240,6 +253,29 @@ async function prepararImagemExemplo(conteudo, tipoMime) {
   return { handle };
 }
 
+async function prepararImagemEnvio(conteudo, tipoMime, nomeArquivo) {
+  const configuracao = obterConfiguracao();
+  if (!Buffer.isBuffer(conteudo) || conteudo.length === 0) {
+    throw criarErroIntegracao('Selecione uma imagem JPG ou PNG valida.', 'META_IMAGEM_INVALIDA', 400, false);
+  }
+  const formulario = new FormData();
+  formulario.append('messaging_product', 'whatsapp');
+  formulario.append('file', new Blob([conteudo], { type: tipoMime }), nomeArquivo || 'imagem');
+  const resposta = await requisitarMeta(
+    configuracao.phoneNumberId + '/media',
+    { method: 'POST', body: formulario },
+    'imagem'
+  );
+  const id = textoSeguro(resposta.corpo && resposta.corpo.id, 255);
+  if (!id) {
+    throw criarErroIntegracao(
+      'Nao foi possivel preparar a imagem para o envio. Tente novamente.',
+      'META_RESPOSTA_INVALIDA', resposta.status, true
+    );
+  }
+  return { id };
+}
+
 async function listarTemplatesOficiais() {
   const configuracao = obterConfiguracao();
   const templates = [];
@@ -295,6 +331,6 @@ function definirFetchParaTeste(funcao) { executarFetch = funcao || function () {
 
 module.exports = {
   buscarTemplateOficialPorId, buscarTemplateOficialPorNome, consultarLimiteMensageria, criarTemplateOficial,
-  definirFetchParaTeste, enviarTemplate, listarTemplatesOficiais, montarPayload, prepararImagemExemplo,
+  definirFetchParaTeste, enviarTemplate, listarTemplatesOficiais, montarPayload, prepararImagemEnvio, prepararImagemExemplo,
   validarConfiguracaoParaEnvio
 };

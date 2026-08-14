@@ -10,6 +10,7 @@ const ITENS_NAVEGACAO = [
   { caminho: '/admin/importacoes', rotulo: 'Importações', icone: 'importacoes' },
   { caminho: '/admin/relatorios', rotulo: 'Relatórios', icone: 'relatorios' },
   { caminho: '/admin/eventos', rotulo: 'Eventos', icone: 'eventos' },
+  { caminho: '/admin/ajuda', rotulo: 'Como usar', icone: 'ajuda' },
   { caminho: '/admin/solicitacoes-exclusao', rotulo: 'Exclusões', icone: 'exclusoes', somenteAdmin: true },
   { caminho: '/admin/backups', rotulo: 'Backups', icone: 'backups', somenteAdmin: true },
   { caminho: '/admin/usuarios', rotulo: 'Usuários', icone: 'usuarios', somenteAdmin: true },
@@ -82,6 +83,15 @@ function IconeNavegacao(propriedades) {
         <path d="M3.5 19c.4-3.2 2.2-5 5.5-5s5.1 1.8 5.5 5" />
         <circle cx="17.5" cy="9" r="2.3" />
         <path d="M16 14c2.9 0 4.5 1.6 4.8 4" />
+      </svg>
+    );
+  }
+
+  if (propriedades.nome === 'ajuda') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M9.7 9a2.4 2.4 0 1 1 3.8 2c-1 .7-1.5 1.2-1.5 2.5M12 17h.01" />
       </svg>
     );
   }

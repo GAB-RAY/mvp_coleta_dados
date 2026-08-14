@@ -19,6 +19,7 @@ import BackupsAdministrativos from './pages/BackupsAdministrativos';
 import Privacidade from './pages/Privacidade';
 import Termos from './pages/Termos';
 import ExcluirDados from './pages/ExcluirDados';
+import AjudaAdministrativa from './pages/AjudaAdministrativa';
 
 function TituloDaPagina() {
   const localizacao = useLocation();
@@ -76,6 +77,7 @@ function App() {
           <Route path="/admin/importacoes" element={<ImportacaoContatos />} />
           <Route path="/admin/relatorios" element={<Relatorios />} />
           <Route path="/admin/eventos" element={<EventosAdministrativos />} />
+          <Route path="/admin/ajuda" element={<AjudaAdministrativa />} />
           <Route element={<RotaAdministrador />}>
             <Route path="/admin/usuarios" element={<UsuariosAdministrativos />} />
             <Route path="/admin/solicitacoes-exclusao" element={<SolicitacoesExclusao />} />

@@ -21,6 +21,7 @@ function receberImagem(requisicao, resposta, proximo) {
 roteador.get('/templates', controller.listarTemplates);
 roteador.post('/templates/sincronizar-meta', autorizarAdministrador, controller.sincronizarTemplatesMeta);
 roteador.post('/templates/imagem-exemplo', autorizarAdministrador, receberImagem, controller.prepararImagemTemplate);
+roteador.post('/templates/imagem-envio', autorizarAdministrador, receberImagem, controller.prepararImagemEnvioTemplate);
 roteador.post('/templates', autorizarAdministrador, controller.criarTemplate);
 roteador.post('/templates/:id/submeter-meta', autorizarAdministrador, controller.submeterTemplate);
 roteador.put('/templates/:id/configuracao-envio', autorizarAdministrador, controller.configurarEnvioTemplate);
