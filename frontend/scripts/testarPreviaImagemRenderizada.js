@@ -250,6 +250,68 @@ try {
   await aguardarCondicao(cliente, `document.body && document.body.textContent.includes('Gerenciar modelos de mensagem')`, 'A tela de campanhas não foi carregada.');
 
   await executarExpressao(cliente, `document.querySelector('.gerenciar-templates-campanha').open = true`);
+  assert.equal(await executarExpressao(cliente, `(() => {
+    const campo = document.querySelector('.campo-template-conteudo textarea');
+    const definir = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set;
+    definir.call(campo, 'Olá, ');
+    campo.dispatchEvent(new Event('input', { bubbles: true }));
+    return true;
+  })()`), true);
+  assert.equal(await executarExpressao(cliente, `(() => {
+    const campo = document.querySelector('.campo-template-conteudo textarea');
+    campo.focus(); campo.setSelectionRange(5, 5);
+    const opcao = Array.from(document.querySelectorAll('.atalhos-personalizacao-template button')).find(item => item.textContent.trim() === 'Nome da pessoa');
+    opcao.click();
+    return true;
+  })()`), true);
+  await aguardarCondicao(cliente, `(() => {
+    const campo=document.querySelector('.campo-template-conteudo textarea');
+    const origem=document.querySelector('.configuracao-parametro-template select');
+    return campo?.value==='Olá, {{1}}' && origem?.value==='nome_contato';
+  })()`, 'A opção Nome da pessoa não inseriu nem configurou {{1}}.');
+  assert.equal(await executarExpressao(cliente, `(() => {
+    const campo = document.querySelector('.campo-template-conteudo textarea');
+    const definir = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set;
+    definir.call(campo, campo.value + '! Seu bairro é ');
+    campo.dispatchEvent(new Event('input', { bubbles: true }));
+    return true;
+  })()`), true);
+  assert.equal(await executarExpressao(cliente, `(() => {
+    const campo = document.querySelector('.campo-template-conteudo textarea');
+    campo.focus(); campo.setSelectionRange(campo.value.length, campo.value.length);
+    const opcao = Array.from(document.querySelectorAll('.atalhos-personalizacao-template button')).find(item => item.textContent.trim() === 'Bairro');
+    opcao.click();
+    return true;
+  })()`), true);
+  await aguardarCondicao(cliente, `(() => {
+    const campo=document.querySelector('.campo-template-conteudo textarea');
+    const origens=document.querySelectorAll('.configuracao-parametro-template select');
+    return campo?.value==='Olá, {{1}}! Seu bairro é {{2}}' && origens.length===2 && origens[1].value==='bairro';
+  })()`, 'A opção Bairro não inseriu nem configurou {{2}}.');
+  await aguardarCondicao(cliente, `document.querySelector('.texto-corpo-previa')?.textContent.includes('Olá, João! Seu bairro é Copacabana')`, 'A prévia não resolveu as informações adicionadas pelos atalhos.');
+  assert.equal(await executarExpressao(cliente, `(() => {
+    const adicionar = Array.from(document.querySelectorAll('button')).find(item => item.textContent.trim().startsWith('+ Adicionar'));
+    if (!adicionar) return false;
+    adicionar.click();
+    return true;
+  })()`), true);
+  await aguardarCondicao(cliente, `document.querySelectorAll('.editor-botao-modelo').length === 1`, 'O primeiro botao nao foi adicionado ao construtor.');
+  await executarExpressao(cliente, `Array.from(document.querySelectorAll('button')).find(item => item.textContent.trim().startsWith('+ Adicionar')).click()`);
+  await aguardarCondicao(cliente, `document.querySelectorAll('.editor-botao-modelo').length === 2`, 'Dois botoes nao foram adicionados ao construtor.');
+  assert.equal(await executarExpressao(cliente, `(() => {
+    const editores = document.querySelectorAll('.editor-botao-modelo');
+    const definir = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+    definir.call(editores[0].querySelector('input'), 'Quero participar!');
+    editores[0].querySelector('input').dispatchEvent(new Event('input', { bubbles: true }));
+    const selecao = editores[1].querySelector('select');
+    selecao.value = 'optout'; selecao.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  })()`), true);
+  await aguardarCondicao(cliente, `document.querySelectorAll('.botao-previa').length === 2`, 'A previa nao exibiu todos os botoes.');
+  assert.equal(await executarExpressao(cliente, `(() => { const botoes=document.querySelectorAll('[aria-label*="cima"]'); botoes[1].click(); return true; })()`), true);
+  await aguardarCondicao(cliente, `document.querySelector('.botao-previa')?.textContent.includes('SAIR')`, 'A previa nao acompanhou a nova ordem dos botoes.');
+  assert.equal(await executarExpressao(cliente, `(() => { const remover=Array.from(document.querySelectorAll('.editor-botao-modelo button')).find(item => item.textContent.trim()==='Remover'); remover.click(); return true; })()`), true);
+  await aguardarCondicao(cliente, `document.querySelectorAll('.editor-botao-modelo').length === 1 && document.querySelectorAll('.botao-previa').length === 1`, 'A remocao do botao nao atualizou a previa.');
   assert.equal(await executarExpressao(cliente, selecionarCabecalhoImagem), true);
   await aguardarCondicao(cliente, `document.querySelectorAll('input[type="file"]').length === 2`, 'Os campos de imagem não foram exibidos.');
 
@@ -277,6 +339,8 @@ try {
   assert.equal(await executarExpressao(cliente, selecionarArquivo), true);
   await validarImagem(cliente, 'blob:');
   const larguraMobile = await executarExpressao(cliente, `Math.round(document.querySelector('.previa-modelo-mensagem').getBoundingClientRect().width)`);
+  const larguraConstrutor = await executarExpressao(cliente, `Math.round(document.querySelector('.construtor-botoes-modelo').getBoundingClientRect().width)`);
+  assert.equal(larguraConstrutor <= 390, true, 'O construtor de botoes ultrapassou a largura da tela movel.');
   assert.equal(larguraMobile <= 390, true, 'A prévia ultrapassou a largura da tela móvel.');
 
   await cliente.enviar('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
@@ -313,7 +377,7 @@ try {
   assert.equal(ultimoPayload.removerImagem, true);
   assert.equal(Object.hasOwn(ultimoPayload.configuracaoEnvio, 'cabecalho'), false);
 
-  console.log('Prévia e edição renderizadas: imagem, persistência por URL/ID, reabertura, remoção, desktop e celular aprovados.');
+  console.log('Prévia e edição renderizadas: personalização assistida, imagem, persistência por URL/ID, reabertura, remoção, desktop e celular aprovados.');
 } finally {
   if (cliente) cliente.fechar();
   if (navegador) {

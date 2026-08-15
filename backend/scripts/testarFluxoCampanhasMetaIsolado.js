@@ -10,6 +10,7 @@ const NOME_BANCO = 'acorda_rj_campanhas_qa_' + process.pid;
 const SCRIPTS = [
   'testarCampanhasEscala.js',
   'testarCampanhas.js',
+  'testarExclusaoArquivamentoCampanhas.js',
   'testarTemplatesMeta.js',
   'testarRequisitosEnvioTemplates.js',
   'testarRegressaoParametrosBodyMeta.js',
@@ -110,7 +111,7 @@ async function executar() {
       resultados.push(await executarScript(SCRIPTS[indice], ambiente));
     }
     console.log(resultados.join('\n'));
-    console.log('Fluxo isolado campanhas -> Meta mock: 14 grupos aprovados; nenhuma chamada real executada.');
+    console.log('Fluxo isolado campanhas -> Meta mock: 15 grupos aprovados; nenhuma chamada real executada.');
   } finally {
     if (bancoTeste) await bancoTeste.end().catch(function () {});
     if (administracaoConectada) await removerBanco(administracao).catch(function () {});

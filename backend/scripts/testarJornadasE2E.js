@@ -133,7 +133,7 @@ async function validarEstadoFinal(bancoTeste) {
         WHERE nome ILIKE '%teste%' OR nome ILIKE '%mutirao%') AS eventos_qa
   `)).rows[0];
 
-  if (estado.tabelas !== 31 || estado.bairros !== 166 || estado.migrations !== 16) {
+  if (estado.tabelas !== 31 || estado.bairros !== 166 || estado.migrations !== 17) {
     throw new Error('Estrutura do banco isolado divergiu durante as jornadas.');
   }
   if (

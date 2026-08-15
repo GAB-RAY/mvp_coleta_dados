@@ -1,7 +1,7 @@
 const service = require('./campanhaService');
 
 async function responder(next, acao) { try { return await acao(); } catch (erro) { return next(erro); } }
-function listar(req,res,next){return responder(next,async function(){return res.status(200).json({mensagem:'Campanhas listadas com sucesso.',campanhas:await service.listar()});});}
+function listar(req,res,next){return responder(next,async function(){const incluirArquivadas=req.query.arquivadas==='true';return res.status(200).json({mensagem:'Campanhas listadas com sucesso.',campanhas:await service.listar(incluirArquivadas)});});}
 function criar(req,res,next){return responder(next,async function(){return res.status(201).json({mensagem:'Campanha criada com sucesso.',campanha:await service.criar(req.body,req.usuario)});});}
 function atualizar(req,res,next){return responder(next,async function(){return res.status(200).json({mensagem:'Campanha atualizada com sucesso.',campanha:await service.atualizar(req.params.id,req.body,req.usuario)});});}
 function alterarStatus(req,res,next){return responder(next,async function(){return res.status(200).json({mensagem:'Status da campanha atualizado com sucesso.',campanha:await service.alterarStatus(req.params.id,req.body.status,req.usuario)});});}
@@ -23,5 +23,6 @@ function atualizarTemplate(req,res,next){return responder(next,async function(){
 function submeterTemplate(req,res,next){return responder(next,async function(){const resultado=await service.submeterTemplate(req.params.id,req.usuario);return res.status(200).json({mensagem:resultado.repetido?'Este template ja foi submetido a Meta.':'Template enviado para analise da Meta.',template:resultado.template});});}
 function sincronizarTemplatesMeta(req,res,next){return responder(next,async function(){return res.status(200).json({mensagem:'Templates oficiais sincronizados com sucesso.',resumo:await service.sincronizarTemplatesMeta(req.usuario)});});}
 function configurarEnvioTemplate(req,res,next){return responder(next,async function(){return res.status(200).json({mensagem:'Configuracao de envio atualizada com sucesso.',template:await service.configurarEnvioTemplate(req.params.id,req.body,req.usuario)});});}
+function excluirOuArquivar(req,res,next){return responder(next,async function(){const resultado=await service.excluirOuArquivar(req.params.id,req.usuario);const mensagem=resultado.acao==='excluida'?'Campanha excluida permanentemente.':'Campanha arquivada para preservar o historico de envios.';return res.status(200).json({mensagem,resultado});});}
 
-module.exports={alterarStatus,atualizar,atualizarLimite,atualizarTemplate,configurarEnvioTemplate,criar,criarLote,criarTemplate,listar,listarContatosLote,listarFalhas,listarLotes,listarTemplates,obterLimite,prepararEnvio,prepararImagemEnvioTemplate,prepararImagemTemplate,sincronizarLimiteMeta,sincronizarTemplatesMeta,submeterTemplate,visualizarPreviaFiltros,visualizarPublico};
+module.exports={alterarStatus,atualizar,atualizarLimite,atualizarTemplate,configurarEnvioTemplate,criar,criarLote,criarTemplate,excluirOuArquivar,listar,listarContatosLote,listarFalhas,listarLotes,listarTemplates,obterLimite,prepararEnvio,prepararImagemEnvioTemplate,prepararImagemTemplate,sincronizarLimiteMeta,sincronizarTemplatesMeta,submeterTemplate,visualizarPreviaFiltros,visualizarPublico};

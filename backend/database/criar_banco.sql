@@ -502,6 +502,8 @@ CREATE TABLE public.campanhas (
   pausada_em TIMESTAMPTZ,
   concluida_em TIMESTAMPTZ,
   cancelada_em TIMESTAMPTZ,
+  arquivada_em TIMESTAMPTZ,
+  arquivada_por_usuario_id BIGINT,
   ativo BOOLEAN NOT NULL DEFAULT TRUE,
   criado_por_usuario_id BIGINT NOT NULL,
   atualizado_por_usuario_id BIGINT NOT NULL,
@@ -869,6 +871,7 @@ CREATE INDEX comunicacoes_operador_indice ON public.comunicacoes (operador_usuar
 CREATE INDEX historico_comunicacoes_comunicacao_indice ON public.historico_comunicacoes (comunicacao_id, criado_em DESC);
 CREATE INDEX campanhas_status_indice ON public.campanhas (status, criado_em DESC);
 CREATE INDEX campanhas_atualizador_indice ON public.campanhas (atualizado_por_usuario_id);
+CREATE INDEX campanhas_arquivadas_indice ON public.campanhas (arquivada_em, criado_em DESC);
 CREATE INDEX campanha_lotes_campanha_indice ON public.campanha_lotes (campanha_id, criado_em DESC);
 CREATE INDEX campanha_participacoes_lote_indice ON public.campanha_participacoes (lote_original_id, id);
 CREATE INDEX campanha_participacoes_status_indice ON public.campanha_participacoes (campanha_id, status);
@@ -1050,6 +1053,8 @@ ALTER TABLE public.campanhas
     FOREIGN KEY (criado_por_usuario_id) REFERENCES public.usuarios(id),
   ADD CONSTRAINT campanhas_atualizador_fkey
     FOREIGN KEY (atualizado_por_usuario_id) REFERENCES public.usuarios(id),
+  ADD CONSTRAINT campanhas_arquivador_fkey
+    FOREIGN KEY (arquivada_por_usuario_id) REFERENCES public.usuarios(id),
   ADD CONSTRAINT campanhas_modelo_novo_fkey
     FOREIGN KEY (modelo_id) REFERENCES public.modelos_mensagem(id),
   ADD CONSTRAINT campanhas_responsavel_novo_fkey
@@ -1334,6 +1339,7 @@ INSERT INTO public.schema_migrations (
   ('013', '013_gerenciar_templates_oficiais_meta.sql', 'a1a455aa7a0438d2e5b2dbbafeb6b2cb256b47a080d9974689a3c097e33d9dc6'),
   ('014', '014_garantir_auditoria_campanhas.sql', 'e856eec3eda0d280534e996e60dad3e2c3d3aa11b95b41f791d0d5d6d36e6f30'),
   ('015', '015_atualizar_templates_por_webhook_meta.sql', 'a7942ed6fbc44d230200ffca95baffa1626bbf089cca5081fff6f4a030596b9d'),
-  ('016', '016_alinhar_status_campanhas.sql', '0a9ae25dce9417295dc249e284fbe7f9b2584488887c095d0405068ab6a85b3d');
+  ('016', '016_alinhar_status_campanhas.sql', '0a9ae25dce9417295dc249e284fbe7f9b2584488887c095d0405068ab6a85b3d'),
+  ('017', '017_arquivar_campanhas_com_historico.sql', 'c0f9c7f3fd353b8277ba199cf113c6654ed741ae95421b44223205fed14af654');
 
 COMMIT;

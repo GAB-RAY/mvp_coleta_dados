@@ -5,6 +5,7 @@ const CAMPOS_CAMPANHA = `
   campanha.id, campanha.nome, campanha.finalidade, campanha.modelo_id,
   campanha.filtros_snapshot, campanha.status, campanha.responsavel_usuario_id,
   campanha.criado_por_usuario_id, campanha.criado_em, campanha.atualizado_em,
+  campanha.arquivada_em, campanha.arquivada_por_usuario_id,
   modelo.nome AS modelo_nome, modelo.meta_status AS modelo_meta_status,
   modelo.meta_status_oficial AS modelo_meta_status_oficial,
   modelo.meta_nome AS modelo_meta_nome, modelo.meta_idioma AS modelo_meta_idioma,
@@ -55,7 +56,7 @@ function expressaoTelefoneMascarado() {
   END`;
 }
 
-async function listar() {
+async function listar(incluirArquivadas) {
   const resultado = await banco.query(`
     SELECT ${CAMPOS_CAMPANHA},
       COUNT(DISTINCT lote.id)::integer AS quantidade_lotes,
@@ -71,9 +72,10 @@ async function listar() {
     INNER JOIN usuarios AS responsavel ON responsavel.id = campanha.responsavel_usuario_id
     LEFT JOIN campanha_lotes AS lote ON lote.campanha_id = campanha.id
     LEFT JOIN campanha_participacoes AS participacao ON participacao.campanha_id = campanha.id
+    WHERE ($1::boolean IS TRUE OR campanha.arquivada_em IS NULL)
     GROUP BY campanha.id, modelo.id, responsavel.id
     ORDER BY campanha.criado_em DESC, campanha.id DESC
-  `);
+  `, [incluirArquivadas === true]);
   return resultado.rows;
 }
 
@@ -155,6 +157,7 @@ async function atualizar(id, dados, usuarioId) {
         atualizado_por_usuario_id = $6,
         atualizado_em = CURRENT_TIMESTAMP
     WHERE id = $1
+      AND arquivada_em IS NULL
       AND status IN ('rascunho','pronta','pausada')
       AND NOT EXISTS (
         SELECT 1 FROM campanha_participacoes participacao
@@ -178,10 +181,60 @@ async function alterarStatus(id, status, usuarioId) {
         ativo = $2::varchar <> 'cancelada',
         atualizado_por_usuario_id = $3,
         atualizado_em = CURRENT_TIMESTAMP
-    WHERE id = $1
+    WHERE id = $1 AND arquivada_em IS NULL
     RETURNING id
   `, [id, status, usuarioId]);
   return resultado.rows[0] ? buscarPorId(id) : null;
+}
+
+async function excluirOuArquivar(id, usuarioId) {
+  const cliente = await banco.connect();
+  try {
+    await cliente.query('BEGIN');
+    await cliente.query('SELECT pg_advisory_xact_lock(41027, $1)', [id]);
+    const campanhaResultado = await cliente.query(
+      'SELECT id,arquivada_em FROM campanhas WHERE id=$1 FOR UPDATE', [id]
+    );
+    const campanha = campanhaResultado.rows[0];
+    if (!campanha) {
+      await cliente.query('ROLLBACK');
+      return null;
+    }
+    if (campanha.arquivada_em) {
+      await cliente.query('COMMIT');
+      return { acao: 'arquivada', repetido: true };
+    }
+    const historico = await cliente.query(`
+      SELECT
+        EXISTS (SELECT 1 FROM campanha_lotes WHERE campanha_id=$1) AS possui_lote,
+        EXISTS (SELECT 1 FROM campanha_participacoes WHERE campanha_id=$1) AS possui_participacao,
+        EXISTS (
+          SELECT 1 FROM campanha_tentativas tentativa
+          INNER JOIN campanha_participacoes participacao ON participacao.id=tentativa.participacao_id
+          WHERE participacao.campanha_id=$1
+        ) AS possui_tentativa,
+        EXISTS (SELECT 1 FROM comunicacoes WHERE campanha_id=$1) AS possui_comunicacao
+    `, [id]);
+    const possuiHistorico = Object.values(historico.rows[0]).some(Boolean);
+    if (possuiHistorico) {
+      await cliente.query(`
+        UPDATE campanhas
+        SET arquivada_em=CURRENT_TIMESTAMP,
+            arquivada_por_usuario_id=$2,
+            atualizado_por_usuario_id=$2,
+            atualizado_em=CURRENT_TIMESTAMP
+        WHERE id=$1
+      `, [id, usuarioId]);
+      await cliente.query('COMMIT');
+      return { acao: 'arquivada', repetido: false };
+    }
+    await cliente.query('DELETE FROM campanhas WHERE id=$1', [id]);
+    await cliente.query('COMMIT');
+    return { acao: 'excluida', repetido: false };
+  } catch (erro) {
+    await cliente.query('ROLLBACK');
+    throw erro;
+  } finally { cliente.release(); }
 }
 
 async function contarPublico(filtros, somenteAptos) {
@@ -354,7 +407,7 @@ async function criarLoteAtomico(campanhaId, tamanhoSolicitado, chave, usuarioId,
     }
 
     const campanhaResultado = await cliente.query(
-      "SELECT * FROM campanhas WHERE id = $1 AND status IN ('pronta','ativa') FOR UPDATE",
+      "SELECT * FROM campanhas WHERE id = $1 AND arquivada_em IS NULL AND status IN ('pronta','ativa') FOR UPDATE",
       [campanhaId]
     );
     const campanha = campanhaResultado.rows[0];
@@ -913,6 +966,7 @@ module.exports = {
   configurarEnvioTemplate,
   criar,
   criarLoteAtomico,
+  excluirOuArquivar,
   listarTentativasPendentesCampanha,
   listar,
   listarCandidatos,

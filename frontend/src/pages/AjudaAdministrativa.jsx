@@ -74,7 +74,8 @@ const MODULOS = [
       { numero: 2, x: 88, y: 47, titulo: 'Nova campanha', texto: 'Define nome, modelo e filtros. Não envia mensagens.' },
       { numero: 3, x: 40, y: 62, titulo: 'Público', texto: 'Encontrados correspondem aos filtros; aptos podem receber; não aptos estão impedidos.' },
       { numero: 4, x: 58, y: 70, titulo: 'Pode enviar agora', texto: 'O sistema calcula automaticamente a maior quantidade segura para este momento.' },
-      { numero: 5, x: 74, y: 76, titulo: 'Enviar e continuar', texto: '“Enviar agora” pede confirmação. Os contatos restantes continuam na mesma campanha.' }
+      { numero: 5, x: 74, y: 76, titulo: 'Enviar e continuar', texto: '“Enviar agora” pede confirmação. Os contatos restantes continuam na mesma campanha.' },
+      { numero: 6, x: 88, y: 89, titulo: 'Excluir ou arquivar', texto: 'Sem histórico, a campanha pode ser excluída. Com envios, ela é arquivada e a auditoria permanece.' }
     ]
   },
   {
@@ -87,11 +88,12 @@ const MODULOS = [
     somenteAdministrador: true,
     mostrarModeloPersonalizado: true,
     marcadores: [
-      { numero: 1, x: 36, y: 21, titulo: 'Identificação', texto: 'Nome do modelo, grupo, nome usado na Meta e idioma.' },
-      { numero: 2, x: 69, y: 35, titulo: 'Tipo e cabeçalho', texto: 'Escolha o tipo de mensagem e, se necessário, texto ou imagem no cabeçalho.' },
-      { numero: 3, x: 49, y: 51, titulo: 'Texto principal', texto: 'Escreva a mensagem e use valores como {{1}} somente onde algo deve mudar.' },
-      { numero: 4, x: 87, y: 10, titulo: 'Atualizar Meta', texto: 'Confere os estados oficiais: rascunho, em análise, aprovado ou rejeitado.' },
-      { numero: 5, x: 33, y: 82, titulo: 'Salvar e enviar para análise', texto: 'Salvar cria um rascunho. Enviar para análise não manda mensagens aos contatos.' }
+      { numero: 1, x: 36, y: 19, titulo: 'Identificação', texto: 'Informe o nome do modelo, o nome oficial, o idioma e a categoria Meta.' },
+      { numero: 2, x: 69, y: 32, titulo: 'Conteúdo e imagem', texto: 'Escolha o cabeçalho, escreva o texto principal, configure variáveis e rodapé.' },
+      { numero: 3, x: 48, y: 49, titulo: 'Botões', texto: 'Adicione, remova e ordene ações como abrir link, ligar ou não receber mais contatos.' },
+      { numero: 4, x: 72, y: 67, titulo: 'Prévia', texto: 'Confira imagem, texto, exemplos e todos os botões na ordem escolhida.' },
+      { numero: 5, x: 87, y: 10, titulo: 'Estados oficiais', texto: 'A Meta informa se o modelo está em análise, aprovado ou rejeitado.' },
+      { numero: 6, x: 33, y: 84, titulo: 'Salvar e enviar para análise', texto: 'Salvar cria um rascunho. Enviar para análise não manda mensagens aos contatos.' }
     ]
   },
   {
@@ -117,8 +119,8 @@ const MODULOS = [
     acao: 'Consultar contatos',
     mostrarFluxoSair: true,
     marcadores: [
-      { numero: 1, x: 69, y: 27, titulo: 'Privacidade e bloqueios', texto: 'Mostra se mensagens ou ligações estão bloqueadas.' },
-      { numero: 2, x: 70, y: 54, titulo: 'Revogação', texto: 'A decisão da própria pessoa pode ser registrada com um motivo.' },
+      { numero: 1, x: 69, y: 27, titulo: 'Privacidade e bloqueios', texto: 'Mostra se mensagens e ligações estão bloqueadas.' },
+      { numero: 2, x: 70, y: 54, titulo: 'Botão SAIR', texto: 'Quando a pessoa toca em SAIR, as autorizações de mensagens e ligações são revogadas.' },
       { numero: 3, x: 66, y: 80, titulo: 'Consentimentos', texto: 'Exibe os registros de autorização, recusa ou revogação.' },
       { numero: 4, x: 43, y: 92, titulo: 'Históricos', texto: 'Preservam alterações e comunicações anteriores.' }
     ]
@@ -297,6 +299,7 @@ function AjudaAdministrativa() {
               <article>
                 <span className="etiqueta-pagina">Valores personalizados</span>
                 <p className="ajuda-mensagem-exemplo">Olá, <mark>{'{{1}}'}</mark>! Você está convidado para <mark>{'{{2}}'}</mark>.</p>
+                <p><strong>{'{{1}}'}</strong> é a primeira informação personalizada, <strong>{'{{2}}'}</strong> é a segunda, e assim por diante.</p>
                 <div className="ajuda-mapeamento-template"><span>{'{{1}}'} → Nome da pessoa</span><span>{'{{2}}'} → Texto igual para todos</span></div>
                 <small>O sistema substitui esses campos automaticamente no momento do envio.</small>
               </article>
@@ -308,12 +311,20 @@ function AjudaAdministrativa() {
                 </div>
                 <small>A imagem da mensagem pode vir do dispositivo ou de uma URL pública da internet.</small>
               </article>
+              <article>
+                <span className="etiqueta-pagina">Botões da mensagem</span>
+                <div className="ajuda-comparacao-imagens">
+                  <div><strong>Abrir link</strong><span>Leva a pessoa para o endereço configurado.</span></div>
+                  <div><strong>Não receber mais contatos</strong><span>Ativa o fluxo SAIR e bloqueia novas comunicações.</span></div>
+                </div>
+                <small>Os botões aparecem na prévia e são enviados para análise na ordem escolhida.</small>
+              </article>
             </div>
           )}
 
           {moduloSelecionado.mostrarFluxoSair && (
             <div className="ajuda-fluxo-sair" aria-label="Fluxo de saída das mensagens">
-              <span>Pessoa recebe</span><i aria-hidden="true">→</i><span>Toca em SAIR</span><i aria-hidden="true">→</i><span>ACORDA RJ registra</span><i aria-hidden="true">→</i><strong>Novas mensagens bloqueadas</strong>
+              <span>Pessoa recebe</span><i aria-hidden="true">→</i><span>Toca em SAIR</span><i aria-hidden="true">→</i><span>ACORDA RJ registra</span><i aria-hidden="true">→</i><strong>Mensagens e ligações bloqueadas</strong>
             </div>
           )}
 

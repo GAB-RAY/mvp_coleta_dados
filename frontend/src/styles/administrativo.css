@@ -3803,9 +3803,52 @@
   background: var(--campanha-fundo-suave);
 }
 
-.ajuda-valores-personalizados summary {
-  color: var(--admin-laranja-escuro);
+.atalhos-personalizacao-template {
+  grid-column: span 2;
+  border: 1px solid var(--admin-borda);
+  border-radius: 12px;
+  padding: 0.8rem;
+  background: #fffaf7;
+}
+
+.atalhos-personalizacao-template > strong {
+  color: var(--admin-texto);
+  font-size: 0.82rem;
+}
+
+.atalhos-personalizacao-template > p {
+  margin: 0.25rem 0 0.65rem;
+  color: var(--admin-texto-suave);
+  font-size: 0.75rem;
+}
+
+.atalhos-personalizacao-template > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.atalhos-personalizacao-template button {
+  border: 1px solid var(--admin-borda);
+  border-radius: 999px;
+  padding: 0.5rem 0.75rem;
+  background: #fff;
+  color: var(--admin-texto);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
   cursor: pointer;
+}
+
+.atalhos-personalizacao-template button:hover,
+.atalhos-personalizacao-template button:focus-visible {
+  border-color: var(--admin-laranja);
+  color: var(--admin-laranja-escuro);
+}
+
+.ajuda-valores-personalizados > strong {
+  display: block;
+  color: var(--admin-laranja-escuro);
   font-size: 0.75rem;
   font-weight: 750;
 }
@@ -4076,6 +4119,7 @@
   }
 
   .escolha-imagem-envio,
+  .atalhos-personalizacao-template,
   .ajuda-valores-personalizados,
   .titulo-valores-personalizados {
     grid-column: auto;
@@ -4441,3 +4485,12 @@
     display: none;
   }
 }
+.construtor-botoes-modelo{display:grid;gap:14px;padding:18px;border:1px solid #d8dee8;border-radius:14px;background:#f8fafc}
+.configuracao-modelo-oficial.nao-aprovado>.secao-configuracao-modelo{display:none}
+.cabecalho-construtor-botoes,.cabecalho-editor-botao{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.cabecalho-construtor-botoes h4,.cabecalho-construtor-botoes p{margin:0}.cabecalho-construtor-botoes p{margin-top:4px;color:#64748b}
+.editor-botao-modelo{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:16px;border:1px solid #dbe3ec;border-radius:12px;background:#fff}
+.editor-botao-modelo>.cabecalho-editor-botao,.editor-botao-modelo>.ajuda-botao-sair{grid-column:1/-1}
+.cabecalho-editor-botao>div{display:flex;gap:6px}.cabecalho-editor-botao button{border:1px solid #cbd5e1;border-radius:8px;background:#fff;padding:6px 9px;color:#334155;cursor:pointer}.cabecalho-editor-botao button:disabled{opacity:.45;cursor:not-allowed}
+.ajuda-botao-sair,.estado-vazio-botoes{margin:0;color:#475569}.filtro-campanhas-arquivadas{display:flex;align-items:center;gap:8px;margin-top:12px;color:#475569;font-size:.92rem}.cartao-campanha-resumo.arquivado{opacity:.82;border-style:dashed}.rodape-cartao-campanha>div{display:flex;flex-wrap:wrap;gap:8px}
+@media (max-width:760px){.cabecalho-construtor-botoes,.cabecalho-editor-botao{align-items:stretch;flex-direction:column}.editor-botao-modelo{grid-template-columns:1fr}.cabecalho-editor-botao>div{flex-wrap:wrap}.cabecalho-construtor-botoes .botao{width:100%}}

@@ -79,10 +79,18 @@ function normalizarComponente(componente, estado) {
     const botoes=Array.isArray(componente.buttons)?componente.buttons:[];
     if(!botoes.length||botoes.length>3)throw criarAppError('Informe de um a tres botoes suportados.',400);
     const tipos=botoes.map(function(item){return String(item.type||'').toUpperCase();});
-    const quick=tipos.every(function(item){return item==='QUICK_REPLY';});
-    const cta=tipos.every(function(item){return item==='URL'||item==='PHONE_NUMBER';});
-    if(!quick&&!cta)throw criarAppError('Nao misture respostas rapidas com botoes de acao no mesmo template.',400);
-    if(cta&&botoes.length>2)throw criarAppError('Templates com CTA aceitam no maximo dois botoes nesta interface.',400);
+    if(tipos.some(function(item){return !['QUICK_REPLY','URL','PHONE_NUMBER'].includes(item);})){
+      throw criarAppError('Escolha somente as acoes de botao disponiveis nesta interface.',400);
+    }
+    if(tipos.filter(function(item){return item==='QUICK_REPLY';}).length>1){
+      throw criarAppError('Adicione somente um botao para nao receber mais contatos.',400);
+    }
+    if(tipos.filter(function(item){return item==='PHONE_NUMBER';}).length>1){
+      throw criarAppError('Adicione somente um botao para ligar.',400);
+    }
+    if(tipos.filter(function(item){return item==='URL'||item==='PHONE_NUMBER';}).length>2){
+      throw criarAppError('Adicione no maximo dois botoes de link ou ligacao.',400);
+    }
     const normalizados=botoes.map(function(botao){
       const tipoBotao=String(botao.type).toUpperCase();
       const rotulo=texto(botao.text,'Texto do botao',25,true);

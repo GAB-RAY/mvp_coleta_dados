@@ -52,15 +52,22 @@ function apresentarContatos(contatos) {
   });
 }
 
-async function listar() {
+async function listar(incluirArquivadas) {
   const capacidade = await campanhaModel.obterCapacidade(obterAgora());
-  const campanhas = await campanhaModel.listar();
+  const campanhas = await campanhaModel.listar(incluirArquivadas === true);
   return campanhas.map(function (campanha) {
     return Object.assign({}, campanha, {
       restante: Number(campanha.pendente || 0) + Number(campanha.enviando || 0),
       capacidadeDisponivel: capacidade.disponivel
     });
   });
+}
+
+async function excluirOuArquivar(idRecebido, usuario) {
+  const id = validarId(idRecebido, 'Campanha');
+  const resultado = await campanhaModel.excluirOuArquivar(id, usuario.id);
+  if (!resultado) throw criarAppError('Campanha nao encontrada.', 404);
+  return resultado;
 }
 
 async function criar(dados, usuario) {
@@ -92,6 +99,7 @@ async function alterarStatus(idRecebido, status, usuario) {
   if (!permitidos.includes(status)) throw criarAppError('Status de campanha invalido.', 400);
   const campanha = await campanhaModel.buscarPorId(id);
   if (!campanha) throw criarAppError('Campanha nao encontrada.', 404);
+  if (campanha.arquivada_em) throw criarAppError('Campanha arquivada nao pode ser alterada.', 409);
   const transicoes = {
     rascunho: ['pronta','cancelada'], pronta: ['ativa','cancelada'],
     ativa: ['pausada','concluida','cancelada'], pausada: ['ativa','concluida','cancelada'],
@@ -323,6 +331,7 @@ function definirRelogioParaTeste(funcao) {
 
 module.exports = {
   alterarStatus, atualizar, atualizarLimite, configurarEnvioTemplate, criar, criarLote,
+  excluirOuArquivar,
   definirRelogioParaTeste, listar, listarContatosLote, listarFalhas, listarLotes,
   listarTemplates, obterLimite, prepararImagemEnvioTemplate, prepararImagemTemplate, salvarTemplate, sincronizarLimiteMeta, visualizarPreviaFiltros,
   prepararEnvio, visualizarPublico, submeterTemplate, sincronizarTemplatesMeta
