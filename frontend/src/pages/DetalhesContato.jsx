@@ -42,6 +42,17 @@ function formatarValor(valor) {
   return String(valor);
 }
 
+function formatarComunicacao(autorizacao, bloqueado) {
+  if (bloqueado) return 'Não autorizado / bloqueado';
+  const textos = {
+    autorizado: 'Autorizado',
+    recusado: 'Não autorizado',
+    revogado: 'Não autorizado / revogado',
+    nao_informado: 'Não informado'
+  };
+  return textos[autorizacao] || 'Não informado';
+}
+
 function DetalhesContato() {
   const parametros = useParams();
   const navegacao = useNavigate();
@@ -205,11 +216,11 @@ function DetalhesContato() {
               <dl className="lista-detalhes lista-bloqueios">
                 <div>
                   <dt>Mensagens</dt>
-                  <dd>{dados.contato.bloqueadoParaMensagens ? 'Bloqueadas' : 'Sem bloqueio administrativo'}</dd>
+                  <dd>{formatarComunicacao(dados.contato.autorizacaoMensagens, dados.contato.bloqueadoParaMensagens)}</dd>
                 </div>
                 <div>
                   <dt>Ligações</dt>
-                  <dd>{dados.contato.bloqueadoParaLigacoes ? 'Bloqueadas' : 'Sem bloqueio administrativo'}</dd>
+                  <dd>{formatarComunicacao(dados.contato.autorizacaoLigacoes, dados.contato.bloqueadoParaLigacoes)}</dd>
                 </div>
                 <div>
                   <dt>Pedido de exclusão</dt>

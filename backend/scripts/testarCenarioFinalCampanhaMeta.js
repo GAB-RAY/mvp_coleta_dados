@@ -47,21 +47,34 @@ async function executar() {
     componentes: [
       { type: 'HEADER', format: 'IMAGE', handleExemplo: '4::handle-oficial-falso' },
       { type: 'BODY', text: 'Ola {{1}}', exemplos: ['Pessoa QA'] },
-      { type: 'FOOTER', text: 'ACORDA RJ' },
-      { type: 'BUTTONS', buttons: [{ type: 'QUICK_REPLY', text: 'Nao quero mais receber' }] }
+      { type: 'FOOTER', text: 'ACORDA RJ' }
     ],
     configuracaoEnvio: {
       cabecalho: { tipo: 'imagem', origem: 'link', valor: 'https://example.com/acorda-rj-qa.jpg' },
       corpo: [{ origem: 'nome_contato' }],
-      botoes: [{ indice: 0, subtipo: 'quick_reply', origem: 'opt_out' }]
+      botoes: []
     }
   }, usuario);
   await banco.query(`
     UPDATE modelos_mensagem
     SET meta_template_id='9900001', meta_status='aprovado',
-      meta_status_oficial='APPROVED', meta_origem='meta'
+      meta_status_oficial='APPROVED', meta_origem='meta',
+      meta_componentes=$2::jsonb, meta_configuracao_envio=$3::jsonb,
+      texto='Ola {{nome}}'
     WHERE id=$1
-  `, [template.id]);
+  `, [template.id, JSON.stringify([
+    { type: 'HEADER', format: 'IMAGE' },
+    { type: 'BODY', parameter_format: 'NAMED', text: 'Ola {{nome}}' },
+    { type: 'FOOTER', text: 'ACORDA RJ' },
+    { type: 'BUTTONS', buttons: [
+      { type: 'URL', text: 'Quero Participar!', url: 'https://example.com/participar' },
+      { type: 'QUICK_REPLY', text: 'SAIR' }
+    ] }
+  ]), JSON.stringify({
+    cabecalho: { tipo: 'imagem', origem: 'link', valor: 'https://example.com/acorda-rj-qa.jpg' },
+    corpo: [{ origem: 'nome_contato' }],
+    botoes: [{ indice: 1, subtipo: 'quick_reply', origem: 'opt_out' }]
+  })]);
 
   const contatos = (await banco.query(`
     INSERT INTO contatos (
@@ -105,9 +118,15 @@ async function executar() {
     confirmar(payload.template.components[0].type === 'header' &&
       payload.template.components[0].parameters[0].image.link === 'https://example.com/acorda-rj-qa.jpg',
     'HEADER IMAGE nao chegou ao payload final.');
-    confirmar(payload.template.components[1].type === 'body' &&
-      payload.template.components[2].parameters[0].payload === 'nao_quero_mais_receber',
-    'BODY ou botao de opt-out divergiram no payload final.');
+    const cabecalhoPayload = payload.template.components.find(function (item) { return item.type === 'header'; });
+    const corpoPayload = payload.template.components.find(function (item) { return item.type === 'body'; });
+    const botaoPayload = payload.template.components.find(function (item) { return item.type === 'button'; });
+    confirmar(cabecalhoPayload.parameters.length === 1 && corpoPayload.parameters.length === 1 &&
+      corpoPayload.parameters[0].parameter_name === 'nome' &&
+      botaoPayload.sub_type === 'quick_reply' && botaoPayload.index === '1' &&
+      botaoPayload.parameters.length === 1 &&
+      botaoPayload.parameters[0].payload === process.env.WHATSAPP_OPTOUT_BUTTON_ID,
+    'HEADER, BODY NAMED ou QUICK_REPLY SAIR divergiram no payload final.');
     return {
       ok: true, status: 200,
       json: async function () { return { messages: [{ id: 'wamid.qa.' + payload.to }] }; }
@@ -133,22 +152,59 @@ async function executar() {
   }), 'Estado ou historico dos envios nao foi persistido.');
 
   const primeiro = tentativas[0];
+  const eventoBarreira = (await banco.query(`
+    INSERT INTO eventos (
+      nome,motivo,data_inicial,data_final,inscricoes_inicio,inscricoes_fim,status,
+      criado_por_usuario_id,atualizado_por_usuario_id
+    ) VALUES ($1,'QA','2026-01-01','2026-12-31','2026-01-01','2026-12-31','ativo',$2,$2)
+    RETURNING id
+  `, [marca + ' BARREIRA', usuario.id])).rows[0];
+  await banco.query('INSERT INTO contato_eventos (contato_id,evento_id) VALUES ($1,$2)', [contatos[0].id, eventoBarreira.id]);
+  const campanhaBarreira = await criarCampanha(marca + ' BARREIRA', template.id, { eventoId: eventoBarreira.id }, usuario);
+  await campanhaService.criarLote(campanhaBarreira.id, { tamanho: 1, chaveIdempotencia: marca + '-barreira' }, usuario);
+  const tentativaBarreira = (await banco.query(`
+    SELECT tentativa.id FROM campanha_tentativas tentativa
+    INNER JOIN campanha_participacoes participacao ON participacao.id=tentativa.participacao_id
+    WHERE participacao.campanha_id=$1
+  `, [campanhaBarreira.id])).rows[0];
+  const identificadorOptOut = 'wamid.qa.optout.' + crypto.randomUUID();
   const optout = await mensageriaService.processarWebhook({
     entry: [{ changes: [{ value: { messages: [{
-      id: 'wamid.qa.optout.' + crypto.randomUUID(), from: primeiro.telefone_normalizado,
+      id: identificadorOptOut, from: primeiro.telefone_normalizado,
       context: { id: 'wamid.qa.' + primeiro.telefone_normalizado },
-      type: 'button', button: { payload: 'nao_quero_mais_receber', text: 'Nao quero mais receber' }
+      type: 'button', button: { payload: process.env.WHATSAPP_OPTOUT_BUTTON_ID, text: 'SAIR' }
     }] } }] }]
   });
   confirmar(optout[0].processado === true, 'O opt-out do primeiro contato nao foi processado.');
   const detalhe = await contatoService.detalharContato(contatos[0].id);
   const consentimentoMensagens = detalhe.consentimentos.find(function (item) { return item.tipo === 'mensagens'; });
-  confirmar(detalhe.contato.bloqueadoParaMensagens === true &&
-    consentimentoMensagens.estado === 'revogado' && Boolean(consentimentoMensagens.criadoEm) &&
-    consentimentoMensagens.canal === 'whatsapp',
-  'O painel nao receberia estado claro de bloqueio/revogacao com data: ' + JSON.stringify({
-    contato: detalhe.contato, consentimento: consentimentoMensagens
+  const consentimentoLigacoes = detalhe.consentimentos.find(function (item) { return item.tipo === 'ligacoes'; });
+  const historicoOptOut = detalhe.historico.find(function (item) { return item.tipoEvento === 'opt_out_whatsapp'; });
+  confirmar(detalhe.contato.bloqueadoParaMensagens === true && detalhe.contato.bloqueadoParaLigacoes === true &&
+    detalhe.contato.autorizacaoMensagens === 'revogado' && detalhe.contato.autorizacaoLigacoes === 'revogado' &&
+    consentimentoMensagens.estado === 'revogado' && consentimentoLigacoes.estado === 'revogado' &&
+    consentimentoMensagens.canal === 'whatsapp' && consentimentoLigacoes.canal === 'whatsapp' &&
+    historicoOptOut.dadosNovos.motivo.includes('SAIR'),
+  'O painel nao receberia o bloqueio global e as duas revogacoes: ' + JSON.stringify({
+    contato: detalhe.contato, mensagens: consentimentoMensagens, ligacoes: consentimentoLigacoes
   }));
+  const chamadasAntesBarreira = payloads.length;
+  let erroBarreira;
+  try { await mensageriaService.enviar(tentativaBarreira.id); } catch (erro) { erroBarreira = erro; }
+  confirmar(erroBarreira && erroBarreira.statusHttp === 409 && payloads.length === chamadasAntesBarreira,
+    'A barreira imediatamente anterior ao provider nao bloqueou o contato apos SAIR.');
+  const repeticao = await mensageriaService.processarWebhook({
+    entry: [{ changes: [{ value: { messages: [{
+      id: identificadorOptOut, from: primeiro.telefone_normalizado,
+      type: 'button', button: { payload: process.env.WHATSAPP_OPTOUT_BUTTON_ID, text: 'SAIR' }
+    }] } }] }]
+  });
+  const quantidadeHistoricosOptOut = (await banco.query(
+    "SELECT COUNT(*)::integer total FROM historico_contatos WHERE contato_id=$1 AND tipo_evento='opt_out_whatsapp'",
+    [contatos[0].id]
+  )).rows[0].total;
+  confirmar(repeticao[0].motivo === 'evento_repetido' && quantidadeHistoricosOptOut === 1,
+    'O webhook repetido duplicou o historico do SAIR.');
 
   const campanhaPosterior = await criarCampanha(marca + ' POS OPTOUT', template.id, {
     eventoId: evento.id, bairro, problema: 'Saude'

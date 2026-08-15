@@ -129,15 +129,18 @@ const scriptPreparacao = String.raw`
   window.confirm = function () { return true; };
   window.__requisicoesQa = [];
   window.__templateQa = {
-    id: 9001, nome: 'Modelo externo com imagem', categoria: 'MARKETING', texto: 'Convite oficial', ativo: true,
+    id: 9001, nome: 'Modelo externo com imagem', categoria: 'MARKETING', texto: 'Olá {{nome}}, convite oficial', ativo: true,
     meta_nome: 'modelo_externo_imagem_qa', meta_idioma: 'pt_BR', meta_categoria: 'MARKETING',
     meta_status: 'aprovado', meta_status_oficial: 'APPROVED', meta_template_id: '999300001', meta_origem: 'meta',
     meta_componentes: [
       { type: 'HEADER', format: 'IMAGE' },
-      { type: 'BODY', text: 'Convite oficial' },
-      { type: 'BUTTONS', buttons: [{ type: 'QUICK_REPLY', text: 'Confirmar presença' }] }
+      { type: 'BODY', parameter_format: 'NAMED', text: 'Olá {{nome}}, convite oficial' },
+      { type: 'BUTTONS', buttons: [
+        { type: 'URL', text: 'Quero Participar!', url: 'https://example.com/participar' },
+        { type: 'QUICK_REPLY', text: 'SAIR' }
+      ] }
     ],
-    meta_configuracao_envio: {}
+    meta_configuracao_envio: { corpo: [{ origem: 'nome_contato' }], botoes: [] }
   };
   window.fetch = async function (entrada, opcoes) {
     const url = String(entrada);
@@ -255,8 +258,8 @@ try {
 
   assert.equal(await executarExpressao(cliente, alterarModo('internet')), true);
   await aguardarCondicao(cliente, `Boolean(document.querySelector('input[type="url"][placeholder="https://..."]'))`, 'O campo de URL não apareceu.');
-  assert.equal(await executarExpressao(cliente, preencherUrl('https://httpbin.org/image/png')), true);
-  await validarImagem(cliente, 'https://httpbin.org/image/png');
+  assert.equal(await executarExpressao(cliente, preencherUrl('https://placehold.co/2x2.png')), true);
+  await validarImagem(cliente, 'https://placehold.co/2x2.png');
 
   assert.equal(await executarExpressao(cliente, preencherUrl('')), true);
   await aguardarCondicao(cliente, `document.querySelector('.imagem-vazia-previa')?.textContent.includes('Sua imagem aparecerá aqui')`, 'A URL vazia não retornou ao placeholder.');
@@ -280,11 +283,12 @@ try {
   assert.equal(await executarExpressao(cliente, `(() => { const botao = Array.from(document.querySelectorAll('button')).find(item => item.textContent.trim() === 'Configurar imagem'); if (!botao) return false; botao.click(); return true; })()`), true);
   assert.equal(await executarExpressao(cliente, alterarModo('internet')), true);
   assert.equal(await executarExpressao(cliente, preencherUrl('https://example.com/imagem-salva.jpg')), true);
+  assert.equal(await executarExpressao(cliente, `(() => { const card = Array.from(document.querySelectorAll('.botao-oficial-modelo')).find(item => item.textContent.includes('SAIR')); const campo = card && card.querySelector('input[type="checkbox"]'); if (!campo) return false; campo.click(); return campo.checked; })()`), true);
   assert.equal(await executarExpressao(cliente, `(() => { const botao = Array.from(document.querySelectorAll('button')).find(item => item.textContent.trim() === 'Salvar informações de envio'); if (!botao) return false; botao.click(); return true; })()`), true);
   await aguardarCondicao(cliente, `window.__requisicoesQa.some(item => item.metodo === 'PUT' && item.url.includes('/templates/9001/configuracao-envio'))`, 'O frontend não enviou a configuração por URL.');
   let ultimoPayload = await executarExpressao(cliente, `JSON.parse(window.__requisicoesQa.filter(item => item.metodo === 'PUT').at(-1).corpo)`);
   assert.deepEqual(ultimoPayload, {
-    configuracaoEnvio: { corpo: [], botoes: [], cabecalho: { tipo: 'imagem', origem: 'link', valor: 'https://example.com/imagem-salva.jpg' } },
+    configuracaoEnvio: { corpo: [{ origem: 'nome_contato' }], botoes: [{ indice: 1, subtipo: 'quick_reply', origem: 'opt_out' }], cabecalho: { tipo: 'imagem', origem: 'link', valor: 'https://example.com/imagem-salva.jpg' } },
     removerImagem: false
   });
   await aguardarCondicao(cliente, `Array.from(document.querySelectorAll('button')).some(item => item.textContent.trim() === 'Definir informações de envio')`, 'A lista não foi recarregada após salvar a URL.');
@@ -302,7 +306,7 @@ try {
   await executarExpressao(cliente, `Array.from(document.querySelectorAll('button')).find(item => item.textContent.trim() === 'Definir informações de envio').click()`);
   await aguardarCondicao(cliente, `document.querySelector('.imagem-vazia-previa')?.textContent.includes('Imagem configurada para envio')`, 'O Media ID salvo não foi reconhecido ao reabrir.');
 
-  assert.equal(await executarExpressao(cliente, `(() => { const botao = Array.from(document.querySelectorAll('button')).find(item => item.textContent.trim() === 'Remover imagem configurada'); if (!botao) return false; botao.click(); return true; })()`), true);
+  assert.equal(await executarExpressao(cliente, `(() => { const botao = Array.from(document.querySelectorAll('button')).find(item => item.textContent.trim() === 'Remover imagem'); if (!botao) return false; botao.click(); return true; })()`), true);
   await executarExpressao(cliente, `Array.from(document.querySelectorAll('button')).find(item => item.textContent.trim() === 'Salvar informações de envio').click()`);
   await aguardarCondicao(cliente, `window.__requisicoesQa.filter(item => item.metodo === 'PUT').length >= 3`, 'O frontend não enviou a remoção intencional.');
   ultimoPayload = await executarExpressao(cliente, `JSON.parse(window.__requisicoesQa.filter(item => item.metodo === 'PUT').at(-1).corpo)`);

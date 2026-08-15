@@ -52,6 +52,8 @@ function candidatosTelefone(telefone) {
 }
 
 async function registrarOptOut(dados) {
+  const tiposRevogados = ['mensagens', 'ligacoes'];
+  const motivoRevogacao = 'Consentimentos revogados pela pr\u00f3pria pessoa atrav\u00e9s do bot\u00e3o SAIR no WhatsApp.';
   const cliente = await banco.connect();
   try {
     await cliente.query('BEGIN');
@@ -61,7 +63,7 @@ async function registrarOptOut(dados) {
       return { processado: false, motivo: 'evento_repetido' };
     }
     const resultadoContato = await cliente.query(`
-      SELECT id, origem_id, bloqueado_para_mensagens
+      SELECT id, origem_id, bloqueado_para_mensagens, bloqueado_para_ligacoes
       FROM contatos
       WHERE telefone_normalizado = ANY($1::text[])
       ORDER BY id LIMIT 1
@@ -73,30 +75,57 @@ async function registrarOptOut(dados) {
       return { processado: false, motivo: 'contato_nao_encontrado' };
     }
     const resultadoConsentimento = await cliente.query(`
-      SELECT texto_apresentado, versao_texto, origem_id
+      SELECT tipo, texto_apresentado, versao_texto, origem_id
       FROM consentimentos
-      WHERE contato_id=$1 AND tipo='mensagens' AND ativo=TRUE
-      ORDER BY id DESC LIMIT 1
-    `, [contato.id]);
-    const atual = resultadoConsentimento.rows[0];
-    const registro = await consentimentoModel.registrarRespostaSeDiferente(cliente, contato.id, {
-      tipo: 'mensagens', resposta: false, estado: 'revogado',
-      texto: atual && atual.texto_apresentado || 'Solicitacao de descadastramento recebida pelo WhatsApp.',
-      versao: atual && atual.versao_texto || 'meta_optout_v1',
-      canal: 'whatsapp', origemRegistro: 'revogacao', registradoPorUsuarioId: null,
-      origemId: atual && atual.origem_id || contato.origem_id,
-      motivoRevogacao: 'Solicitacao recebida pelo WhatsApp.'
+      WHERE contato_id=$1 AND tipo=ANY($2::text[]) AND ativo=TRUE
+      ORDER BY id
+      FOR UPDATE
+    `, [contato.id, tiposRevogados]);
+    const consentimentosPorTipo = {};
+    resultadoConsentimento.rows.forEach(function (consentimento) {
+      consentimentosPorTipo[consentimento.tipo] = consentimento;
     });
-    const bloqueioAlterado = contato.bloqueado_para_mensagens !== true;
-    if (bloqueioAlterado) {
-      await cliente.query('UPDATE contatos SET bloqueado_para_mensagens=TRUE, atualizado_em=CURRENT_TIMESTAMP WHERE id=$1', [contato.id]);
+    const registros = [];
+    for (const tipo of tiposRevogados) {
+      const atual = consentimentosPorTipo[tipo];
+      const registro = await consentimentoModel.registrarRespostaSeDiferente(cliente, contato.id, {
+        tipo,
+        resposta: false,
+        estado: 'revogado',
+        texto: atual && atual.texto_apresentado || 'Solicitacao de descadastramento recebida pelo WhatsApp.',
+        versao: atual && atual.versao_texto || 'meta_optout_v1',
+        canal: 'whatsapp',
+        origemRegistro: 'revogacao',
+        registradoPorUsuarioId: null,
+        origemId: atual && atual.origem_id || contato.origem_id,
+        motivoRevogacao
+      });
+      if (registro) registros.push(tipo);
     }
-    if (registro || bloqueioAlterado) {
+    const bloqueioMensagensAlterado = contato.bloqueado_para_mensagens !== true;
+    const bloqueioLigacoesAlterado = contato.bloqueado_para_ligacoes !== true;
+    const bloqueioAlterado = bloqueioMensagensAlterado || bloqueioLigacoesAlterado;
+    if (bloqueioAlterado) {
+      await cliente.query(`
+        UPDATE contatos
+        SET bloqueado_para_mensagens=TRUE,
+            bloqueado_para_ligacoes=TRUE,
+            atualizado_em=CURRENT_TIMESTAMP
+        WHERE id=$1
+      `, [contato.id]);
+    }
+    if (registros.length > 0 || bloqueioAlterado) {
       await historicoContatoModel.registrar(cliente, contato.id, {
         tipoEvento: 'opt_out_whatsapp',
-        dadosAnteriores: { bloqueadoParaMensagens: contato.bloqueado_para_mensagens },
+        dadosAnteriores: {
+          bloqueadoParaMensagens: contato.bloqueado_para_mensagens,
+          bloqueadoParaLigacoes: contato.bloqueado_para_ligacoes
+        },
         dadosNovos: {
           bloqueadoParaMensagens: true,
+          bloqueadoParaLigacoes: true,
+          consentimentosRevogados: tiposRevogados,
+          motivo: motivoRevogacao,
           origem: 'WhatsApp/Meta',
           campanhaId: dados.campanhaId || null,
           tentativaId: dados.tentativaId || null
@@ -106,7 +135,12 @@ async function registrarOptOut(dados) {
       });
     }
     await cliente.query('COMMIT');
-    return { processado: true, contatoId: contato.id, alterado: Boolean(registro || bloqueioAlterado) };
+    return {
+      processado: true,
+      contatoId: contato.id,
+      alterado: Boolean(registros.length > 0 || bloqueioAlterado),
+      consentimentosRevogados: registros
+    };
   } catch (erro) {
     await cliente.query('ROLLBACK');
     throw erro;

@@ -806,7 +806,17 @@ async function detalharContato(idRecebido) {
     throw criarAppError('Contato não encontrado.', 404);
   }
 
-  const contato = transformarContatoParaResposta(resultado.contato);
+  const contatoComAutorizacoes = Object.assign({}, resultado.contato);
+  ['mensagens', 'ligacoes'].forEach(function (tipo) {
+    const consentimento = resultado.consentimentos.find(function (item) {
+      return item.tipo === tipo && item.ativo === true;
+    });
+    const estado = consentimento && (
+      consentimento.estado || (consentimento.resposta ? 'autorizado' : 'recusado')
+    ) || 'nao_informado';
+    contatoComAutorizacoes['autorizacao_' + tipo] = estado;
+  });
+  const contato = transformarContatoParaResposta(contatoComAutorizacoes);
 
   contato.origem = {
     id: resultado.contato.origem_id,
