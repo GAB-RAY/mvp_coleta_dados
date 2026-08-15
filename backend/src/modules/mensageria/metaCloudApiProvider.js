@@ -99,9 +99,9 @@ function resolverParametro(parametro, comando, posicao) {
   };
   const valor = textoSeguro(origens[parametro.origem], 1000);
   if (!valor) {
-    throw criarErroIntegracao(
+    throw criarErroConfiguracaoEnvio(
       'Este contato nao possui a informacao necessaria para preencher {{' + posicao + '}}.',
-      'TEMPLATE_DADO_AUSENTE', 422, false
+      'CONFIGURACAO_ENVIO_INCOMPLETA'
     );
   }
   return valor;
@@ -147,7 +147,9 @@ function montarComponentesEnvio(comando) {
       })
     });
   }
-  const corpoOficial = componentesOficiais.find(function (item) { return item.type === 'BODY'; });
+  const corpoOficial = componentesOficiais.find(function (item) {
+    return String(item && item.type || '').toUpperCase() === 'BODY';
+  });
   const posicoesCorpo = obterPosicoesVariaveis(corpoOficial && corpoOficial.text);
   if (posicoesCorpo.length) {
     componentes.push({
