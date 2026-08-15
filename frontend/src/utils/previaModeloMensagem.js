@@ -15,8 +15,18 @@ function valorExemploPrevia(configuracao) {
 
 function substituirVariaveisPrevia(texto, configuracoes) {
   const lista = Array.isArray(configuracoes) ? configuracoes : [];
-  return String(texto || '').replace(/\{\{(\d+)\}\}/g, function (marcador, numeroRecebido) {
-    const indice = Number(numeroRecebido) - 1;
+  const nomesEncontrados = [];
+  return String(texto || '').replace(/\{\{\s*([^{}]+?)\s*\}\}/g, function (marcador, identificador) {
+    let indice;
+    if (/^\d+$/.test(identificador)) {
+      indice = Number(identificador) - 1;
+    } else {
+      indice = nomesEncontrados.indexOf(identificador);
+      if (indice === -1) {
+        nomesEncontrados.push(identificador);
+        indice = nomesEncontrados.length - 1;
+      }
+    }
     const exemplo = valorExemploPrevia(lista[indice]);
     return exemplo || marcador;
   });

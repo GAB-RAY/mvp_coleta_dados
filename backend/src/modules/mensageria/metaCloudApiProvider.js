@@ -1,5 +1,9 @@
 const ENDERECO_GRAPH = 'https://graph.facebook.com';
-const { analisarRequisitosDeEnvio, obterPosicoesVariaveis } = require('./analisadorRequisitosTemplate');
+const {
+  analisarRequisitosDeEnvio,
+  obterDescritoresVariaveis,
+  obterPosicoesVariaveis
+} = require('./analisadorRequisitosTemplate');
 
 let executarFetch = function () { return fetch.apply(globalThis, arguments); };
 let registrarEstruturaParaLog = function (registro) {
@@ -136,29 +140,47 @@ function montarComponentesEnvio(comando) {
   const componentesOficiais = Array.isArray(comando.templateComponentes) ? comando.templateComponentes : [];
   const componentes = [];
   const cabecalhoOficial = componentesOficiais.find(function (item) { return item.type === 'HEADER'; });
-  const posicoesCabecalho = obterPosicoesVariaveis(cabecalhoOficial && cabecalhoOficial.text);
+  const descritoresCabecalho = obterDescritoresVariaveis(cabecalhoOficial);
   if (cabecalhoOficial && cabecalhoOficial.format === 'IMAGE') {
     const cabecalho = configuracao.cabecalho;
     const valorImagem = cabecalho.valor.trim();
     const imagem = cabecalho.origem === 'id' ? { id: valorImagem } : { link: valorImagem };
     componentes.push({ type: 'header', parameters: [{ type: 'image', image: imagem }] });
-  } else if (cabecalhoOficial && cabecalhoOficial.format === 'TEXT' && posicoesCabecalho.length) {
+  } else if (cabecalhoOficial && cabecalhoOficial.format === 'TEXT' && descritoresCabecalho.length) {
     componentes.push({
       type: 'header',
-      parameters: posicoesCabecalho.map(function (posicao) {
-        return { type: 'text', text: resolverParametro(configuracao.cabecalho.parametros[posicao - 1], comando, posicao) };
+      parameters: descritoresCabecalho.map(function (descritor) {
+        const parametro = {
+          type: 'text',
+          text: resolverParametro(
+            configuracao.cabecalho.parametros[descritor.posicao - 1],
+            comando,
+            descritor.marcador
+          )
+        };
+        if (descritor.nome) parametro.parameter_name = descritor.nome;
+        return parametro;
       })
     });
   }
   const corpoOficial = componentesOficiais.find(function (item) {
     return String(item && item.type || '').toUpperCase() === 'BODY';
   });
-  const posicoesCorpo = obterPosicoesVariaveis(corpoOficial && corpoOficial.text);
-  if (posicoesCorpo.length) {
+  const descritoresCorpo = obterDescritoresVariaveis(corpoOficial);
+  if (descritoresCorpo.length) {
     componentes.push({
       type: 'body',
-      parameters: posicoesCorpo.map(function (posicao) {
-        return { type: 'text', text: resolverParametro(configuracao.corpo[posicao - 1], comando, posicao) };
+      parameters: descritoresCorpo.map(function (descritor) {
+        const parametro = {
+          type: 'text',
+          text: resolverParametro(
+            configuracao.corpo[descritor.posicao - 1],
+            comando,
+            descritor.marcador
+          )
+        };
+        if (descritor.nome) parametro.parameter_name = descritor.nome;
+        return parametro;
       })
     });
   }
@@ -205,17 +227,24 @@ function resumirComponenteOficial(componente) {
   const tipo = String(componente && componente.type || '').toUpperCase();
   const resumo = { tipo };
   if (componente && componente.format) resumo.formato = String(componente.format).toUpperCase();
-  if (tipo === 'BODY') resumo.quantidadeVariaveis = obterPosicoesVariaveis(componente.text).length;
+  if (componente && componente.parameter_format) {
+    resumo.formatoParametros = String(componente.parameter_format).toUpperCase();
+  }
+  if (tipo === 'BODY') resumo.quantidadeVariaveis = obterDescritoresVariaveis(componente).length;
   if (tipo === 'BUTTONS') resumo.quantidadeBotoes = Array.isArray(componente.buttons)
     ? componente.buttons.length : 0;
   return resumo;
 }
 
 function resumirComponentePayload(componente) {
+  const parametros = Array.isArray(componente && componente.parameters)
+    ? componente.parameters : [];
   return {
     tipo: String(componente && componente.type || '').toLowerCase(),
-    quantidadeParametros: Array.isArray(componente && componente.parameters)
-      ? componente.parameters.length : 0
+    quantidadeParametros: parametros.length,
+    nomesParametros: parametros.map(function (parametro) {
+      return textoSeguro(parametro && parametro.parameter_name, 100);
+    }).filter(Boolean)
   };
 }
 
@@ -227,10 +256,12 @@ function registrarEstruturaEnvioTemplateMeta(comando, payload) {
   const corpoOficial = componentesOficiais.find(function (item) {
     return String(item && item.type || '').toUpperCase() === 'BODY';
   });
-  const variaveisEsperadas = obterPosicoesVariaveis(corpoOficial && corpoOficial.text);
-  const variaveisConfiguradas = variaveisEsperadas.filter(function (posicao) {
-    return parametroOperacionalConfigurado(configuracaoCorpo[posicao - 1]);
-  });
+  const descritoresEsperados = obterDescritoresVariaveis(corpoOficial);
+  const variaveisEsperadas = descritoresEsperados.map(function (item) { return item.posicao; });
+  const nomesEsperados = descritoresEsperados.map(function (item) { return item.nome; }).filter(Boolean);
+  const variaveisConfiguradas = descritoresEsperados.filter(function (descritor) {
+    return parametroOperacionalConfigurado(configuracaoCorpo[descritor.posicao - 1]);
+  }).map(function (item) { return item.posicao; });
   const componentesPayload = payload && payload.template && Array.isArray(payload.template.components)
     ? payload.template.components : [];
   const corpoPayload = componentesPayload.find(function (item) {
@@ -238,10 +269,10 @@ function registrarEstruturaEnvioTemplateMeta(comando, payload) {
   });
   const parametrosCorpo = corpoPayload && Array.isArray(corpoPayload.parameters)
     ? corpoPayload.parameters : [];
-  const variaveisResolvidas = variaveisEsperadas.filter(function (posicao, indice) {
+  const variaveisResolvidas = descritoresEsperados.filter(function (descritor, indice) {
     const parametro = parametrosCorpo[indice];
     return parametro && parametro.type === 'text' && Boolean(textoSeguro(parametro.text, 1000));
-  });
+  }).map(function (item) { return item.posicao; });
   const registro = {
     nivel: 'info',
     evento: 'estrutura_envio_template_meta',
@@ -252,7 +283,13 @@ function registrarEstruturaEnvioTemplateMeta(comando, payload) {
     statusTemplate: textoSeguro(comando.templateStatusOficial, 50),
     componentesOficiais: componentesOficiais.map(resumirComponenteOficial),
     componentesPayload: componentesPayload.map(resumirComponentePayload),
-    body: { variaveisEsperadas, variaveisConfiguradas, variaveisResolvidas }
+    body: {
+      formatoParametros: String(corpoOficial && corpoOficial.parameter_format || 'POSITIONAL').toUpperCase(),
+      nomesEsperados,
+      variaveisEsperadas,
+      variaveisConfiguradas,
+      variaveisResolvidas
+    }
   };
   registrarEstruturaParaLog(registro);
   return registro;
@@ -262,9 +299,15 @@ function validarCorrespondenciaParametrosBody(registro) {
   const corpoPayload = registro.componentesPayload.find(function (item) { return item.tipo === 'body'; });
   const quantidadeEnviada = corpoPayload ? corpoPayload.quantidadeParametros : 0;
   const quantidadeEsperada = registro.body.variaveisEsperadas.length;
+  const nomesEnviados = corpoPayload && Array.isArray(corpoPayload.nomesParametros)
+    ? corpoPayload.nomesParametros : [];
+  const nomesEsperados = Array.isArray(registro.body.nomesEsperados)
+    ? registro.body.nomesEsperados : [];
   if (quantidadeEnviada !== quantidadeEsperada ||
     registro.body.variaveisConfiguradas.length !== quantidadeEsperada ||
-    registro.body.variaveisResolvidas.length !== quantidadeEsperada) {
+    registro.body.variaveisResolvidas.length !== quantidadeEsperada ||
+    nomesEnviados.length !== nomesEsperados.length ||
+    nomesEnviados.some(function (nome, indice) { return nome !== nomesEsperados[indice]; })) {
     throw criarErroConfiguracaoEnvio(
       'A configuracao dos valores personalizados do modelo esta incompleta.',
       'CONFIGURACAO_ENVIO_INCOMPLETA'
@@ -420,7 +463,10 @@ async function listarTemplatesOficiais() {
   const cursores = new Set();
   let cursor = null;
   for (let pagina = 0; pagina < 100; pagina += 1) {
-    const parametros = new URLSearchParams({ fields: 'id,name,language,status,category,components', limit: '100' });
+    const parametros = new URLSearchParams({
+      fields: 'id,name,language,status,category,parameter_format,components',
+      limit: '100'
+    });
     if (cursor) parametros.set('after', cursor);
     const resposta = await requisitarMeta(configuracao.businessAccountId + '/message_templates?' + parametros.toString(), { method: 'GET' }, 'template');
     if (!resposta.corpo || !Array.isArray(resposta.corpo.data)) {
@@ -437,7 +483,10 @@ async function listarTemplatesOficiais() {
 
 async function buscarTemplateOficialPorNome(nome) {
   const configuracao = obterConfiguracao();
-  const parametros = new URLSearchParams({ fields: 'id,name,language,status,category,components', name: nome });
+  const parametros = new URLSearchParams({
+    fields: 'id,name,language,status,category,parameter_format,components',
+    name: nome
+  });
   const resposta = await requisitarMeta(configuracao.businessAccountId + '/message_templates?' + parametros.toString(), { method: 'GET' }, 'template');
   if (!resposta.corpo || !Array.isArray(resposta.corpo.data)) throw criarErroIntegracao('A Meta retornou uma resposta de template invalida.', 'META_RESPOSTA_INVALIDA', resposta.status, true);
   return resposta.corpo.data;
@@ -448,7 +497,9 @@ async function buscarTemplateOficialPorId(idRecebido) {
   if (!/^\d+$/.test(id)) {
     throw criarErroIntegracao('O identificador oficial do template e invalido.', 'META_TEMPLATE_INVALIDO', 400, false);
   }
-  const parametros = new URLSearchParams({ fields: 'id,name,language,status,category,components' });
+  const parametros = new URLSearchParams({
+    fields: 'id,name,language,status,category,parameter_format,components'
+  });
   const resposta = await requisitarMeta(id + '?' + parametros.toString(), { method: 'GET' }, 'template');
   if (!resposta.corpo || String(resposta.corpo.id || '') !== id) {
     throw criarErroIntegracao('A Meta retornou um template invalido.', 'META_RESPOSTA_INVALIDA', resposta.status, true);

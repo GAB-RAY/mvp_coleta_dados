@@ -31,6 +31,10 @@ assert.equal(
   'Copacabana precisa de atenção em Saneamento básico.'
 );
 assert.equal(substituirVariaveisPrevia('Olá, {{1}}!', []), 'Olá, {{1}}!');
+assert.equal(
+  substituirVariaveisPrevia('Olá, {{nome}}!', [{ origem: 'nome_contato' }]),
+  'Olá, João!'
+);
 assert.equal(valorExemploPrevia({ origem: 'fixo', valor: 'Encontro comunitário' }), 'Encontro comunitário');
 assert.equal(valorExemploPrevia({ origem: 'fixo', valor: '' }), null);
 assert.deepEqual(resolverImagemPrevia({ cabecalhoTipo: 'texto' }, ''), { estado: 'sem_cabecalho', endereco: '' });
@@ -58,10 +62,12 @@ assert.match(pagina, /imagemLocal\.arquivo===arquivoImagem/);
 assert.match(pagina, /Imagem configurada para envio/);
 assert.match(pagina, /removerImagemEnvio/);
 assert.match(pagina, /Remover imagem configurada/);
-assert.match(pagina, /Não foi possível salvar a configuração da imagem/);
+assert.match(pagina, /Não foi possível salvar as informações de envio/);
+assert.match(pagina, /parameter_format/);
+assert.match(pagina, /Escolha uma informação/);
 assert.match(configuracaoVercel, /img-src 'self' data: blob: https:/);
 assert.match(estilos, /\.editor-template-campanha[\s\S]*grid-template-columns/);
 assert.match(estilos, /@media \(max-width: 1100px\)[\s\S]*\.editor-template-campanha[\s\S]*grid-template-columns: minmax\(0, 1fr\)/);
 assert.match(estilos, /@media \(max-width: 760px\)[\s\S]*\.previa-modelo-mensagem/);
 
-console.log('Prévia visual de modelos: 36 verificações aprovadas.');
+console.log('Prévia visual de modelos: 39 verificações aprovadas.');

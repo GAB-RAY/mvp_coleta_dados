@@ -166,9 +166,12 @@ async function executar() {
       registro.componentesOficiais[1].quantidadeVariaveis === 1 &&
       registro.componentesOficiais[2].quantidadeBotoes === 2,
     'O log nao refletiu os componentes oficiais carregados pela query real.');
-    confirmar(JSON.stringify(registro.body) === JSON.stringify({
-      variaveisEsperadas: [1], variaveisConfiguradas: [1], variaveisResolvidas: [1]
-    }), 'O log nao comprovou a sequencia esperada/configurada/resolvida 1/1/1.');
+    confirmar(registro.body.formatoParametros === 'POSITIONAL' &&
+      registro.body.nomesEsperados.length === 0 &&
+      JSON.stringify(registro.body.variaveisEsperadas) === '[1]' &&
+      JSON.stringify(registro.body.variaveisConfiguradas) === '[1]' &&
+      JSON.stringify(registro.body.variaveisResolvidas) === '[1]',
+    'O log nao comprovou a sequencia esperada/configurada/resolvida 1/1/1.');
     const corpoEstrutural = registro.componentesPayload.find(function (item) { return item.tipo === 'body'; });
     confirmar(corpoEstrutural && corpoEstrutural.quantidadeParametros === 1,
       'O log estrutural nao comprovou body.parameters.length igual a 1.');

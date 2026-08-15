@@ -1,6 +1,7 @@
 const criarAppError = require('../../utils/AppError');
 const campanhaModel = require('./campanhaModel');
 const metaProvider = require('../mensageria/metaCloudApiProvider');
+const { obterDescritoresVariaveis } = require('../mensageria/analisadorRequisitosTemplate');
 
 function texto(valor, nome, maximo, obrigatorio) {
   const resultado = typeof valor === 'string' ? valor.trim() : '';
@@ -103,16 +104,16 @@ function normalizarComponente(componente, estado) {
 function validarConfiguracaoEnvio(componentes, configuracao, opcoesRecebidas) {
   const opcoes=opcoesRecebidas||{};
   const resultado=configuracao&&typeof configuracao==='object'&&!Array.isArray(configuracao)?configuracao:{};
-  const body=componentes.find(function(item){return item.type==='BODY';});
-  const quantidadeBody=contarVariaveis(body.text);
+  const body=componentes.find(function(item){return String(item.type||'').toUpperCase()==='BODY';});
+  const quantidadeBody=obterDescritoresVariaveis(body).length;
   const corpo=Array.isArray(resultado.corpo)?resultado.corpo:[];
   if(corpo.length!==quantidadeBody)throw criarAppError('Configure o valor de envio de cada parametro do texto principal.',400);
   corpo.forEach(function(item){
     if(!item||!['nome_contato','bairro','problema','fixo'].includes(item.origem))throw criarAppError('Escolha o que deve aparecer em cada valor personalizado.',400);
     if(item.origem==='fixo')texto(item.valor,'Valor fixo do parametro',1000,true);
   });
-  const header=componentes.find(function(item){return item.type==='HEADER';});
-  if(header&&header.format==='TEXT'&&contarVariaveis(header.text)){
+  const header=componentes.find(function(item){return String(item.type||'').toUpperCase()==='HEADER';});
+  if(header&&String(header.format||'').toUpperCase()==='TEXT'&&obterDescritoresVariaveis(header).length){
     if(!resultado.cabecalho||resultado.cabecalho.tipo!=='texto'||!Array.isArray(resultado.cabecalho.parametros)||resultado.cabecalho.parametros.length!==1)throw criarAppError('Configure o parametro do cabecalho de texto.',400);
     if(!['nome_contato','bairro','problema','fixo'].includes(resultado.cabecalho.parametros[0].origem))throw criarAppError('Escolha o que deve aparecer no cabecalho.',400);
     if(resultado.cabecalho.parametros[0].origem==='fixo')texto(resultado.cabecalho.parametros[0].valor,'Valor fixo do cabecalho',1000,true);
@@ -176,7 +177,35 @@ function validarTemplateOficial(item) {
   const status=texto(item.status,'Status oficial retornado',50,true).toUpperCase();
   const category=texto(item.category,'Categoria oficial retornada',50,true).toUpperCase();
   if(!Array.isArray(item.components))throw criarAppError('A Meta retornou components invalidos.',502);
-  return {id:String(item.id),name,language,status,category,components:item.components};
+  const parameterFormat=item.parameter_format
+    ?texto(item.parameter_format,'Formato de parametros retornado',30,true).toUpperCase()
+    :null;
+  if(parameterFormat&&!['NAMED','POSITIONAL'].includes(parameterFormat)){
+    throw criarAppError('A Meta retornou um formato de parametros nao suportado.',502);
+  }
+  const components=item.components.map(function(componente){
+    if(!componente||typeof componente!=='object'||Array.isArray(componente)){
+      throw criarAppError('A Meta retornou um componente invalido.',502);
+    }
+    const normalizado=Object.assign({},componente);
+    const tipo=String(normalizado.type||'').toUpperCase();
+    if(parameterFormat&&['BODY','HEADER'].includes(tipo)){
+      normalizado.parameter_format=parameterFormat;
+    }
+    return normalizado;
+  });
+  if(parameterFormat==='NAMED'){
+    const corpo=components.find(function(componente){
+      return String(componente.type||'').toUpperCase()==='BODY';
+    });
+    const marcadores=Array.from(String(corpo&&corpo.text||'').matchAll(
+      /\{\{\s*([^{}]+?)\s*\}\}/g
+    ),function(resultado){return resultado[1];});
+    if(marcadores.some(function(nome){return !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(nome);})){
+      throw criarAppError('A Meta retornou um parametro nomeado invalido.',502);
+    }
+  }
+  return {id:String(item.id),name,language,status,category,parameterFormat,components};
 }
 
 async function salvarRascunho(id,dados,usuario){return campanhaModel.salvarTemplate(id,prepararRascunho(dados||{}),usuario.id);}

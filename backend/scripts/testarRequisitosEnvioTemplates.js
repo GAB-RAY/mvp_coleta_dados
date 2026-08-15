@@ -99,6 +99,22 @@ async function executar() {
     confirmar(ultimoPayload.template.components[0].parameters[0].text === 'Maria',
       'F) {{1}} configurado não foi resolvido no provider fake.');
 
+    const componentesVariavelNomeada = [{
+      type: 'BODY', parameter_format: 'NAMED', text: 'Olá, {{nome}}!'
+    }];
+    const semVariavelNomeada = analisar(comandoExterno(componentesVariavelNomeada, {}));
+    confirmar(!semVariavelNomeada.validoParaEnvio &&
+      semVariavelNomeada.pendencias[0].mensagem === 'Configure o valor {{nome}}.',
+    'F2) A ausência de {{nome}} deveria produzir sua pendência específica.');
+    await enviar(comandoExterno(componentesVariavelNomeada, {
+      corpo: [{ origem: 'nome_contato' }]
+    }));
+    const parametroNomeado = ultimoPayload.template.components[0].parameters[0];
+    confirmar(parametroNomeado.parameter_name === 'nome',
+      'F3) O provider não preservou o nome oficial do parâmetro.');
+    confirmar(parametroNomeado.text === 'Maria',
+      'F4) O parâmetro nomeado não recebeu o valor operacional configurado.');
+
     const botaoEstatico = [
       { type: 'BODY', text: 'Consulte.' },
       { type: 'BUTTONS', buttons: [{ type: 'URL', text: 'Abrir', url: 'https://example.com' }] }

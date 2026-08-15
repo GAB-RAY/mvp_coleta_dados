@@ -9,6 +9,25 @@ function obterPosicoesVariaveis(conteudo) {
   return Array.from(new Set(posicoes)).sort(function (a, b) { return a - b; });
 }
 
+function obterDescritoresVariaveis(componenteRecebido) {
+  const componente = componenteRecebido && typeof componenteRecebido === 'object'
+    ? componenteRecebido : { text: componenteRecebido };
+  const formato = String(componente.parameter_format || '').toUpperCase();
+
+  if (formato !== 'NAMED') {
+    return obterPosicoesVariaveis(componente.text).map(function (posicao) {
+      return { posicao, nome: null, marcador: String(posicao) };
+    });
+  }
+
+  const nomes = Array.from(String(componente.text || '').matchAll(
+    /\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}/g
+  ), function (item) { return item[1]; });
+  return Array.from(new Set(nomes)).map(function (nome, indice) {
+    return { posicao: indice + 1, nome, marcador: nome };
+  });
+}
+
 function parametroConfigurado(parametro) {
   if (!parametro || !['nome_contato', 'bairro', 'problema', 'fixo'].includes(parametro.origem)) return false;
   return parametro.origem !== 'fixo' || textoPreenchido(parametro.valor);
@@ -19,11 +38,15 @@ function adicionarPendencia(pendencias, tipo, mensagem, detalhes) {
 }
 
 function analisarVariaveis(pendencias, componente, configuracoes, local) {
-  const posicoes = obterPosicoesVariaveis(componente && componente.text);
-  posicoes.forEach(function (posicao) {
-    if (!parametroConfigurado(configuracoes[posicao - 1])) {
+  const descritores = obterDescritoresVariaveis(componente);
+  descritores.forEach(function (descritor) {
+    if (!parametroConfigurado(configuracoes[descritor.posicao - 1])) {
       adicionarPendencia(pendencias, 'valor_personalizado',
-        'Configure o valor {{' + posicao + '}}.', { componente: local, posicao });
+        'Configure o valor {{' + descritor.marcador + '}}.', {
+          componente: local,
+          posicao: descritor.posicao,
+          nomeParametro: descritor.nome
+        });
     }
   });
 }
@@ -130,4 +153,8 @@ function analisarRequisitosDeEnvio(template, configuracaoRecebida, opcoesRecebid
   return { validoParaEnvio: pendencias.length === 0, pendencias, templateExternoAprovado };
 }
 
-module.exports = { analisarRequisitosDeEnvio, obterPosicoesVariaveis };
+module.exports = {
+  analisarRequisitosDeEnvio,
+  obterDescritoresVariaveis,
+  obterPosicoesVariaveis
+};
