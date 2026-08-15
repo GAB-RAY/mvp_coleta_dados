@@ -157,6 +157,8 @@ async function enviar(tentativaIdRecebido) {
       problemaContato: tentativa.contato_problema,
       templateNome: tentativa.meta_nome,
       templateIdioma: tentativa.meta_idioma,
+      templateOrigem: tentativa.meta_origem,
+      templateStatusOficial: tentativa.meta_status_oficial,
       templateComponentes: tentativa.meta_componentes,
       templateConfiguracaoEnvio: tentativa.meta_configuracao_envio
     });

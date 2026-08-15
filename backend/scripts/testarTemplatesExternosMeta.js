@@ -110,7 +110,8 @@ async function executar() {
     const componentesTexto = [{ type: 'BODY', text: 'Mensagem externa aprovada.' }];
     const componentesImagem = [
       { type: 'HEADER', format: 'IMAGE' },
-      { type: 'BODY', text: 'Mensagem externa com imagem.' }
+      { type: 'BODY', text: 'Mensagem externa com imagem.' },
+      { type: 'BUTTONS', buttons: [{ type: 'QUICK_REPLY', text: 'Confirmar presença' }] }
     ];
     mensageriaService.definirProviderParaTeste(async function (url) {
       confirmar(url.includes('/message_templates'),
@@ -166,7 +167,7 @@ async function executar() {
     });
     await esperarFalha(
       mensageriaService.enviar(imagemExterna.tentativa.id),
-      'falta configurar a imagem'
+      'Configure a imagem do cabeçalho'
     );
     confirmar(chamadasProvider === chamadasAntesImagem,
       'A ausencia de midia deveria ser bloqueada antes do provider.');
@@ -176,7 +177,7 @@ async function executar() {
       FROM campanha_tentativas WHERE id=$1
     `, [imagemExterna.tentativa.id])).rows[0];
     confirmar(falhaImagem.status === 'falhou' &&
-      falhaImagem.codigo_erro_externo === 'MIDIA_TEMPLATE_NAO_CONFIGURADA',
+      falhaImagem.codigo_erro_externo === 'CONFIGURACAO_ENVIO_INCOMPLETA',
     'A falta de midia recebeu um codigo incorreto.');
     confirmar(falhaImagem.titulo_erro === 'Configuração necessária para o envio' &&
       !falhaImagem.titulo_erro.includes('Meta'),
@@ -200,7 +201,7 @@ async function executar() {
     const chamadasAntesInterno = chamadasProvider;
     await esperarFalha(
       mensageriaService.enviar(imagemInterna.tentativa.id),
-      'falta configurar a imagem'
+      'Configure a imagem do cabeçalho'
     );
     confirmar(chamadasProvider === chamadasAntesInterno,
       'Template interno incompleto chegou ao provider.');
@@ -208,7 +209,7 @@ async function executar() {
       'SELECT codigo_erro_externo FROM campanha_tentativas WHERE id=$1',
       [imagemInterna.tentativa.id]
     )).rows[0];
-    confirmar(falhaInterna.codigo_erro_externo === 'MIDIA_TEMPLATE_NAO_CONFIGURADA',
+    confirmar(falhaInterna.codigo_erro_externo === 'CONFIGURACAO_ENVIO_INCOMPLETA',
       'A validacao operacional do template interno foi removida.');
 
     const configurado = await templateService.configurarEnvio(
@@ -234,12 +235,15 @@ async function executar() {
       payloadImagem.template.components[0].parameters[0].image.link ===
         'https://example.com/imagem-oficial.jpg',
     'O HEADER IMAGE externo nao chegou corretamente ao provider fake.');
+    confirmar(!payloadImagem.template.components.some(function (item) {
+      return item.type === 'button';
+    }), 'O QUICK_REPLY comum do template externo foi convertido indevidamente em opt-out.');
     const estadoTentativas = (await banco.query(`
       SELECT numero_tentativa,status,codigo_erro_externo
       FROM campanha_tentativas WHERE participacao_id=$1 ORDER BY numero_tentativa
     `, [imagemExterna.participacao.id])).rows;
     confirmar(estadoTentativas.length === 2 && estadoTentativas[0].status === 'falhou' &&
-      estadoTentativas[0].codigo_erro_externo === 'MIDIA_TEMPLATE_NAO_CONFIGURADA' &&
+      estadoTentativas[0].codigo_erro_externo === 'CONFIGURACAO_ENVIO_INCOMPLETA' &&
       estadoTentativas[1].status === 'enviada',
     'O reprocessamento nao preservou a tentativa antiga e a nova tentativa valida.');
     const duplicidades = (await banco.query(`

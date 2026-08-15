@@ -11,6 +11,7 @@ const SCRIPTS = [
   'testarCampanhasEscala.js',
   'testarCampanhas.js',
   'testarTemplatesMeta.js',
+    'testarRequisitosEnvioTemplates.js',
   'testarPersistenciaImagemTemplate.js',
   'testarTemplatesExternosMeta.js',
   'testarIntegracaoMeta.js',
@@ -105,7 +106,7 @@ async function executar() {
       resultados.push(await executarScript(SCRIPTS[indice], ambiente));
     }
     console.log(resultados.join('\n'));
-    console.log('Fluxo isolado campanhas -> Meta mock: 9 grupos aprovados; nenhuma chamada real executada.');
+    console.log('Fluxo isolado campanhas -> Meta mock: 10 grupos aprovados; nenhuma chamada real executada.');
   } finally {
     if (bancoTeste) await bancoTeste.end().catch(function () {});
     if (administracaoConectada) await removerBanco(administracao).catch(function () {});

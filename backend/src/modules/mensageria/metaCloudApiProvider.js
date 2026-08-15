@@ -1,4 +1,5 @@
 const ENDERECO_GRAPH = 'https://graph.facebook.com';
+const { analisarRequisitosDeEnvio, obterPosicoesVariaveis } = require('./analisadorRequisitosTemplate');
 
 let executarFetch = function () { return fetch.apply(globalThis, arguments); };
 
@@ -55,103 +56,75 @@ function resolverParametro(parametro, comando, posicao) {
   return valor;
 }
 
-function contarVariaveis(conteudo) {
-  const numeros = Array.from(String(conteudo || '').matchAll(/\{\{(\d+)\}\}/g), function (item) {
-    return Number(item[1]);
-  });
-  return new Set(numeros).size;
-}
-
 function validarConfiguracaoParaEnvio(comando) {
-  const componentes = Array.isArray(comando.templateComponentes) ? comando.templateComponentes : [];
-  if (!componentes.length) return;
-  const configuracao = comando.templateConfiguracaoEnvio || {};
-  const corpo = componentes.find(function (item) { return item.type === 'BODY'; });
-  const parametrosCorpo = Array.isArray(configuracao.corpo) ? configuracao.corpo : [];
-  if (contarVariaveis(corpo && corpo.text) !== parametrosCorpo.length) {
-    throw criarErroConfiguracaoEnvio(
-      'Este modelo está aprovado, mas falta configurar os valores personalizados usados no envio.',
-      'PARAMETROS_TEMPLATE_NAO_CONFIGURADOS'
-    );
-  }
-  const cabecalho = componentes.find(function (item) { return item.type === 'HEADER'; });
-  if (cabecalho && cabecalho.format === 'IMAGE' && (
-    !configuracao.cabecalho || configuracao.cabecalho.tipo !== 'imagem' ||
-    !['id', 'link'].includes(configuracao.cabecalho.origem) ||
-    !textoSeguro(configuracao.cabecalho.valor, 2000)
-  )) {
-    throw criarErroConfiguracaoEnvio(
-      'Este modelo está aprovado, mas falta configurar a imagem que será usada no envio.',
-      'MIDIA_TEMPLATE_NAO_CONFIGURADA'
-    );
-  }
-  if (cabecalho && cabecalho.format === 'TEXT' && contarVariaveis(cabecalho.text) > 0) {
-    const parametros = configuracao.cabecalho && configuracao.cabecalho.parametros;
-    if (!Array.isArray(parametros) || parametros.length !== contarVariaveis(cabecalho.text)) {
-      throw criarErroConfiguracaoEnvio(
-        'Este modelo está aprovado, mas falta configurar o cabeçalho usado no envio.',
-        'CABECALHO_TEMPLATE_NAO_CONFIGURADO'
-      );
-    }
-  }
-  const grupoBotoes = componentes.find(function (item) { return item.type === 'BUTTONS'; });
-  const configuracoesBotoes = Array.isArray(configuracao.botoes) ? configuracao.botoes : [];
-  if (!grupoBotoes) return;
-  grupoBotoes.buttons.forEach(function (botao, indice) {
-    const exigeParametro = botao.type === 'QUICK_REPLY' || (botao.type === 'URL' && String(botao.url || '').includes('{{1}}'));
-    if (!exigeParametro) return;
-    const encontrada = configuracoesBotoes.find(function (item) { return item.indice === indice; });
-    if (!encontrada) {
-      throw criarErroConfiguracaoEnvio(
-        'Este modelo está aprovado, mas falta configurar os botões usados no envio.',
-        'BOTOES_TEMPLATE_NAO_CONFIGURADOS'
-      );
-    }
+  const analise = analisarRequisitosDeEnvio({
+    origem: comando.templateOrigem,
+    statusOficial: comando.templateStatusOficial,
+    nome: comando.templateNome,
+    idioma: comando.templateIdioma,
+    componentes: comando.templateComponentes
+  }, comando.templateConfiguracaoEnvio, {
+    identificadorOptOut: process.env.WHATSAPP_OPTOUT_BUTTON_ID
   });
+  if (analise.validoParaEnvio) return analise;
+  const somenteStatus = analise.pendencias.every(function (item) {
+    return item.tipo === 'status_oficial';
+  });
+  const mensagem = analise.pendencias.map(function (item) { return item.mensagem; }).join(' ');
+  throw criarErroConfiguracaoEnvio(
+    mensagem,
+    somenteStatus ? 'TEMPLATE_NAO_APROVADO' : 'CONFIGURACAO_ENVIO_INCOMPLETA'
+  );
 }
 
 function montarComponentesEnvio(comando) {
   const configuracao = comando.templateConfiguracaoEnvio || {};
+  const componentesOficiais = Array.isArray(comando.templateComponentes) ? comando.templateComponentes : [];
   const componentes = [];
-  if (configuracao.cabecalho) {
+  const cabecalhoOficial = componentesOficiais.find(function (item) { return item.type === 'HEADER'; });
+  const posicoesCabecalho = obterPosicoesVariaveis(cabecalhoOficial && cabecalhoOficial.text);
+  if (cabecalhoOficial && cabecalhoOficial.format === 'IMAGE') {
     const cabecalho = configuracao.cabecalho;
-    if (cabecalho.tipo === 'imagem') {
-      const imagem = cabecalho.origem === 'id' ? { id: cabecalho.valor } : { link: cabecalho.valor };
-      componentes.push({ type: 'header', parameters: [{ type: 'image', image: imagem }] });
-    } else if (cabecalho.tipo === 'texto' && Array.isArray(cabecalho.parametros) && cabecalho.parametros.length) {
-      componentes.push({
-        type: 'header',
-        parameters: cabecalho.parametros.map(function (item, indice) {
-          return { type: 'text', text: resolverParametro(item, comando, indice + 1) };
-        })
-      });
-    }
-  }
-  if (Array.isArray(configuracao.corpo) && configuracao.corpo.length) {
+    const valorImagem = cabecalho.valor.trim();
+    const imagem = cabecalho.origem === 'id' ? { id: valorImagem } : { link: valorImagem };
+    componentes.push({ type: 'header', parameters: [{ type: 'image', image: imagem }] });
+  } else if (cabecalhoOficial && cabecalhoOficial.format === 'TEXT' && posicoesCabecalho.length) {
     componentes.push({
-      type: 'body',
-      parameters: configuracao.corpo.map(function (item, indice) {
-        return { type: 'text', text: resolverParametro(item, comando, indice + 1) };
+      type: 'header',
+      parameters: posicoesCabecalho.map(function (posicao) {
+        return { type: 'text', text: resolverParametro(configuracao.cabecalho.parametros[posicao - 1], comando, posicao) };
       })
     });
   }
-  if (Array.isArray(configuracao.botoes)) {
-    configuracao.botoes.forEach(function (botao) {
+  const corpoOficial = componentesOficiais.find(function (item) { return item.type === 'BODY'; });
+  const posicoesCorpo = obterPosicoesVariaveis(corpoOficial && corpoOficial.text);
+  if (posicoesCorpo.length) {
+    componentes.push({
+      type: 'body',
+      parameters: posicoesCorpo.map(function (posicao) {
+        return { type: 'text', text: resolverParametro(configuracao.corpo[posicao - 1], comando, posicao) };
+      })
+    });
+  }
+  const grupoBotoes = componentesOficiais.find(function (item) { return item.type === 'BUTTONS'; });
+  const botoesOficiais = grupoBotoes && Array.isArray(grupoBotoes.buttons) ? grupoBotoes.buttons : [];
+  const configuracoesBotoes = Array.isArray(configuracao.botoes) ? configuracao.botoes : [];
+  botoesOficiais.forEach(function (botaoOficial, indice) {
+    const botao = configuracoesBotoes.find(function (item) { return item.indice === indice; });
+    const urlDinamica = botaoOficial.type === 'URL' && obterPosicoesVariaveis(botaoOficial.url).length > 0;
+    const optOutConfigurado = botaoOficial.type === 'QUICK_REPLY' && botao && botao.origem === 'opt_out';
+    if (urlDinamica || optOutConfigurado) {
       const valor = botao.origem === 'opt_out'
         ? process.env.WHATSAPP_OPTOUT_BUTTON_ID
         : resolverParametro(botao, comando, 1);
-      if (!valor) throw criarErroConfiguracaoEnvio(
-        'A configuração do botão usado no envio está incompleta.',
-        'BOTOES_TEMPLATE_NAO_CONFIGURADOS'
-      );
       componentes.push({
         type: 'button',
         sub_type: botao.subtipo,
-        index: String(botao.indice),
+        index: String(indice),
         parameters: [{ type: botao.subtipo === 'quick_reply' ? 'payload' : 'text', [botao.subtipo === 'quick_reply' ? 'payload' : 'text']: valor }]
       });
-    });
-  }
+    }
+  });
   return componentes;
 }
 
@@ -159,9 +132,6 @@ function montarPayload(comando) {
   const telefone = String(comando.telefone || '').replace(/\D/g, '');
   if (telefone.length < 10 || telefone.length > 15) {
     throw criarErroIntegracao('O telefone do contato e invalido para o WhatsApp.', 'TELEFONE_INVALIDO', 422, false);
-  }
-  if (!comando.templateNome || !comando.templateIdioma) {
-    throw criarErroIntegracao('O template oficial da Meta nao esta configurado.', 'TEMPLATE_META_INVALIDO', 409, false);
   }
   validarConfiguracaoParaEnvio(comando);
   const template = { name: comando.templateNome, language: { code: comando.templateIdioma } };

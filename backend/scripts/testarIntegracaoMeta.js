@@ -87,7 +87,7 @@ async function executar() {
     metaProvider.definirFetchParaTeste(function(url,opcoes){
       return new Promise(function(resolve,reject){opcoes.signal.addEventListener('abort',function(){const erro=new Error('abortado');erro.name='AbortError';reject(erro);});});
     });
-    await confirmarRejeicao(metaProvider.enviarTemplate({telefone:'5521999999999',templateNome:'template_teste',templateIdioma:'pt_BR'}),'tempo esperado');
+    await confirmarRejeicao(metaProvider.enviarTemplate({telefone:'5521999999999',templateNome:'template_teste',templateIdioma:'pt_BR',templateOrigem:'meta',templateStatusOficial:'APPROVED'}),'tempo esperado');
 
     const concorrente = await criarCenario('8100005', 'aprovado'); cenarios.push(concorrente);
     const chamadasAntes = chamadas;

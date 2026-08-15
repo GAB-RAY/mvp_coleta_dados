@@ -139,7 +139,7 @@ async function iniciarEnvio(tentativaId, agora) {
         ) AS mensagens_recusadas,
         modelo.ativo AS modelo_ativo, modelo.meta_nome, modelo.meta_idioma,
         modelo.meta_status, modelo.meta_template_id, modelo.meta_status_oficial,
-        modelo.meta_componentes, modelo.meta_configuracao_envio
+        modelo.meta_componentes, modelo.meta_configuracao_envio, modelo.meta_origem
       FROM campanha_tentativas tentativa
       INNER JOIN campanha_participacoes participacao ON participacao.id=tentativa.participacao_id
       INNER JOIN campanha_lotes lote ON lote.id=participacao.lote_original_id AND lote.campanha_id=participacao.campanha_id
