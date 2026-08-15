@@ -22,4 +22,46 @@ function substituirVariaveisPrevia(texto, configuracoes) {
   });
 }
 
-export { EXEMPLOS_PREVIA, substituirVariaveisPrevia, valorExemploPrevia };
+function resolverImagemPrevia(template, enderecoLocal) {
+  const configuracao = template || {};
+
+  if (configuracao.cabecalhoTipo !== 'imagem') {
+    return { estado: 'sem_cabecalho', endereco: '' };
+  }
+
+  if (configuracao.imagemModo === 'internet') {
+    const endereco = String(configuracao.imagemEnvio || '').trim();
+
+    if (!endereco) {
+      return { estado: 'vazia', endereco: '' };
+    }
+
+    try {
+      const url = new URL(endereco);
+      if (url.protocol !== 'https:') {
+        return { estado: 'invalida', endereco: '' };
+      }
+    } catch (erro) {
+      return { estado: 'invalida', endereco: '' };
+    }
+
+    return { estado: 'carregar', endereco };
+  }
+
+  if (enderecoLocal) {
+    return { estado: 'carregar', endereco: enderecoLocal };
+  }
+
+  if (String(configuracao.imagemEnvio || '').trim()) {
+    return { estado: 'configurada', endereco: '' };
+  }
+
+  return { estado: 'vazia', endereco: '' };
+}
+
+export {
+  EXEMPLOS_PREVIA,
+  resolverImagemPrevia,
+  substituirVariaveisPrevia,
+  valorExemploPrevia
+};

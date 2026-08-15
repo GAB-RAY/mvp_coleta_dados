@@ -15,6 +15,12 @@ function criarErroIntegracao(mensagem, codigo, statusHttp, permiteNovaTentativa)
   return erro;
 }
 
+function criarErroConfiguracaoEnvio(mensagem, codigo) {
+  const erro = criarErroIntegracao(mensagem, codigo, 409, true);
+  erro.erroLocal = true;
+  return erro;
+}
+
 function obterConfiguracao() {
   const configuracao = {
     token: process.env.WHATSAPP_ACCESS_TOKEN,
@@ -63,16 +69,29 @@ function validarConfiguracaoParaEnvio(comando) {
   const corpo = componentes.find(function (item) { return item.type === 'BODY'; });
   const parametrosCorpo = Array.isArray(configuracao.corpo) ? configuracao.corpo : [];
   if (contarVariaveis(corpo && corpo.text) !== parametrosCorpo.length) {
-    throw criarErroIntegracao('Configure todos os parametros do texto principal antes do envio.', 'TEMPLATE_META_INVALIDO', 409, false);
+    throw criarErroConfiguracaoEnvio(
+      'Este modelo está aprovado, mas falta configurar os valores personalizados usados no envio.',
+      'PARAMETROS_TEMPLATE_NAO_CONFIGURADOS'
+    );
   }
   const cabecalho = componentes.find(function (item) { return item.type === 'HEADER'; });
-  if (cabecalho && cabecalho.format === 'IMAGE' && (!configuracao.cabecalho || configuracao.cabecalho.tipo !== 'imagem')) {
-    throw criarErroIntegracao('Configure a imagem do template antes do envio.', 'TEMPLATE_META_INVALIDO', 409, false);
+  if (cabecalho && cabecalho.format === 'IMAGE' && (
+    !configuracao.cabecalho || configuracao.cabecalho.tipo !== 'imagem' ||
+    !['id', 'link'].includes(configuracao.cabecalho.origem) ||
+    !textoSeguro(configuracao.cabecalho.valor, 2000)
+  )) {
+    throw criarErroConfiguracaoEnvio(
+      'Este modelo está aprovado, mas falta configurar a imagem que será usada no envio.',
+      'MIDIA_TEMPLATE_NAO_CONFIGURADA'
+    );
   }
   if (cabecalho && cabecalho.format === 'TEXT' && contarVariaveis(cabecalho.text) > 0) {
     const parametros = configuracao.cabecalho && configuracao.cabecalho.parametros;
     if (!Array.isArray(parametros) || parametros.length !== contarVariaveis(cabecalho.text)) {
-      throw criarErroIntegracao('Configure o cabecalho do template antes do envio.', 'TEMPLATE_META_INVALIDO', 409, false);
+      throw criarErroConfiguracaoEnvio(
+        'Este modelo está aprovado, mas falta configurar o cabeçalho usado no envio.',
+        'CABECALHO_TEMPLATE_NAO_CONFIGURADO'
+      );
     }
   }
   const grupoBotoes = componentes.find(function (item) { return item.type === 'BUTTONS'; });
@@ -83,7 +102,10 @@ function validarConfiguracaoParaEnvio(comando) {
     if (!exigeParametro) return;
     const encontrada = configuracoesBotoes.find(function (item) { return item.indice === indice; });
     if (!encontrada) {
-      throw criarErroIntegracao('Configure todos os botoes do template antes do envio.', 'TEMPLATE_META_INVALIDO', 409, false);
+      throw criarErroConfiguracaoEnvio(
+        'Este modelo está aprovado, mas falta configurar os botões usados no envio.',
+        'BOTOES_TEMPLATE_NAO_CONFIGURADOS'
+      );
     }
   });
 }
@@ -118,7 +140,10 @@ function montarComponentesEnvio(comando) {
       const valor = botao.origem === 'opt_out'
         ? process.env.WHATSAPP_OPTOUT_BUTTON_ID
         : resolverParametro(botao, comando, 1);
-      if (!valor) throw criarErroIntegracao('A configuracao do botao do template e invalida.', 'TEMPLATE_META_INVALIDO', 409, false);
+      if (!valor) throw criarErroConfiguracaoEnvio(
+        'A configuração do botão usado no envio está incompleta.',
+        'BOTOES_TEMPLATE_NAO_CONFIGURADOS'
+      );
       componentes.push({
         type: 'button',
         sub_type: botao.subtipo,

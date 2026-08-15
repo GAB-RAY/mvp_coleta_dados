@@ -234,9 +234,11 @@ async function registrarFalhaEnvio(tentativaId, erroSanitizado, agora) {
   try {
     await cliente.query('BEGIN');
     const resultado = await cliente.query(`UPDATE campanha_tentativas SET status='falhou',
-      codigo_erro_externo=$2,titulo_erro=$3,descricao_erro=$4,permite_nova_tentativa=$5,finalizada_em=$6
+      codigo_erro_externo=$2,titulo_erro=$3,descricao_erro=$4,categoria_erro=$5,
+      permite_nova_tentativa=$6,finalizada_em=$7
       WHERE id=$1 AND status='enviando' RETURNING participacao_id`,
-    [tentativaId, erroSanitizado.codigo, erroSanitizado.titulo, erroSanitizado.descricao, erroSanitizado.permiteNovaTentativa, agora]);
+    [tentativaId, erroSanitizado.codigo, erroSanitizado.titulo, erroSanitizado.descricao,
+      erroSanitizado.categoria, erroSanitizado.permiteNovaTentativa, agora]);
     if (resultado.rows[0]) {
       const participacaoId=resultado.rows[0].participacao_id;
       await cliente.query("UPDATE campanha_participacoes SET status='falhou',atualizado_em=$2 WHERE id=$1",[participacaoId,agora]);

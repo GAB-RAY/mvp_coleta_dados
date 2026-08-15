@@ -146,8 +146,8 @@ async function executar(){
       configuracaoEnvio:{corpo:[],botoes:[{indice:0,subtipo:'url',origem:'fixo',valor:'codigo'}]}});
     const payloadCta=provider.montarPayload({telefone:'5521999999999',templateNome:'cta_qa',templateIdioma:'pt_BR',templateComponentes:cta.componentes,templateConfiguracaoEnvio:cta.configuracaoEnvio});
     confirmar(payloadCta.template.components[0].sub_type==='url'&&payloadCta.template.components[0].parameters[0].text==='codigo','CTA URL dinamico nao foi montado.');
-    await rejeitar(Promise.resolve().then(function(){return provider.montarPayload({telefone:'5521999999999',templateNome:'sem_configuracao',templateIdioma:'pt_BR',templateComponentes:[{type:'BODY',text:'Ola'},{type:'BUTTONS',buttons:[{type:'QUICK_REPLY',text:'Confirmar'}]}],templateConfiguracaoEnvio:{corpo:[],botoes:[]}});}), 'configure todos os botoes');
-    await rejeitar(Promise.resolve().then(function(){return provider.montarPayload({telefone:'5521999999999',templateNome:'sem_imagem',templateIdioma:'pt_BR',templateComponentes:[{type:'HEADER',format:'IMAGE'},{type:'BODY',text:'Ola'}],templateConfiguracaoEnvio:{corpo:[]}});}), 'configure a imagem');
+    await rejeitar(Promise.resolve().then(function(){return provider.montarPayload({telefone:'5521999999999',templateNome:'sem_configuracao',templateIdioma:'pt_BR',templateComponentes:[{type:'BODY',text:'Ola'},{type:'BUTTONS',buttons:[{type:'QUICK_REPLY',text:'Confirmar'}]}],templateConfiguracaoEnvio:{corpo:[],botoes:[]}});}), 'falta configurar os botões');
+    await rejeitar(Promise.resolve().then(function(){return provider.montarPayload({telefone:'5521999999999',templateNome:'sem_imagem',templateIdioma:'pt_BR',templateComponentes:[{type:'HEADER',format:'IMAGE'},{type:'BODY',text:'Ola'}],templateConfiguracaoEnvio:{corpo:[]}});}), 'falta configurar a imagem');
 
     provider.definirFetchParaTeste(async function(){return {ok:false,status:401,json:async function(){return {error:{code:190,message:'segredo nao deve sair'}};}};});
     await rejeitar(provider.criarTemplateOficial({name:'qa',language:'pt_BR',category:'UTILITY',components:[]}), 'credencial');

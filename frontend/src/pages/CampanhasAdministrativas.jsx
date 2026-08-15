@@ -4,7 +4,7 @@ import CabecalhoAdministrativo from '../components/CabecalhoAdministrativo';
 import MensagemRetorno from '../components/MensagemRetorno';
 import Carregando from '../components/Carregando';
 import { obterUsuario, removerToken } from '../utils/armazenamentoToken';
-import { substituirVariaveisPrevia } from '../utils/previaModeloMensagem';
+import { resolverImagemPrevia, substituirVariaveisPrevia } from '../utils/previaModeloMensagem';
 import { buscarOpcoesFormulario, listarOrigens } from '../services/contatoService';
 import { listarEventos } from '../services/eventoService';
 import {
@@ -53,6 +53,15 @@ function textoCategoriaMeta(categoria){
   const categorias={MARKETING:'Marketing',UTILITY:'Utilidade'};
   return categorias[String(categoria||'').toUpperCase()]||categoria||'Categoria não informada';
 }
+function possuiCabecalhoImagem(item){
+  return Array.isArray(item.meta_componentes)&&item.meta_componentes.some(function(componente){
+    return componente.type==='HEADER'&&componente.format==='IMAGE';
+  });
+}
+function possuiImagemConfigurada(item){
+  const cabecalho=item.meta_configuracao_envio&&item.meta_configuracao_envio.cabecalho;
+  return Boolean(cabecalho&&cabecalho.tipo==='imagem'&&['id','link'].includes(cabecalho.origem)&&cabecalho.valor);
+}
 function telefoneMascarado(valor){return String(valor||'Nao informado').replaceAll('*','•');}
 function formatarQuantidade(valor){return Number(valor||0).toLocaleString('pt-BR');}
 function rotuloContatos(quantidade){return Number(quantidade)===1?'contato':'contatos';}
@@ -80,17 +89,18 @@ function ListaContatosCampanha({contatos,vazia}){
 }
 
 function PreviaModeloMensagem({template}){
-  const [imagemLocal,setImagemLocal]=useState('');
+  const [imagemLocal,setImagemLocal]=useState({arquivo:null,endereco:''});
   const [imagemInvalida,setImagemInvalida]=useState(false);
   const arquivoImagem=template.imagemEnvioArquivo||template.imagemArquivo;
   useEffect(function(){
-    if(template.cabecalhoTipo!=='imagem'||template.imagemModo==='internet'||!arquivoImagem){setImagemLocal('');return undefined;}
+    if(template.cabecalhoTipo!=='imagem'||template.imagemModo==='internet'||!arquivoImagem){setImagemLocal({arquivo:null,endereco:''});return undefined;}
     const endereco=URL.createObjectURL(arquivoImagem);
-    setImagemLocal(endereco);
+    setImagemLocal({arquivo:arquivoImagem,endereco});
     return function(){URL.revokeObjectURL(endereco);};
   },[arquivoImagem,template.cabecalhoTipo,template.imagemModo]);
-  const enderecoImagem=template.cabecalhoTipo==='imagem'?(template.imagemModo==='internet'?String(template.imagemEnvio||'').trim():imagemLocal):'';
-  useEffect(function(){setImagemInvalida(false);},[enderecoImagem]);
+  const enderecoLocal=imagemLocal.arquivo===arquivoImagem?imagemLocal.endereco:'';
+  const imagemPrevia=resolverImagemPrevia(template,enderecoLocal);
+  useEffect(function(){setImagemInvalida(false);},[imagemPrevia.endereco,imagemPrevia.estado]);
   const configuracaoCabecalho=template.cabecalhoOrigem?{origem:template.cabecalhoOrigem,valor:template.cabecalhoValor}:null;
   const textoCabecalho=substituirVariaveisPrevia(template.cabecalhoTexto,[configuracaoCabecalho]);
   const textoCorpo=substituirVariaveisPrevia(template.conteudo,template.parametrosCorpo);
@@ -98,7 +108,7 @@ function PreviaModeloMensagem({template}){
   return <aside className="previa-modelo-mensagem" aria-labelledby="titulo-previa-modelo">
     <div className="cabecalho-previa-modelo"><div><span>Visualização</span><h4 id="titulo-previa-modelo">Prévia da mensagem</h4></div><small>Prévia ilustrativa</small></div>
     <div className="fundo-previa-whatsapp"><article className="bolha-previa-whatsapp">
-      {template.cabecalhoTipo==='imagem'&&(enderecoImagem&&!imagemInvalida?<img src={enderecoImagem} alt="Imagem selecionada para o cabeçalho" onError={function(){setImagemInvalida(true);}}/>:<div className="imagem-vazia-previa"><span aria-hidden="true">▧</span><strong>{imagemInvalida?'Não foi possível carregar esta imagem':'Sua imagem aparecerá aqui'}</strong></div>)}
+      {template.cabecalhoTipo==='imagem'&&(imagemPrevia.estado==='carregar'&&!imagemInvalida?<img src={imagemPrevia.endereco} alt="Imagem selecionada para o cabeçalho" onError={function(){setImagemInvalida(true);}}/>:<div className="imagem-vazia-previa"><span aria-hidden="true">▧</span><strong>{imagemInvalida||imagemPrevia.estado==='invalida'?'Não foi possível carregar esta imagem':imagemPrevia.estado==='configurada'?'Imagem configurada para envio':'Sua imagem aparecerá aqui'}</strong></div>)}
       {template.cabecalhoTipo==='texto'&&<strong className="texto-cabecalho-previa">{textoCabecalho||'Seu cabeçalho aparecerá aqui.'}</strong>}
       <p className="texto-corpo-previa">{textoCorpo||'Seu texto aparecerá aqui.'}</p>
       {template.rodape&&<small className="rodape-previa">{template.rodape}</small>}
@@ -521,7 +531,7 @@ function CampanhasAdministrativas(){
         {template.botaoTipo==='quick'&&<label className="opcao-cadastro-incompleto"><input type="checkbox" checked={template.botaoOptOut} onChange={function(evento){setTemplate(Object.assign({},template,{botaoOptOut:evento.target.checked}));}}/> Este botão é o descadastro “Não quero mais receber”</label>}
         <label className="opcao-cadastro-incompleto"><input type="checkbox" checked={template.ativo} onChange={function(evento){setTemplate(Object.assign({},template,{ativo:evento.target.checked}));}}/> Disponível para uso no ACORDA RJ</label>
       </fieldset><p className="aviso-estado-campanha">{templateOficialEdicao?'O texto aprovado não é alterado aqui. Salve apenas as informações que mudam em cada envio.':'Salvar cria somente um rascunho. Enviar para análise faz a Meta avaliar o modelo e não envia mensagens para contatos.'}</p><div className="acoes-fluxo-campanha"><button className="botao botao-primario" type="submit" disabled={salvandoTemplate}>{salvandoTemplate?'Salvando...':(templateOficialEdicao?'Salvar informações de envio':'Salvar rascunho')}</button>{templateEdicao&&<button className="botao botao-secundario" type="button" disabled={salvandoTemplate} onClick={function(){setTemplateEdicao(null);setTemplateOficialEdicao(false);setTemplate(TEMPLATE_INICIAL);}}>Cancelar edição</button>}</div></form><PreviaModeloMensagem template={template}/></div>
-      <div className="lista-templates-campanha">{templates.map(function(item){return <article key={item.id}><div><strong>{item.nome}</strong><span>{item.meta_nome||'Ainda sem nome na Meta'} · {item.meta_idioma||'Idioma não informado'} · {textoCategoriaMeta(item.meta_categoria)}</span><span className={'status-campanha status-'+item.meta_status}>{textoStatus(item.meta_status||'rascunho')}</span><small>{explicacaoStatusTemplate(item.meta_status||'rascunho')}</small>{item.meta_sincronizado_em&&<small>Última atualização: {new Date(item.meta_sincronizado_em).toLocaleString('pt-BR')}</small>}</div><div className="acoes-template-meta"><button className="botao botao-secundario" type="button" onClick={function(){editarTemplate(item);}}>{item.meta_template_id?'Definir informações de envio':'Editar rascunho'}</button>{!item.meta_template_id&&<button className="botao botao-primario" type="button" title="Envia o modelo para avaliação. Não envia mensagens para contatos." onClick={function(){submeterTemplate(item);}}>Enviar para análise da Meta</button>}</div></article>;})}</div>
+      <div className="lista-templates-campanha">{templates.map(function(item){const imagemPendente=possuiCabecalhoImagem(item)&&!possuiImagemConfigurada(item);return <article key={item.id}><div><strong>{item.nome}</strong><span>{item.meta_nome||'Ainda sem nome na Meta'} · {item.meta_idioma||'Idioma não informado'} · {textoCategoriaMeta(item.meta_categoria)}</span><span className={'status-campanha status-'+item.meta_status}>{textoStatus(item.meta_status||'rascunho')}</span><small>{explicacaoStatusTemplate(item.meta_status||'rascunho')}</small>{item.meta_origem==='meta'&&<small>Sincronizado diretamente da conta oficial da Meta.</small>}{imagemPendente&&<span className="configuracao-pendente-template"><strong>Imagem para envio</strong> Não configurada</span>}{item.meta_sincronizado_em&&<small>Última atualização: {new Date(item.meta_sincronizado_em).toLocaleString('pt-BR')}</small>}</div><div className="acoes-template-meta"><button className="botao botao-secundario" type="button" onClick={function(){editarTemplate(item);}}>{imagemPendente?'Configurar imagem':(item.meta_template_id?'Definir informações de envio':'Editar rascunho')}</button>{!item.meta_template_id&&<button className="botao botao-primario" type="button" title="Envia o modelo para avaliação. Não envia mensagens para contatos." onClick={function(){submeterTemplate(item);}}>Enviar para análise da Meta</button>}</div></article>;})}</div>
     </div></details>}
 
     {loteAberto&&<div className="sobreposicao-campanha" role="presentation" onMouseDown={function(evento){if(evento.target===evento.currentTarget)setLoteAberto(null);}}><section className="painel-contatos-lote" role="dialog" aria-modal="true" aria-labelledby="titulo-contatos-lote"><div className="cabecalho-campanha-aberta"><div><span className="etiqueta-pagina">Envio {loteAberto.ordem}</span><h2 id="titulo-contatos-lote">{formatarQuantidade(loteAberto.tamanho_efetivo)} contatos neste envio</h2><p>Telefones aparecem mascarados para proteger os dados.</p></div><button className="botao botao-secundario" type="button" onClick={function(){setLoteAberto(null);}}>Fechar detalhes</button></div>{carregandoLote?<Carregando mensagem="Carregando detalhes do envio..."/>:<ListaContatosCampanha contatos={contatosLote}/>}</section></div>}

@@ -10,7 +10,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "testar:previa-modelo": "node scripts/testarPreviaModeloMensagem.js"
+    "testar:previa-modelo": "node scripts/testarPreviaModeloMensagem.js",
+    "testar:previa-imagem-renderizada": "node scripts/testarPreviaImagemRenderizada.js"
   },
   "dependencies": {
     "qrcode.react": "^4.2.0",

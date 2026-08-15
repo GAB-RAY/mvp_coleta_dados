@@ -27,11 +27,12 @@ function prepararErro(erroRecebido) {
 }
 
 function prepararErroProvider(erro) {
+  const erroLocal = erro.erroLocal === true;
   return {
     codigo: sanitizarTexto(erro.codigoIntegracao || 'META_ERRO', 80),
-    titulo: 'Falha no envio pela Meta',
+    titulo: erroLocal ? 'Configuração necessária para o envio' : 'Falha no envio pela Meta',
     descricao: sanitizarTexto(erro.message || 'Falha ao enviar mensagem.', 1000),
-    categoria: 'meta_cloud_api',
+    categoria: erroLocal ? 'configuracao_template' : 'meta_cloud_api',
     permiteNovaTentativa: erro.permiteNovaTentativa === true
   };
 }
@@ -163,7 +164,8 @@ async function enviar(tentativaIdRecebido) {
   } catch (erro) {
     const falha = prepararErroProvider(erro);
     await model.registrarFalhaEnvio(tentativaId, falha, obterAgora());
-    throw criarAppError(falha.descricao, erro.statusHttpExterno === 422 ? 422 : 502);
+    const statusHttp = erro.erroLocal === true ? 409 : (erro.statusHttpExterno === 422 ? 422 : 502);
+    throw criarAppError(falha.descricao, statusHttp);
   }
 }
 
