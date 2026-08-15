@@ -27,6 +27,7 @@
     "testar:templates-meta": "node scripts/testarTemplatesMeta.js",
     "testar:requisitos-templates": "node scripts/testarRequisitosEnvioTemplates.js",
     "testar:regressao-body-meta": "node scripts/testarRegressaoParametrosBodyMeta.js",
+    "testar:retry-body-meta": "node scripts/testarReprocessamentoParametrosBodyMeta.js",
     "testar:persistencia-imagem-template": "node scripts/testarPersistenciaImagemTemplate.js",
     "testar:templates-externos-meta": "node scripts/testarTemplatesExternosMeta.js",
     "testar:fluxo-campanhas-meta": "node scripts/testarFluxoCampanhasMetaIsolado.js",

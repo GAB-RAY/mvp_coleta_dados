@@ -2,6 +2,9 @@ const ENDERECO_GRAPH = 'https://graph.facebook.com';
 const { analisarRequisitosDeEnvio, obterPosicoesVariaveis } = require('./analisadorRequisitosTemplate');
 
 let executarFetch = function () { return fetch.apply(globalThis, arguments); };
+let registrarEstruturaParaLog = function (registro) {
+  if (process.env.NODE_ENV !== 'test') console.info(JSON.stringify(registro));
+};
 
 function textoSeguro(valor, maximo) {
   if (valor === undefined || valor === null) return null;
@@ -193,6 +196,82 @@ function montarPayload(comando) {
   return { messaging_product: 'whatsapp', recipient_type: 'individual', to: telefone, type: 'template', template };
 }
 
+function parametroOperacionalConfigurado(parametro) {
+  if (!parametro || !['nome_contato', 'bairro', 'problema', 'fixo'].includes(parametro.origem)) return false;
+  return parametro.origem !== 'fixo' || Boolean(textoSeguro(parametro.valor, 1000));
+}
+
+function resumirComponenteOficial(componente) {
+  const tipo = String(componente && componente.type || '').toUpperCase();
+  const resumo = { tipo };
+  if (componente && componente.format) resumo.formato = String(componente.format).toUpperCase();
+  if (tipo === 'BODY') resumo.quantidadeVariaveis = obterPosicoesVariaveis(componente.text).length;
+  if (tipo === 'BUTTONS') resumo.quantidadeBotoes = Array.isArray(componente.buttons)
+    ? componente.buttons.length : 0;
+  return resumo;
+}
+
+function resumirComponentePayload(componente) {
+  return {
+    tipo: String(componente && componente.type || '').toLowerCase(),
+    quantidadeParametros: Array.isArray(componente && componente.parameters)
+      ? componente.parameters.length : 0
+  };
+}
+
+function registrarEstruturaEnvioTemplateMeta(comando, payload) {
+  const componentesOficiais = Array.isArray(comando.templateComponentes)
+    ? comando.templateComponentes : [];
+  const configuracao = comando.templateConfiguracaoEnvio || {};
+  const configuracaoCorpo = Array.isArray(configuracao.corpo) ? configuracao.corpo : [];
+  const corpoOficial = componentesOficiais.find(function (item) {
+    return String(item && item.type || '').toUpperCase() === 'BODY';
+  });
+  const variaveisEsperadas = obterPosicoesVariaveis(corpoOficial && corpoOficial.text);
+  const variaveisConfiguradas = variaveisEsperadas.filter(function (posicao) {
+    return parametroOperacionalConfigurado(configuracaoCorpo[posicao - 1]);
+  });
+  const componentesPayload = payload && payload.template && Array.isArray(payload.template.components)
+    ? payload.template.components : [];
+  const corpoPayload = componentesPayload.find(function (item) {
+    return String(item && item.type || '').toLowerCase() === 'body';
+  });
+  const parametrosCorpo = corpoPayload && Array.isArray(corpoPayload.parameters)
+    ? corpoPayload.parameters : [];
+  const variaveisResolvidas = variaveisEsperadas.filter(function (posicao, indice) {
+    const parametro = parametrosCorpo[indice];
+    return parametro && parametro.type === 'text' && Boolean(textoSeguro(parametro.text, 1000));
+  });
+  const registro = {
+    nivel: 'info',
+    evento: 'estrutura_envio_template_meta',
+    operacao: 'envio',
+    nomeTemplate: textoSeguro(comando.templateNome, 512),
+    idioma: textoSeguro(comando.templateIdioma, 35),
+    origemTemplate: textoSeguro(comando.templateOrigem, 20),
+    statusTemplate: textoSeguro(comando.templateStatusOficial, 50),
+    componentesOficiais: componentesOficiais.map(resumirComponenteOficial),
+    componentesPayload: componentesPayload.map(resumirComponentePayload),
+    body: { variaveisEsperadas, variaveisConfiguradas, variaveisResolvidas }
+  };
+  registrarEstruturaParaLog(registro);
+  return registro;
+}
+
+function validarCorrespondenciaParametrosBody(registro) {
+  const corpoPayload = registro.componentesPayload.find(function (item) { return item.tipo === 'body'; });
+  const quantidadeEnviada = corpoPayload ? corpoPayload.quantidadeParametros : 0;
+  const quantidadeEsperada = registro.body.variaveisEsperadas.length;
+  if (quantidadeEnviada !== quantidadeEsperada ||
+    registro.body.variaveisConfiguradas.length !== quantidadeEsperada ||
+    registro.body.variaveisResolvidas.length !== quantidadeEsperada) {
+    throw criarErroConfiguracaoEnvio(
+      'A configuracao dos valores personalizados do modelo esta incompleta.',
+      'CONFIGURACAO_ENVIO_INCOMPLETA'
+    );
+  }
+}
+
 async function lerResposta(resposta) {
   try { return await resposta.json(); }
   catch (erro) { throw criarErroIntegracao('A Meta retornou uma resposta invalida.', 'META_RESPOSTA_INVALIDA', resposta.status, true); }
@@ -237,8 +316,11 @@ async function requisitarMeta(caminho, opcoes, operacao) {
 
 async function enviarTemplate(comando) {
   const configuracao = obterConfiguracao();
+  const payload = montarPayload(comando);
+  const estrutura = registrarEstruturaEnvioTemplateMeta(comando, payload);
+  validarCorrespondenciaParametrosBody(estrutura);
   const resposta = await requisitarMeta(configuracao.phoneNumberId + '/messages', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(montarPayload(comando))
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
   }, 'envio');
   const identificador = resposta.corpo && Array.isArray(resposta.corpo.messages) && resposta.corpo.messages[0] && resposta.corpo.messages[0].id;
   if (!identificador) throw criarErroIntegracao('A Meta nao confirmou o identificador da mensagem.', 'META_RESPOSTA_INVALIDA', resposta.status, true);
@@ -384,9 +466,15 @@ async function consultarLimiteMensageria() {
 }
 
 function definirFetchParaTeste(funcao) { executarFetch = funcao || function () { return fetch.apply(globalThis, arguments); }; }
+function definirRegistradorEstruturaParaTeste(funcao) {
+  registrarEstruturaParaLog = funcao || function (registro) {
+    if (process.env.NODE_ENV !== 'test') console.info(JSON.stringify(registro));
+  };
+}
 
 module.exports = {
   buscarTemplateOficialPorId, buscarTemplateOficialPorNome, consultarLimiteMensageria, criarTemplateOficial,
-  definirFetchParaTeste, enviarTemplate, listarTemplatesOficiais, montarPayload, prepararImagemEnvio, prepararImagemExemplo,
+  definirFetchParaTeste, definirRegistradorEstruturaParaTeste, enviarTemplate, listarTemplatesOficiais, montarPayload,
+  prepararImagemEnvio, prepararImagemExemplo,
   validarConfiguracaoParaEnvio
 };
