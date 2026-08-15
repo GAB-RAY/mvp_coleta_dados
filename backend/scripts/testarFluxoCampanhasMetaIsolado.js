@@ -13,7 +13,8 @@ const SCRIPTS = [
   'testarTemplatesMeta.js',
   'testarIntegracaoMeta.js',
   'testarWebhookMensageria.js',
-  'testarCenarioFinalCampanhaMeta.js'
+  'testarCenarioFinalCampanhaMeta.js',
+  'testarEnvioCampanhaSimplificado.js'
 ];
 
 function configuracao(nomeBanco) {
@@ -102,7 +103,7 @@ async function executar() {
       resultados.push(await executarScript(SCRIPTS[indice], ambiente));
     }
     console.log(resultados.join('\n'));
-    console.log('Fluxo isolado campanhas -> Meta mock: 6 grupos aprovados; nenhuma chamada real executada.');
+    console.log('Fluxo isolado campanhas -> Meta mock: 7 grupos aprovados; nenhuma chamada real executada.');
   } finally {
     if (bancoTeste) await bancoTeste.end().catch(function () {});
     if (administracaoConectada) await removerBanco(administracao).catch(function () {});

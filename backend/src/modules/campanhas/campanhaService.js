@@ -110,9 +110,23 @@ async function visualizarPublico(idRecebido, quantidadeRecebida) {
     campanhaModel.contarPublico(campanha.filtros_snapshot, false),
     campanhaModel.contarPublico(campanha.filtros_snapshot, true),
     campanhaModel.obterCapacidade(obterAgora()),
-    campanhaModel.contarDisponiveis(campanha.filtros_snapshot, id)
+    campanhaModel.contarDisponiveis(campanha.filtros_snapshot, id),
+    campanhaModel.listarTentativasPendentesCampanha(id, 10000, null)
   ]);
-  const quantidadeEfetiva = Math.min(quantidade, resultados[2].disponivel, resultados[3]);
+  const agora = obterAgora();
+  const inicioJanela = new Date(agora.getTime() - 24 * 60 * 60 * 1000);
+  const pendentesNaJanela = resultados[4].filter(function (tentativa) {
+    return new Date(tentativa.reservado_em) >= inicioJanela;
+  }).length;
+  const pendentesForaDaJanela = resultados[4].length - pendentesNaJanela;
+  const pendentesPossiveisAgora = pendentesNaJanela + Math.min(
+    resultados[2].disponivel,
+    pendentesForaDaJanela
+  );
+  const podeEnviarAgora = resultados[4].length > 0
+    ? pendentesPossiveisAgora
+    : Math.min(resultados[2].disponivel, resultados[3]);
+  const quantidadeEfetiva = Math.min(quantidade, podeEnviarAgora);
   const limiteLista = Math.min(quantidadeEfetiva, 1000);
   const contatos = limiteLista > 0
     ? await campanhaModel.listarCandidatos(campanha.filtros_snapshot, id, limiteLista)
@@ -120,7 +134,9 @@ async function visualizarPublico(idRecebido, quantidadeRecebida) {
   return {
     publicoEncontrado: resultados[0], publicoApto: resultados[1],
     publicoNaoApto: resultados[0] - resultados[1], capacidade: resultados[2],
-    restantes: resultados[3], quantidadeSolicitada: quantidade,
+    restantes: resultados[3] + resultados[4].length,
+    novosRestantes: resultados[3], pendentesEnvio: resultados[4].length,
+    podeEnviarAgora, quantidadeSolicitada: quantidade,
     quantidadeEfetiva, contatos: apresentarContatos(contatos),
     listaLimitada: quantidadeEfetiva > limiteLista
   };
@@ -143,7 +159,7 @@ async function visualizarPreviaFiltros(dados) {
   };
 }
 
-async function criarLote(campanhaIdRecebido, dados, usuario) {
+async function criarLote(campanhaIdRecebido, dados, usuario, opcoes) {
   const campanhaId = validarId(campanhaIdRecebido, 'Campanha');
   const tamanho = Number(dados.tamanho);
   if (!Number.isInteger(tamanho) || tamanho < 1 || tamanho > 10000) throw criarAppError('Tamanho do lote invalido.', 400);
@@ -151,7 +167,14 @@ async function criarLote(campanhaIdRecebido, dados, usuario) {
     ? dados.chaveIdempotencia.trim().slice(0, 100)
     : crypto.randomUUID();
   try {
-    return await campanhaModel.criarLoteAtomico(campanhaId, tamanho, chave, usuario.id, obterAgora());
+    return await campanhaModel.criarLoteAtomico(
+      campanhaId,
+      tamanho,
+      chave,
+      usuario.id,
+      obterAgora(),
+      opcoes && opcoes.exigirQuantidadeIntegral === true
+    );
   } catch (erro) {
     if (erro.codigo === 'CAPACIDADE_INSUFICIENTE') {
       const appError = criarAppError('Capacidade insuficiente. Disponivel nas ultimas 24 horas: ' + erro.capacidade + '.', 409);
@@ -160,9 +183,91 @@ async function criarLote(campanhaIdRecebido, dados, usuario) {
       appError.utilizado = erro.utilizado;
       throw appError;
     }
+    if (erro.codigo === 'PUBLICO_INSUFICIENTE') {
+      const appError = criarAppError(erro.message, 409);
+      appError.disponivel = erro.disponivel;
+      throw appError;
+    }
     if (erro.codigo === 'CAMPANHA_INDISPONIVEL' || erro.codigo === 'SEM_CONTATOS') throw criarAppError(erro.message, 409);
     throw erro;
   }
+}
+
+function ordenarTentativasParaEnvio(tentativas, agora) {
+  const inicioJanela = new Date(agora.getTime() - 24 * 60 * 60 * 1000);
+  return tentativas.slice().sort(function (a, b) {
+    const aNaJanela = new Date(a.reservado_em) >= inicioJanela;
+    const bNaJanela = new Date(b.reservado_em) >= inicioJanela;
+    if (aNaJanela !== bNaJanela) return aNaJanela ? -1 : 1;
+    return Number(a.id) - Number(b.id);
+  });
+}
+
+async function prepararEnvio(idRecebido, dados, usuario) {
+  const campanhaId = validarId(idRecebido, 'Campanha');
+  const tamanho = Number(dados && dados.quantidade);
+  if (!Number.isInteger(tamanho) || tamanho < 1 || tamanho > 10000) {
+    throw criarAppError('Quantidade de envio invalida.', 400);
+  }
+  const chave = typeof dados.chaveIdempotencia === 'string' && dados.chaveIdempotencia.trim()
+    ? dados.chaveIdempotencia.trim().slice(0, 100)
+    : crypto.randomUUID();
+  const campanha = await campanhaModel.buscarPorId(campanhaId);
+  if (!campanha) throw criarAppError('Campanha nao encontrada.', 404);
+  if (!['pronta', 'ativa'].includes(campanha.status)) {
+    throw criarAppError('A campanha nao esta disponivel para novos envios.', 409);
+  }
+  if (campanha.modelo_meta_status_oficial !== 'APPROVED') {
+    throw criarAppError('A mensagem precisa estar aprovada pela Meta antes do envio.', 409);
+  }
+
+  const agora = obterAgora();
+  const pendentes = ordenarTentativasParaEnvio(
+    await campanhaModel.listarTentativasPendentesCampanha(campanhaId, 10000, null),
+    agora
+  );
+  if (pendentes.length > 0) {
+    const capacidade = await campanhaModel.obterCapacidade(agora);
+    const inicioJanela = new Date(agora.getTime() - 24 * 60 * 60 * 1000);
+    const naJanela = pendentes.filter(function (tentativa) {
+      return new Date(tentativa.reservado_em) >= inicioJanela;
+    });
+    const foraDaJanela = pendentes.filter(function (tentativa) {
+      return new Date(tentativa.reservado_em) < inicioJanela;
+    }).slice(0, capacidade.disponivel);
+    const disponiveis = naJanela.concat(foraDaJanela);
+    if (tamanho > disponiveis.length) {
+      throw criarAppError('A quantidade solicitada ultrapassa o que pode ser enviado agora.', 409);
+    }
+    return {
+      retomado: true,
+      repetido: false,
+      lote: null,
+      tentativas: disponiveis.slice(0, tamanho).map(function (tentativa) { return Number(tentativa.id); })
+    };
+  }
+
+  const previa = await visualizarPublico(campanhaId, 10000);
+  if (tamanho > previa.podeEnviarAgora) {
+    throw criarAppError('A quantidade solicitada ultrapassa o que pode ser enviado agora.', 409);
+  }
+  const reserva = await criarLote(
+    campanhaId,
+    { tamanho, chaveIdempotencia: chave },
+    usuario,
+    { exigirQuantidadeIntegral: true }
+  );
+  const tentativas = await campanhaModel.listarTentativasPendentesCampanha(
+    campanhaId,
+    tamanho,
+    reserva.lote.id
+  );
+  return {
+    retomado: false,
+    repetido: reserva.repetido,
+    lote: reserva.lote,
+    tentativas: tentativas.map(function (tentativa) { return Number(tentativa.id); })
+  };
 }
 
 async function listarLotes(idRecebido) {
@@ -220,5 +325,5 @@ module.exports = {
   alterarStatus, atualizar, atualizarLimite, configurarEnvioTemplate, criar, criarLote,
   definirRelogioParaTeste, listar, listarContatosLote, listarFalhas, listarLotes,
   listarTemplates, obterLimite, prepararImagemEnvioTemplate, prepararImagemTemplate, salvarTemplate, sincronizarLimiteMeta, visualizarPreviaFiltros,
-  visualizarPublico, submeterTemplate, sincronizarTemplatesMeta
+  prepararEnvio, visualizarPublico, submeterTemplate, sincronizarTemplatesMeta
 };

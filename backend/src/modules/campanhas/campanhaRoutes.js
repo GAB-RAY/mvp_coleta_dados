@@ -35,6 +35,7 @@ roteador.post('/', autorizarAdministrador, controller.criar);
 roteador.put('/:id', autorizarAdministrador, controller.atualizar);
 roteador.post('/:id/status', autorizarAdministrador, controller.alterarStatus);
 roteador.get('/:id/publico', controller.visualizarPublico);
+roteador.post('/:id/envios', controller.prepararEnvio);
 roteador.get('/:id/lotes', controller.listarLotes);
 roteador.post('/:id/lotes', controller.criarLote);
 roteador.get('/:id/lotes/:loteId/contatos', controller.listarContatosLote);

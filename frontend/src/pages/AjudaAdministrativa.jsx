@@ -64,7 +64,7 @@ const MODULOS = [
   {
     id: 'campanhas',
     titulo: 'Campanhas',
-    resumo: 'Escolha o público, organize grupos e envie somente quando estiver pronto.',
+    resumo: 'Escolha o público, confira quanto pode enviar agora e continue depois na mesma campanha.',
     imagem: '/guia/campanhas.png',
     rota: '/admin/campanhas',
     acao: 'Ir para Campanhas',
@@ -73,8 +73,8 @@ const MODULOS = [
       { numero: 1, x: 35, y: 22, titulo: 'Capacidade', texto: 'Mostra quanto ainda pode ser usado com segurança.' },
       { numero: 2, x: 88, y: 47, titulo: 'Nova campanha', texto: 'Define nome, modelo e filtros. Não envia mensagens.' },
       { numero: 3, x: 40, y: 62, titulo: 'Público', texto: 'Encontrados correspondem aos filtros; aptos podem receber; não aptos estão impedidos.' },
-      { numero: 4, x: 58, y: 70, titulo: 'Grupos de envio', texto: 'Criar um grupo/lote apenas reserva contatos. Não envia mensagens.' },
-      { numero: 5, x: 74, y: 76, titulo: 'Enviar e acompanhar', texto: 'Somente “Enviar mensagem agora” dispara o envio. Depois acompanhe resultados e falhas.' }
+      { numero: 4, x: 58, y: 70, titulo: 'Pode enviar agora', texto: 'O sistema calcula automaticamente a maior quantidade segura para este momento.' },
+      { numero: 5, x: 74, y: 76, titulo: 'Enviar e continuar', texto: '“Enviar agora” pede confirmação. Os contatos restantes continuam na mesma campanha.' }
     ]
   },
   {
@@ -286,9 +286,9 @@ function AjudaAdministrativa() {
             <div className="ajuda-fluxo-envio" aria-label="Etapas seguras de uma campanha">
               <div><strong>Criar campanha</strong><span>Não envia</span></div>
               <i aria-hidden="true">→</i>
-              <div><strong>Criar grupo/lote</strong><span>Não envia</span></div>
+              <div><strong>Conferir quantidade</strong><span>Cálculo automático</span></div>
               <i aria-hidden="true">→</i>
-              <div className="envia"><strong>Enviar mensagem agora</strong><span>Envia após confirmação</span></div>
+              <div className="envia"><strong>Enviar agora</strong><span>Envia após confirmação</span></div>
             </div>
           )}
 

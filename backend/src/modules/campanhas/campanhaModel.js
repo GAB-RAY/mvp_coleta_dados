@@ -277,6 +277,41 @@ async function listarContatosLote(campanhaId, loteId) {
   return resultado.rows;
 }
 
+async function listarTentativasPendentesCampanha(campanhaId, limite, loteId) {
+  const resultado = await banco.query(`
+    SELECT tentativa.id, participacao.lote_original_id, participacao.reservado_em
+    FROM campanha_tentativas AS tentativa
+    INNER JOIN campanha_participacoes AS participacao
+      ON participacao.id = tentativa.participacao_id
+    INNER JOIN contatos AS contato ON contato.id = participacao.contato_id
+    WHERE participacao.campanha_id = $1
+      AND tentativa.status = 'pendente'
+      AND participacao.status = 'pendente'
+      AND ($3::bigint IS NULL OR participacao.lote_original_id = $3)
+      AND contato.bloqueado_para_mensagens = FALSE
+      AND NOT EXISTS (
+        SELECT 1
+        FROM consentimentos AS consentimento_mensagens
+        WHERE consentimento_mensagens.contato_id = contato.id
+          AND consentimento_mensagens.tipo = 'mensagens'
+          AND consentimento_mensagens.ativo = TRUE
+          AND (
+            consentimento_mensagens.estado IN ('recusado', 'revogado')
+            OR consentimento_mensagens.resposta = FALSE
+          )
+      )
+      AND NOT EXISTS (
+        SELECT 1
+        FROM solicitacoes_exclusao AS solicitacao
+        WHERE solicitacao.contato_id = contato.id
+          AND solicitacao.status = 'pendente'
+      )
+    ORDER BY participacao.reservado_em, tentativa.id
+    LIMIT $2
+  `, [campanhaId, limite, loteId || null]);
+  return resultado.rows;
+}
+
 async function listarFalhas(campanhaId) {
   const resultado = await banco.query(`
     SELECT tentativa.id, tentativa.numero_tentativa, tentativa.codigo_erro_externo,
@@ -305,7 +340,7 @@ async function buscarLotePorChave(cliente, campanhaId, chave) {
   return resultado.rows[0] || null;
 }
 
-async function criarLoteAtomico(campanhaId, tamanhoSolicitado, chave, usuarioId, agora) {
+async function criarLoteAtomico(campanhaId, tamanhoSolicitado, chave, usuarioId, agora, exigirQuantidadeIntegral) {
   const cliente = await banco.connect();
   try {
     await cliente.query('BEGIN');
@@ -387,6 +422,13 @@ async function criarLoteAtomico(campanhaId, tamanhoSolicitado, chave, usuarioId,
     if (candidatos.rows.length === 0) {
       const erro = new Error('Nao existem novos contatos aptos para este lote.');
       erro.codigo = 'SEM_CONTATOS';
+      throw erro;
+    }
+
+    if (exigirQuantidadeIntegral === true && candidatos.rows.length < tamanhoSolicitado) {
+      const erro = new Error('A quantidade solicitada ultrapassa os contatos que ainda podem receber esta campanha.');
+      erro.codigo = 'PUBLICO_INSUFICIENTE';
+      erro.disponivel = candidatos.rows.length;
       throw erro;
     }
 
@@ -860,6 +902,7 @@ module.exports = {
   configurarEnvioTemplate,
   criar,
   criarLoteAtomico,
+  listarTentativasPendentesCampanha,
   listar,
   listarCandidatos,
   listarContatosLote,

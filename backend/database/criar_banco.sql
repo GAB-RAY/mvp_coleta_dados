@@ -508,7 +508,7 @@ CREATE TABLE public.campanhas (
   criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   atualizado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT campanhas_nome_valido CHECK (LENGTH(TRIM(nome)) >= 2),
-  CONSTRAINT campanhas_status_novo_valido CHECK (status IN ('rascunho','pronta','ativa','pausada','concluida','cancelada'))
+  CONSTRAINT campanhas_status_valido CHECK (status IN ('rascunho','pronta','ativa','pausada','concluida','cancelada'))
 );
 
 CREATE TABLE public.comunicacoes (
@@ -1333,6 +1333,7 @@ INSERT INTO public.schema_migrations (
   ('012', '012_identificar_webhook_meta.sql', '18a4295ae9d64f636a34ad7f239f3ee637e6cda1287b2e01faf04c1400adbc0a'),
   ('013', '013_gerenciar_templates_oficiais_meta.sql', 'a1a455aa7a0438d2e5b2dbbafeb6b2cb256b47a080d9974689a3c097e33d9dc6'),
   ('014', '014_garantir_auditoria_campanhas.sql', 'e856eec3eda0d280534e996e60dad3e2c3d3aa11b95b41f791d0d5d6d36e6f30'),
-  ('015', '015_atualizar_templates_por_webhook_meta.sql', 'a7942ed6fbc44d230200ffca95baffa1626bbf089cca5081fff6f4a030596b9d');
+  ('015', '015_atualizar_templates_por_webhook_meta.sql', 'a7942ed6fbc44d230200ffca95baffa1626bbf089cca5081fff6f4a030596b9d'),
+  ('016', '016_alinhar_status_campanhas.sql', '0a9ae25dce9417295dc249e284fbe7f9b2584488887c095d0405068ab6a85b3d');
 
 COMMIT;

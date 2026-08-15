@@ -3374,6 +3374,85 @@
   min-width: min(100%, 20rem);
 }
 
+.bloco-envio-campanha {
+  border-top: 1px solid var(--admin-borda);
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+}
+
+.bloco-envio-campanha h3 {
+  margin: 0.2rem 0;
+  color: var(--admin-texto);
+}
+
+.metricas-campanha.metricas-envio-campanha {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  overflow: visible;
+}
+
+.metricas-envio-campanha .metrica-envio-disponivel {
+  border-color: #ff9d61;
+  background: #fff5ee;
+}
+
+.metricas-envio-campanha .metrica-envio-disponivel strong {
+  color: #c94b00;
+}
+
+.controle-envio-campanha {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+.controle-envio-campanha label {
+  display: grid;
+  width: min(100%, 18rem);
+  gap: 0.35rem;
+}
+
+.controle-envio-campanha small,
+.ajuda-continuar-campanha {
+  color: var(--admin-texto-suave);
+  font-size: 0.73rem;
+  line-height: 1.45;
+}
+
+.botao-enviar-campanha {
+  min-width: 12rem;
+}
+
+.estado-sem-capacidade-campanha,
+.progresso-envio-campanha {
+  display: grid;
+  border-radius: 10px;
+  padding: 0.9rem;
+  gap: 0.3rem;
+  background: var(--campanha-fundo-suave);
+  color: var(--admin-texto-suave);
+  font-size: 0.78rem;
+}
+
+.estado-sem-capacidade-campanha strong,
+.progresso-envio-campanha strong {
+  color: var(--admin-texto);
+}
+
+.progresso-envio-campanha {
+  margin-top: 0.85rem;
+}
+
+.progresso-envio-campanha progress {
+  width: 100%;
+  height: 0.55rem;
+  margin-top: 0.35rem;
+  accent-color: var(--admin-laranja);
+}
+
+.ajuda-continuar-campanha {
+  margin: 0.65rem 0 0;
+}
+
 .grade-lotes-campanha {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -3463,6 +3542,170 @@
 .conteudo-templates-campanha {
   border-top: 1px solid var(--admin-borda);
   padding: 1rem;
+}
+
+.editor-template-campanha {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(18rem, 0.75fr);
+  align-items: start;
+  gap: 1rem;
+}
+
+.editor-template-campanha > form {
+  min-width: 0;
+}
+
+.previa-modelo-mensagem {
+  position: sticky;
+  top: 1rem;
+  min-width: 0;
+  border: 1px solid var(--admin-borda);
+  border-radius: 12px;
+  padding: 0.8rem;
+  background: #fff;
+}
+
+.cabecalho-previa-modelo {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 0.7rem;
+  gap: 0.75rem;
+}
+
+.cabecalho-previa-modelo div {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.cabecalho-previa-modelo span,
+.cabecalho-previa-modelo small,
+.previa-modelo-mensagem > p {
+  color: var(--admin-texto-suave);
+  font-size: 0.66rem;
+}
+
+.cabecalho-previa-modelo h4 {
+  margin: 0;
+  color: var(--admin-texto);
+  font-size: 0.92rem;
+}
+
+.fundo-previa-whatsapp {
+  min-height: 24rem;
+  border-radius: 10px;
+  padding: 1rem 0.7rem;
+  background-color: #efe9e2;
+  background-image: radial-gradient(circle at 1px 1px, rgba(91, 75, 62, 0.08) 1px, transparent 0);
+  background-size: 14px 14px;
+}
+
+.bolha-previa-whatsapp {
+  position: relative;
+  width: min(100%, 22rem);
+  border-radius: 4px 11px 11px 11px;
+  padding: 0.45rem 0.45rem 1.25rem;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(35, 29, 24, 0.15);
+  overflow: hidden;
+}
+
+.bolha-previa-whatsapp > img,
+.imagem-vazia-previa {
+  width: 100%;
+  min-height: 10rem;
+  max-height: 15rem;
+  border-radius: 7px;
+  object-fit: cover;
+}
+
+.imagem-vazia-previa {
+  display: grid;
+  place-content: center;
+  padding: 1rem;
+  gap: 0.35rem;
+  background: #f1f2f3;
+  color: #75808a;
+  text-align: center;
+}
+
+.imagem-vazia-previa span {
+  font-size: 2rem;
+}
+
+.imagem-vazia-previa strong {
+  font-size: 0.72rem;
+}
+
+.texto-cabecalho-previa,
+.texto-corpo-previa,
+.rodape-previa {
+  display: block;
+  margin: 0.55rem 0 0;
+  padding: 0 0.25rem;
+  color: #20262b;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.texto-cabecalho-previa {
+  font-size: 0.8rem;
+}
+
+.texto-corpo-previa {
+  font-size: 0.78rem;
+}
+
+.rodape-previa {
+  color: #768089;
+  font-size: 0.66rem;
+}
+
+.botao-previa {
+  border-top: 1px solid #edf0f2;
+  margin-top: 0.65rem;
+  padding: 0.65rem 0.35rem 0.25rem;
+  color: #1479a6;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.bolha-previa-whatsapp time {
+  position: absolute;
+  right: 0.55rem;
+  bottom: 0.3rem;
+  color: #8a949b;
+  font-size: 0.58rem;
+}
+
+.previa-modelo-mensagem > p {
+  margin: 0.65rem 0 0;
+  line-height: 1.45;
+}
+
+@media (max-width: 1100px) {
+  .editor-template-campanha {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .previa-modelo-mensagem {
+    position: static;
+    width: min(100%, 32rem);
+  }
+}
+
+@media (max-width: 760px) {
+  .previa-modelo-mensagem {
+    width: 100%;
+    padding: 0.65rem;
+  }
+
+  .fundo-previa-whatsapp {
+    min-height: 20rem;
+    padding: 0.7rem 0.5rem;
+  }
 }
 
 .cabecalho-gerenciamento-templates {
@@ -3741,6 +3984,20 @@
 
   .metricas-capacidade-campanha {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .metricas-campanha.metricas-envio-campanha {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .controle-envio-campanha {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .controle-envio-campanha label,
+  .controle-envio-campanha .botao {
+    width: 100%;
   }
 
   .acoes-capacidade-campanha,

@@ -232,7 +232,8 @@ async function validarCatalogo(cliente) {
             '012_identificar_webhook_meta.sql',
             '013_gerenciar_templates_oficiais_meta.sql',
             '014_garantir_auditoria_campanhas.sql',
-            '015_atualizar_templates_por_webhook_meta.sql'
+            '015_atualizar_templates_por_webhook_meta.sql',
+            '016_alinhar_status_campanhas.sql'
           )
         ) AS migrations_atuais
     `
@@ -245,8 +246,8 @@ async function validarCatalogo(cliente) {
   );
   verificar(configuracoes.rows[0].textos === 3, 'Os três textos ativos não existem.');
   verificar(
-    configuracoes.rows[0].migrations_atuais === 15,
-    'O ledger deve registrar as quinze migrations atuais.'
+    configuracoes.rows[0].migrations_atuais === 16,
+    'O ledger deve registrar as dezesseis migrations atuais.'
   );
 
   const auditoriaCampanhas = await cliente.query(`

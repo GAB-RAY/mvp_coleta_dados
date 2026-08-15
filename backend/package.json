@@ -20,6 +20,7 @@
     "testar:admin": "node scripts/testarAdministracao.js",
     "testar:manual": "node scripts/testarCadastroManual.js",
     "testar:campanhas": "node scripts/testarCampanhas.js",
+    "testar:status-campanha": "node scripts/testarStatusCampanhaMigration.js",
     "testar:webhook": "node scripts/testarWebhookMensageria.js",
     "testar:meta": "node scripts/testarIntegracaoMeta.js",
     "testar:templates-meta": "node scripts/testarTemplatesMeta.js",
