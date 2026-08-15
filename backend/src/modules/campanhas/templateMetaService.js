@@ -100,7 +100,8 @@ function normalizarComponente(componente, estado) {
   throw criarAppError('Componente nao suportado por esta versao do ACORDA RJ.',400);
 }
 
-function validarConfiguracaoEnvio(componentes, configuracao) {
+function validarConfiguracaoEnvio(componentes, configuracao, opcoesRecebidas) {
+  const opcoes=opcoesRecebidas||{};
   const resultado=configuracao&&typeof configuracao==='object'&&!Array.isArray(configuracao)?configuracao:{};
   const body=componentes.find(function(item){return item.type==='BODY';});
   const quantidadeBody=contarVariaveis(body.text);
@@ -117,9 +118,12 @@ function validarConfiguracaoEnvio(componentes, configuracao) {
     if(resultado.cabecalho.parametros[0].origem==='fixo')texto(resultado.cabecalho.parametros[0].valor,'Valor fixo do cabecalho',1000,true);
   }
   if(header&&header.format==='IMAGE'){
-    if(!resultado.cabecalho||resultado.cabecalho.tipo!=='imagem'||!['link','id'].includes(resultado.cabecalho.origem))throw criarAppError('Configure a imagem que sera usada no envio.',400);
-    texto(resultado.cabecalho.valor,'Imagem de envio',2000,true);
-    if(resultado.cabecalho.origem==='link'&&!/^https:\/\//i.test(resultado.cabecalho.valor))throw criarAppError('A imagem de envio deve usar uma URL HTTPS.',400);
+    if(!resultado.cabecalho&&opcoes.permitirImagemAusente!==true)throw criarAppError('Configure a imagem que sera usada no envio.',400);
+    if(resultado.cabecalho){
+      if(resultado.cabecalho.tipo!=='imagem'||!['link','id'].includes(resultado.cabecalho.origem))throw criarAppError('Configure a imagem que sera usada no envio.',400);
+      texto(resultado.cabecalho.valor,'Imagem de envio',2000,true);
+      if(resultado.cabecalho.origem==='link'&&!/^https:\/\//i.test(resultado.cabecalho.valor))throw criarAppError('A imagem de envio deve usar uma URL HTTPS.',400);
+    }
   }
   const grupo=componentes.find(function(item){return item.type==='BUTTONS';});
   const botoes=Array.isArray(resultado.botoes)?resultado.botoes:[];
@@ -136,7 +140,8 @@ function validarConfiguracaoEnvio(componentes, configuracao) {
   });
   if(grupo){
     grupo.buttons.forEach(function(botao,indice){
-      const exigeConfiguracao=botao.type==='QUICK_REPLY'||botao.type==='URL'&&botao.url.includes('{{1}}');
+      const exigeConfiguracao=botao.type==='URL'&&botao.url.includes('{{1}}')||
+        botao.type==='QUICK_REPLY'&&opcoes.exigirConfiguracaoQuickReply===true;
       if(exigeConfiguracao&&!botoes.some(function(item){return item.indice===indice;})){
         throw criarAppError('Configure todos os botoes parametrizados antes de continuar.',400);
       }
@@ -155,7 +160,7 @@ function prepararRascunho(dados) {
   const estado={};
   const componentes=(Array.isArray(dados.componentes)&&dados.componentes.length?dados.componentes:[{type:'BODY',text:dados.conteudo}]).map(function(item){return normalizarComponente(item,estado);});
   if(!estado.body)throw criarAppError('O template precisa possuir um texto principal.',400);
-  const configuracaoEnvio=validarConfiguracaoEnvio(componentes,dados.configuracaoEnvio||{});
+  const configuracaoEnvio=validarConfiguracaoEnvio(componentes,dados.configuracaoEnvio||{},{exigirConfiguracaoQuickReply:true});
   const body=componentes.find(function(item){return item.type==='BODY';});
   return {
     nome:texto(dados.nome,'Nome interno',150,true),categoria:texto(dados.categoria,'Categoria interna',100,true),
@@ -239,7 +244,17 @@ async function configurarEnvio(idRecebido,dados,usuario){
   const template=await campanhaModel.buscarTemplatePorId(id);
   if(!template)throw criarAppError('Template nao encontrado.',404);
   if(!template.meta_template_id)throw criarAppError('Salve o rascunho diretamente antes da submissao.',409);
-  const configuracao=validarConfiguracaoEnvio(template.meta_componentes||[],dados&&dados.configuracaoEnvio||{});
+  const removerImagem=Boolean(dados&&dados.removerImagem===true);
+  const configuracaoRecebida=Object.assign({},dados&&dados.configuracaoEnvio||{});
+  if(removerImagem){
+    const cabecalho=(template.meta_componentes||[]).find(function(item){return item.type==='HEADER';});
+    if(!cabecalho||cabecalho.format!=='IMAGE')throw criarAppError('Este template nao possui imagem de cabecalho para remover.',409);
+    configuracaoRecebida.cabecalho=null;
+  }
+  const configuracao=validarConfiguracaoEnvio(template.meta_componentes||[],configuracaoRecebida,{
+    permitirImagemAusente:removerImagem,
+    exigirConfiguracaoQuickReply:template.meta_origem!=='meta'
+  });
   return campanhaModel.configurarEnvioTemplate(id,configuracao,usuario.id);
 }
 

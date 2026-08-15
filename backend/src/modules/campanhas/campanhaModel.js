@@ -664,14 +664,25 @@ async function buscarTemplatePorId(id) {
 }
 
 async function configurarEnvioTemplate(id, configuracaoEnvio, usuarioId) {
-  const resultado = await banco.query(`UPDATE modelos_mensagem SET meta_configuracao_envio=$1::jsonb,
-    atualizado_por_usuario_id=$2,atualizado_em=CURRENT_TIMESTAMP
-    WHERE id=$3 AND meta_template_id IS NOT NULL RETURNING *`, [JSON.stringify(configuracaoEnvio),usuarioId,id]);
-  if (!resultado.rows[0]) return null;
-  await banco.query(`INSERT INTO historico_modelos_mensagem_meta
-    (modelo_id,meta_template_id,acao,origem,usuario_id)
-    VALUES ($1,$2,'configuracao_envio','sistema',$3)`, [id,resultado.rows[0].meta_template_id,usuarioId]);
-  return resultado.rows[0];
+  const cliente = await banco.connect();
+  try {
+    await cliente.query('BEGIN');
+    await cliente.query('SELECT pg_advisory_xact_lock(41030, $1)', [id]);
+    const resultado = await cliente.query(`UPDATE modelos_mensagem SET meta_configuracao_envio=$1::jsonb,
+      atualizado_por_usuario_id=$2,atualizado_em=CURRENT_TIMESTAMP
+      WHERE id=$3 AND meta_template_id IS NOT NULL RETURNING *`, [JSON.stringify(configuracaoEnvio),usuarioId,id]);
+    if (!resultado.rows[0]) { await cliente.query('ROLLBACK'); return null; }
+    await cliente.query(`INSERT INTO historico_modelos_mensagem_meta
+      (modelo_id,meta_template_id,acao,origem,usuario_id)
+      VALUES ($1,$2,'configuracao_envio','sistema',$3)`, [id,resultado.rows[0].meta_template_id,usuarioId]);
+    await cliente.query('COMMIT');
+    return resultado.rows[0];
+  } catch (erro) {
+    await cliente.query('ROLLBACK');
+    throw erro;
+  } finally {
+    cliente.release();
+  }
 }
 
 function statusInternoOficial(status) {

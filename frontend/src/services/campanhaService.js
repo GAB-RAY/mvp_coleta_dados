@@ -19,7 +19,7 @@ function prepararImagemEnvioTemplate(arquivo){const formulario=new FormData();fo
 function atualizarTemplate(id,dados){return requisitar('/api/admin/campanhas/templates/'+id,{method:'PUT',autenticado:true,body:JSON.stringify(dados)});}
 function submeterTemplateMeta(id){return requisitar('/api/admin/campanhas/templates/'+id+'/submeter-meta',{method:'POST',autenticado:true});}
 function sincronizarTemplatesMeta(){return requisitar('/api/admin/campanhas/templates/sincronizar-meta',{method:'POST',autenticado:true});}
-function configurarEnvioTemplate(id,configuracaoEnvio){return requisitar('/api/admin/campanhas/templates/'+id+'/configuracao-envio',{method:'PUT',autenticado:true,body:JSON.stringify({configuracaoEnvio})});}
+function configurarEnvioTemplate(id,configuracaoEnvio,removerImagem){return requisitar('/api/admin/campanhas/templates/'+id+'/configuracao-envio',{method:'PUT',autenticado:true,body:JSON.stringify({configuracaoEnvio,removerImagem:removerImagem===true})});}
 function obterCapacidade(){return requisitar('/api/admin/campanhas/configuracao/limite',{method:'GET',autenticado:true});}
 function atualizarLimite(valor,motivo){return requisitar('/api/admin/campanhas/configuracao/limite',{method:'PUT',autenticado:true,body:JSON.stringify({valor,motivo})});}
 function sincronizarLimiteMeta(){return requisitar('/api/admin/campanhas/configuracao/limite/sincronizar-meta',{method:'POST',autenticado:true});}

@@ -250,6 +250,31 @@ async function executar() {
     confirmar(duplicidades.participacoes === 1 && duplicidades.lotes === 1,
       'O reprocessamento duplicou participante ou lote.');
 
+    await templateService.configurarEnvio(
+      imagemExterna.template.id,
+      { configuracaoEnvio: {
+        cabecalho: { tipo: 'imagem', origem: 'id', valor: 'media-id-externo-qa' },
+        corpo: [], botoes: []
+      } },
+      imagemExterna.usuario
+    );
+    const imagemComId = await criarCenario({
+      sufixo: '9200004', template: imagemExterna.template
+    });
+    cenarios.push(imagemComId);
+    let payloadImagemId;
+    mensageriaService.definirProviderParaTeste(async function (url, opcoes) {
+      chamadasProvider += 1;
+      payloadImagemId = JSON.parse(opcoes.body);
+      return { ok: true, status: 200, json: async function () {
+        return { messages: [{ id: 'wamid.externo.imagem.id' }] };
+      } };
+    });
+    await mensageriaService.enviar(imagemComId.tentativa.id);
+    confirmar(payloadImagemId.template.components[0].parameters[0].image.id ===
+      'media-id-externo-qa',
+    'A campanha nao reutilizou o image.id persistido no provider fake.');
+
     console.log('Templates externos da Meta: ' + verificacoes + ' verificacoes aprovadas.');
   } finally {
     mensageriaService.definirProviderParaTeste();

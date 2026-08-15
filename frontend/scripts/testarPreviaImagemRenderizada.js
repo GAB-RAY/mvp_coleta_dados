@@ -126,9 +126,36 @@ async function aguardarCondicao(cliente, expressao, mensagem) {
 const scriptPreparacao = String.raw`
   localStorage.setItem('tokenAdministrativo', 'token-qa-visual');
   localStorage.setItem('usuarioAdministrativo', JSON.stringify({ id: 1, nome: 'QA visual', perfil: 'administrador' }));
-  window.fetch = async function () {
+  window.confirm = function () { return true; };
+  window.__requisicoesQa = [];
+  window.__templateQa = {
+    id: 9001, nome: 'Modelo externo com imagem', categoria: 'MARKETING', texto: 'Convite oficial', ativo: true,
+    meta_nome: 'modelo_externo_imagem_qa', meta_idioma: 'pt_BR', meta_categoria: 'MARKETING',
+    meta_status: 'aprovado', meta_status_oficial: 'APPROVED', meta_template_id: '999300001', meta_origem: 'meta',
+    meta_componentes: [
+      { type: 'HEADER', format: 'IMAGE' },
+      { type: 'BODY', text: 'Convite oficial' },
+      { type: 'BUTTONS', buttons: [{ type: 'QUICK_REPLY', text: 'Confirmar presença' }] }
+    ],
+    meta_configuracao_envio: {}
+  };
+  window.fetch = async function (entrada, opcoes) {
+    const url = String(entrada);
+    const configuracao = opcoes || {};
+    const metodo = String(configuracao.method || 'GET').toUpperCase();
+    window.__requisicoesQa.push({ url: url, metodo: metodo, corpo: typeof configuracao.body === 'string' ? configuracao.body : null });
+    if (url.includes('/templates/imagem-envio') && metodo === 'POST') {
+      return new Response(JSON.stringify({ mensagem: 'Imagem preparada.', imagem: { id: 'media-id-browser-qa' } }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+    if (url.includes('/templates/9001/configuracao-envio') && metodo === 'PUT') {
+      const dados = JSON.parse(configuracao.body);
+      window.__templateQa.meta_configuracao_envio = dados.configuracaoEnvio;
+      return new Response(JSON.stringify({ mensagem: 'Configuração de envio atualizada com sucesso.', template: window.__templateQa }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
     return new Response(JSON.stringify({
-      campanhas: [], templates: [],
+      campanhas: [], templates: [window.__templateQa],
       capacidade: { capacidadeRestante: 0, limiteInterno: 250, utilizado24h: 0 },
       bairros: [], categoriasProblema: [], eventos: [], origens: []
     }), { status: 200, headers: { 'Content-Type': 'application/json' } });
@@ -249,7 +276,40 @@ try {
   const larguraMobile = await executarExpressao(cliente, `Math.round(document.querySelector('.previa-modelo-mensagem').getBoundingClientRect().width)`);
   assert.equal(larguraMobile <= 390, true, 'A prévia ultrapassou a largura da tela móvel.');
 
-  console.log('Prévia renderizada: arquivo, URL, trocas, remoção, falha, desktop e celular aprovados.');
+  await cliente.enviar('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
+  assert.equal(await executarExpressao(cliente, `(() => { const botao = Array.from(document.querySelectorAll('button')).find(item => item.textContent.trim() === 'Configurar imagem'); if (!botao) return false; botao.click(); return true; })()`), true);
+  assert.equal(await executarExpressao(cliente, alterarModo('internet')), true);
+  assert.equal(await executarExpressao(cliente, preencherUrl('https://example.com/imagem-salva.jpg')), true);
+  assert.equal(await executarExpressao(cliente, `(() => { const botao = Array.from(document.querySelectorAll('button')).find(item => item.textContent.trim() === 'Salvar informações de envio'); if (!botao) return false; botao.click(); return true; })()`), true);
+  await aguardarCondicao(cliente, `window.__requisicoesQa.some(item => item.metodo === 'PUT' && item.url.includes('/templates/9001/configuracao-envio'))`, 'O frontend não enviou a configuração por URL.');
+  let ultimoPayload = await executarExpressao(cliente, `JSON.parse(window.__requisicoesQa.filter(item => item.metodo === 'PUT').at(-1).corpo)`);
+  assert.deepEqual(ultimoPayload, {
+    configuracaoEnvio: { corpo: [], botoes: [], cabecalho: { tipo: 'imagem', origem: 'link', valor: 'https://example.com/imagem-salva.jpg' } },
+    removerImagem: false
+  });
+  await aguardarCondicao(cliente, `Array.from(document.querySelectorAll('button')).some(item => item.textContent.trim() === 'Definir informações de envio')`, 'A lista não foi recarregada após salvar a URL.');
+  await executarExpressao(cliente, `Array.from(document.querySelectorAll('button')).find(item => item.textContent.trim() === 'Definir informações de envio').click()`);
+  await aguardarCondicao(cliente, `document.querySelector('input[type="url"][placeholder="https://..."]')?.value === 'https://example.com/imagem-salva.jpg'`, 'A URL não reapareceu ao reabrir a edição.');
+
+  assert.equal(await executarExpressao(cliente, alterarModo('dispositivo')), true);
+  assert.equal(await executarExpressao(cliente, selecionarArquivo), true);
+  await executarExpressao(cliente, `Array.from(document.querySelectorAll('button')).find(item => item.textContent.trim() === 'Salvar informações de envio').click()`);
+  await aguardarCondicao(cliente, `window.__requisicoesQa.filter(item => item.metodo === 'PUT').length >= 2`, 'O frontend não enviou a configuração por Media ID.');
+  ultimoPayload = await executarExpressao(cliente, `JSON.parse(window.__requisicoesQa.filter(item => item.metodo === 'PUT').at(-1).corpo)`);
+  assert.equal(ultimoPayload.configuracaoEnvio.cabecalho.origem, 'id');
+  assert.equal(ultimoPayload.configuracaoEnvio.cabecalho.valor, 'media-id-browser-qa');
+  await aguardarCondicao(cliente, `Array.from(document.querySelectorAll('button')).some(item => item.textContent.trim() === 'Definir informações de envio')`, 'A lista não foi recarregada após salvar o Media ID.');
+  await executarExpressao(cliente, `Array.from(document.querySelectorAll('button')).find(item => item.textContent.trim() === 'Definir informações de envio').click()`);
+  await aguardarCondicao(cliente, `document.querySelector('.imagem-vazia-previa')?.textContent.includes('Imagem configurada para envio')`, 'O Media ID salvo não foi reconhecido ao reabrir.');
+
+  assert.equal(await executarExpressao(cliente, `(() => { const botao = Array.from(document.querySelectorAll('button')).find(item => item.textContent.trim() === 'Remover imagem configurada'); if (!botao) return false; botao.click(); return true; })()`), true);
+  await executarExpressao(cliente, `Array.from(document.querySelectorAll('button')).find(item => item.textContent.trim() === 'Salvar informações de envio').click()`);
+  await aguardarCondicao(cliente, `window.__requisicoesQa.filter(item => item.metodo === 'PUT').length >= 3`, 'O frontend não enviou a remoção intencional.');
+  ultimoPayload = await executarExpressao(cliente, `JSON.parse(window.__requisicoesQa.filter(item => item.metodo === 'PUT').at(-1).corpo)`);
+  assert.equal(ultimoPayload.removerImagem, true);
+  assert.equal(Object.hasOwn(ultimoPayload.configuracaoEnvio, 'cabecalho'), false);
+
+  console.log('Prévia e edição renderizadas: imagem, persistência por URL/ID, reabertura, remoção, desktop e celular aprovados.');
 } finally {
   if (cliente) cliente.fechar();
   if (navegador) {

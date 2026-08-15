@@ -56,9 +56,12 @@ assert.match(pagina, /Imagem para envio/);
 assert.match(pagina, /Configurar imagem/);
 assert.match(pagina, /imagemLocal\.arquivo===arquivoImagem/);
 assert.match(pagina, /Imagem configurada para envio/);
+assert.match(pagina, /removerImagemEnvio/);
+assert.match(pagina, /Remover imagem configurada/);
+assert.match(pagina, /Não foi possível salvar a configuração da imagem/);
 assert.match(configuracaoVercel, /img-src 'self' data: blob: https:/);
 assert.match(estilos, /\.editor-template-campanha[\s\S]*grid-template-columns/);
 assert.match(estilos, /@media \(max-width: 1100px\)[\s\S]*\.editor-template-campanha[\s\S]*grid-template-columns: minmax\(0, 1fr\)/);
 assert.match(estilos, /@media \(max-width: 760px\)[\s\S]*\.previa-modelo-mensagem/);
 
-console.log('Prévia visual de modelos: 33 verificações aprovadas.');
+console.log('Prévia visual de modelos: 36 verificações aprovadas.');

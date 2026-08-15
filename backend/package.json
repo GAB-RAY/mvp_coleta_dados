@@ -24,6 +24,7 @@
     "testar:webhook": "node scripts/testarWebhookMensageria.js",
     "testar:meta": "node scripts/testarIntegracaoMeta.js",
     "testar:templates-meta": "node scripts/testarTemplatesMeta.js",
+    "testar:persistencia-imagem-template": "node scripts/testarPersistenciaImagemTemplate.js",
     "testar:templates-externos-meta": "node scripts/testarTemplatesExternosMeta.js",
     "testar:fluxo-campanhas-meta": "node scripts/testarFluxoCampanhasMetaIsolado.js",
     "testar:limite-meta": "node scripts/testarSincronizacaoLimiteMeta.js",

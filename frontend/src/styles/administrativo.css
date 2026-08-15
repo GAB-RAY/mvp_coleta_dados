@@ -3785,6 +3785,17 @@
   gap: 0.45rem;
 }
 
+.escolha-imagem-envio > .botao {
+  justify-self: start;
+}
+
+.escolha-imagem-envio > .aviso-configuracao-imagem {
+  border-left: 3px solid var(--admin-laranja);
+  padding: 0.55rem 0.7rem;
+  background: var(--campanha-fundo-suave);
+  color: var(--admin-texto);
+}
+
 .ajuda-valores-personalizados {
   grid-column: span 2;
   border-left: 3px solid var(--admin-laranja);
