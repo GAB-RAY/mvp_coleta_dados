@@ -23,6 +23,7 @@
     "testar:status-campanha": "node scripts/testarStatusCampanhaMigration.js",
     "testar:webhook": "node scripts/testarWebhookMensageria.js",
     "testar:meta": "node scripts/testarIntegracaoMeta.js",
+    "testar:log-meta": "node scripts/testarLogErroMeta.js",
     "testar:templates-meta": "node scripts/testarTemplatesMeta.js",
     "testar:requisitos-templates": "node scripts/testarRequisitosEnvioTemplates.js",
     "testar:persistencia-imagem-template": "node scripts/testarPersistenciaImagemTemplate.js",

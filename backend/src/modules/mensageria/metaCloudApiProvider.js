@@ -8,6 +8,57 @@ function textoSeguro(valor, maximo) {
   return String(valor).replace(/[\r\n\t]+/g, ' ').trim().slice(0, maximo) || null;
 }
 
+function removerCredenciaisDoTexto(valor, maximo) {
+  let resultado = textoSeguro(valor, maximo);
+  if (!resultado) return null;
+  resultado = resultado
+    .replace(/authorization\s*[:=]\s*bearer\s+[^\s,;]+/gi, '[CREDENCIAL_REMOVIDA]')
+    .replace(/bearer\s+[^\s,;]+/gi, '[CREDENCIAL_REMOVIDA]')
+    .replace(/[\w.+-]+@[\w.-]+\.[a-z]{2,}/gi, '[EMAIL_REMOVIDO]')
+    .replace(/(^|\D)\+?\d{10,15}(?!\d)/g, '$1[TELEFONE_REMOVIDO]');
+  const segredos = [
+    process.env.WHATSAPP_ACCESS_TOKEN,
+    process.env.META_APP_SECRET,
+    process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN,
+    process.env.DATABASE_URL,
+    process.env.BANCO_SENHA,
+    process.env.JWT_SECRET,
+    process.env.PGPASSWORD
+  ].filter(function (item) { return typeof item === 'string' && item.length >= 4; });
+  segredos.forEach(function (segredo) {
+    resultado = resultado.split(segredo).join('[CREDENCIAL_REMOVIDA]');
+  });
+  return resultado;
+}
+
+function codigoTecnicoSeguro(valor) {
+  if (valor === undefined || valor === null) return null;
+  if (typeof valor === 'number' && Number.isFinite(valor)) return valor;
+  return textoSeguro(valor, 80);
+}
+
+function registrarErroTecnicoMeta(resposta, corpo, operacao) {
+  const externo = corpo && corpo.error && typeof corpo.error === 'object' ? corpo.error : {};
+  const dadosErro = externo.error_data && typeof externo.error_data === 'object'
+    ? externo.error_data
+    : {};
+  const registro = {
+    nivel: 'erro',
+    evento: 'erro_meta_cloud_api',
+    operacao: textoSeguro(operacao, 40),
+    statusMeta: Number(resposta && resposta.status) || null,
+    mensagemMeta: removerCredenciaisDoTexto(externo.message, 1000),
+    codigoMeta: codigoTecnicoSeguro(externo.code),
+    subcodigoMeta: codigoTecnicoSeguro(externo.error_subcode),
+    tipoMeta: removerCredenciaisDoTexto(externo.type, 100),
+    detalhesMeta: removerCredenciaisDoTexto(dadosErro.details, 2000),
+    produtoMeta: removerCredenciaisDoTexto(dadosErro.messaging_product, 100),
+    fbtraceId: removerCredenciaisDoTexto(externo.fbtrace_id, 255)
+  };
+  try { console.error(JSON.stringify(registro)); }
+  catch (erroLog) { /* O log técnico não pode alterar o tratamento do envio. */ }
+}
+
 function criarErroIntegracao(mensagem, codigo, statusHttp, permiteNovaTentativa) {
   const erro = new Error(mensagem);
   erro.codigoIntegracao = textoSeguro(codigo, 80) || 'META_ERRO';
@@ -148,7 +199,7 @@ async function lerResposta(resposta) {
 function prepararErroMeta(resposta, corpo, operacao) {
   const externo = corpo && corpo.error || {};
   const codigo = textoSeguro(externo.code || externo.error_subcode, 80) || 'META_HTTP_' + resposta.status;
-  let mensagem = resposta.status === 401 ? 'A credencial da Meta foi recusada.' : 'A Meta recusou a operacao solicitada.';
+  let mensagem = resposta.status === 401 ? 'A credencial da Meta foi recusada.' : 'A Meta recusou a operação solicitada.';
   if (operacao === 'template') mensagem = resposta.status === 401 ? mensagem : 'A Meta recusou o template. Revise os campos e exemplos informados.';
   if (operacao === 'imagem') mensagem = resposta.status === 401 ? 'A conexao com a Meta precisa ser conferida pelo administrador.' : 'Nao foi possivel enviar a imagem. Verifique o arquivo e tente novamente.';
   return criarErroIntegracao(mensagem, codigo, resposta.status, resposta.status >= 500 || resposta.status === 429);
@@ -164,8 +215,16 @@ async function requisitarMeta(caminho, opcoes, operacao) {
       headers: Object.assign({ Authorization: 'Bearer ' + configuracao.token }, opcoes && opcoes.headers),
       signal: controlador.signal
     }));
-    const corpo = await lerResposta(resposta);
-    if (!resposta.ok) throw prepararErroMeta(resposta, corpo, operacao);
+    let corpo;
+    try { corpo = await lerResposta(resposta); }
+    catch (erroResposta) {
+      if (!resposta.ok) registrarErroTecnicoMeta(resposta, null, operacao);
+      throw erroResposta;
+    }
+    if (!resposta.ok) {
+      registrarErroTecnicoMeta(resposta, corpo, operacao);
+      throw prepararErroMeta(resposta, corpo, operacao);
+    }
     return { corpo, status: resposta.status };
   } catch (erro) {
     if (erro.name === 'AbortError') throw criarErroIntegracao('A Meta nao respondeu dentro do tempo esperado.', 'META_TIMEOUT', 504, true);
