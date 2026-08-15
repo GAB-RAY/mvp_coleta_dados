@@ -4494,3 +4494,177 @@
 .cabecalho-editor-botao>div{display:flex;gap:6px}.cabecalho-editor-botao button{border:1px solid #cbd5e1;border-radius:8px;background:#fff;padding:6px 9px;color:#334155;cursor:pointer}.cabecalho-editor-botao button:disabled{opacity:.45;cursor:not-allowed}
 .ajuda-botao-sair,.estado-vazio-botoes{margin:0;color:#475569}.filtro-campanhas-arquivadas{display:flex;align-items:center;gap:8px;margin-top:12px;color:#475569;font-size:.92rem}.cartao-campanha-resumo.arquivado{opacity:.82;border-style:dashed}.rodape-cartao-campanha>div{display:flex;flex-wrap:wrap;gap:8px}
 @media (max-width:760px){.cabecalho-construtor-botoes,.cabecalho-editor-botao{align-items:stretch;flex-direction:column}.editor-botao-modelo{grid-template-columns:1fr}.cabecalho-editor-botao>div{flex-wrap:wrap}.cabecalho-construtor-botoes .botao{width:100%}}
+
+/* Organização visual do construtor de modelos. Não altera seus controles ou comportamento. */
+.gerenciar-templates-campanha .editor-template-campanha {
+  grid-template-columns: minmax(0, 1.7fr) minmax(20rem, 0.95fr);
+  gap: 1.25rem;
+}
+
+.gerenciar-templates-campanha .editor-template-campanha > form {
+  border: 1px solid var(--admin-borda);
+  border-radius: 14px;
+  padding: 1rem;
+  background: #fff;
+}
+
+.gerenciar-templates-campanha .grade-template-mensagem {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.8rem 1rem;
+}
+
+.grade-template-mensagem > label {
+  grid-column: span 3;
+}
+
+.grade-template-mensagem .campo-nome-modelo,
+.grade-template-mensagem .campo-nome-meta,
+.grade-template-mensagem .campo-idioma-modelo {
+  grid-column: span 2;
+}
+
+.grade-template-mensagem .campo-categoria-modelo,
+.grade-template-mensagem .campo-cabecalho-modelo {
+  grid-column: span 3;
+}
+
+.grade-template-mensagem .campo-template-conteudo,
+.grade-template-mensagem .escolha-imagem-envio,
+.grade-template-mensagem .atalhos-personalizacao-template,
+.grade-template-mensagem .ajuda-valores-personalizados,
+.grade-template-mensagem .titulo-valores-personalizados,
+.grade-template-mensagem .configuracao-parametro-template,
+.grade-template-mensagem .construtor-botoes-modelo,
+.grade-template-mensagem .disponibilidade-template,
+.grade-template-mensagem .titulo-secao-template {
+  grid-column: 1 / -1;
+}
+
+.titulo-secao-template {
+  margin: 0.45rem 0 0;
+  border-bottom: 1px solid var(--admin-borda);
+  padding-bottom: 0.45rem;
+  color: var(--admin-texto);
+  font-size: 0.82rem;
+  font-weight: 780;
+}
+
+.grade-template-mensagem > .titulo-secao-template:first-child {
+  margin-top: 0;
+}
+
+.grade-template-mensagem .campo-input:not(textarea) {
+  min-height: 44px;
+}
+
+.grade-template-mensagem .campo-template-conteudo textarea {
+  min-height: 7rem;
+}
+
+.grade-template-mensagem .atalhos-personalizacao-template {
+  border-radius: 10px;
+  padding: 0.7rem 0.8rem;
+}
+
+.grade-template-mensagem .ajuda-valores-personalizados {
+  padding: 0.6rem 0.75rem;
+}
+
+.grade-template-mensagem .construtor-botoes-modelo {
+  gap: 0.75rem;
+  border-radius: 10px;
+  padding: 0.85rem;
+  background: #fbfcfd;
+}
+
+.grade-template-mensagem .editor-botao-modelo {
+  gap: 0.75rem;
+  padding: 0.85rem;
+}
+
+.grade-template-mensagem .disponibilidade-template {
+  align-self: auto;
+  min-height: 0;
+  border: 1px solid var(--admin-borda);
+  border-radius: 10px;
+  padding: 0.75rem 0.85rem;
+  background: #fffaf7;
+}
+
+.bloco-acoes-template {
+  margin-top: 1rem;
+  border-top: 1px solid var(--admin-borda);
+  padding-top: 0.75rem;
+}
+
+.bloco-acoes-template .titulo-secao-template {
+  margin-top: 0;
+}
+
+.bloco-acoes-template .aviso-estado-campanha {
+  margin: 0.75rem 0 0;
+}
+
+.bloco-acoes-template .acoes-fluxo-campanha {
+  margin-top: 0.75rem;
+}
+
+.gerenciar-templates-campanha .previa-modelo-mensagem {
+  align-self: start;
+}
+
+.gerenciar-templates-campanha .fundo-previa-whatsapp {
+  min-height: 18rem;
+}
+
+@media (max-width: 1100px) {
+  .gerenciar-templates-campanha .editor-template-campanha {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .gerenciar-templates-campanha .previa-modelo-mensagem {
+    width: 100%;
+  }
+}
+
+@media (max-width: 760px) {
+  .gerenciar-templates-campanha .editor-template-campanha > form {
+    padding: 0.75rem;
+  }
+
+  .gerenciar-templates-campanha .grade-template-mensagem {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.75rem;
+  }
+
+  .grade-template-mensagem > label,
+  .grade-template-mensagem .campo-nome-modelo,
+  .grade-template-mensagem .campo-nome-meta,
+  .grade-template-mensagem .campo-idioma-modelo,
+  .grade-template-mensagem .campo-categoria-modelo,
+  .grade-template-mensagem .campo-cabecalho-modelo,
+  .grade-template-mensagem .campo-template-conteudo,
+  .grade-template-mensagem .escolha-imagem-envio,
+  .grade-template-mensagem .atalhos-personalizacao-template,
+  .grade-template-mensagem .ajuda-valores-personalizados,
+  .grade-template-mensagem .titulo-valores-personalizados,
+  .grade-template-mensagem .configuracao-parametro-template,
+  .grade-template-mensagem .construtor-botoes-modelo,
+  .grade-template-mensagem .disponibilidade-template,
+  .grade-template-mensagem .titulo-secao-template {
+    grid-column: 1;
+  }
+
+  .atalhos-personalizacao-template > div {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .atalhos-personalizacao-template button {
+    width: 100%;
+  }
+
+  .gerenciar-templates-campanha .fundo-previa-whatsapp {
+    min-height: 17rem;
+  }
+}

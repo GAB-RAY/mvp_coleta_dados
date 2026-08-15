@@ -106,6 +106,14 @@ e `header_handle` não aparecem para o operador. Modelos aprovados com mídia po
 ID mostram **Imagem da mensagem — Configurada**, com ações claras para trocar ou
 remover; nenhuma URL temporária ou `blob:` é persistida.
 
+A organização visual final mantém formulário e prévia como uma composição única
+no desktop, aproximadamente em 64%/36%. O formulário passou a apresentar as
+seções Identificação, Conteúdo, Personalização, Rodapé, Botões, Disponibilidade e
+Ações finais. Campos usam larguras e espaçamentos consistentes; rodapé e botões
+ocupam linhas próprias; disponibilidade fica próxima das ações; e a prévia não
+mantém altura vazia desnecessária. Em tablet e celular, o formulário aparece
+primeiro e a prévia abaixo, em uma coluna e sem rolagem horizontal.
+
 ## 6. Exclusão e arquivamento de campanhas
 
 Somente administrador recebe e pode executar **Excluir campanha**. A rota também
@@ -143,6 +151,12 @@ conteúdo, imagem, personalizações, vários botões, link, SAIR, prévia, aná
 aprovação, configuração do modelo aprovado, campanhas, aptos e não aptos, envio,
 continuação, revogação global e exclusão/arquivamento.
 
+O tópico **Modelos de mensagem** foi novamente alinhado após a personalização
+assistida. Ele explica **Adicionar ao texto**, `{{1}}`/`{{2}}`, link, ligação,
+SAIR, rascunho, análise e configuração depois da aprovação. A imagem
+`frontend/public/guia/modelos.png` foi regenerada em Edge com dados artificiais
+para representar a interface final, incluindo prévia e múltiplos botões.
+
 ## 9. Arquivos alterados
 
 ### Backend e banco
@@ -170,6 +184,7 @@ continuação, revogação global e exclusão/arquivamento.
 - `frontend/src/pages/AjudaAdministrativa.jsx`;
 - `frontend/src/services/campanhaService.js`;
 - `frontend/src/styles/administrativo.css`;
+- `frontend/public/guia/modelos.png`;
 - `frontend/scripts/testarPreviaModeloMensagem.js`;
 - `frontend/scripts/testarPreviaImagemRenderizada.js`.
 
@@ -195,10 +210,10 @@ npm run testar:banco
 Estrutura, catálogo e integridade: 25 verificações aprovadas.
 
 npm run testar:previa-modelo
-Prévia visual de modelos: 49 verificações aprovadas, incluindo a explicação e os atalhos oficiais de {{1}} e {{2}}.
+Prévia visual de modelos e guia: 57 verificações aprovadas, incluindo organização das seções, proporção desktop, responsividade e correspondência da aba Como usar.
 
 npm run testar:previa-imagem-renderizada
-Personalização assistida, imagem, persistência, múltiplos botões, ordenação, remoção, desktop e celular aprovados em Edge real.
+Composição desktop/mobile, salvamento de rascunho, personalização, imagem, múltiplos botões, ordenação e prévia aprovados em Edge real.
 ```
 
 Os testes de regressão incluíram modelo sem botão, URL, URL + SAIR, ordem real,

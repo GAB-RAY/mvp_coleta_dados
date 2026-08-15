@@ -88,12 +88,12 @@ const MODULOS = [
     somenteAdministrador: true,
     mostrarModeloPersonalizado: true,
     marcadores: [
-      { numero: 1, x: 36, y: 19, titulo: 'Identificação', texto: 'Informe o nome do modelo, o nome oficial, o idioma e a categoria Meta.' },
-      { numero: 2, x: 69, y: 32, titulo: 'Conteúdo e imagem', texto: 'Escolha o cabeçalho, escreva o texto principal, configure variáveis e rodapé.' },
-      { numero: 3, x: 48, y: 49, titulo: 'Botões', texto: 'Adicione, remova e ordene ações como abrir link, ligar ou não receber mais contatos.' },
-      { numero: 4, x: 72, y: 67, titulo: 'Prévia', texto: 'Confira imagem, texto, exemplos e todos os botões na ordem escolhida.' },
-      { numero: 5, x: 87, y: 10, titulo: 'Estados oficiais', texto: 'A Meta informa se o modelo está em análise, aprovado ou rejeitado.' },
-      { numero: 6, x: 33, y: 84, titulo: 'Salvar e enviar para análise', texto: 'Salvar cria um rascunho. Enviar para análise não manda mensagens aos contatos.' }
+      { numero: 1, x: 35, y: 19, titulo: 'Identificação', texto: 'Informe o nome para a equipe, o nome usado na Meta, o idioma e a categoria oficial.' },
+      { numero: 2, x: 39, y: 41, titulo: 'Escreva normalmente', texto: 'Digite o texto principal sem precisar memorizar códigos de personalização.' },
+      { numero: 3, x: 38, y: 57, titulo: 'Adicionar ao texto', texto: 'Posicione o cursor e escolha Nome da pessoa, Bairro, Principal necessidade ou Outro texto. O marcador oficial é inserido automaticamente.' },
+      { numero: 4, x: 39, y: 75, titulo: 'Confira cada informação', texto: 'O sistema mostra que {{1}} é a primeira informação, {{2}} é a segunda e o que cada uma representa.' },
+      { numero: 5, x: 76, y: 44, titulo: 'Prévia da mensagem', texto: 'Confira o resultado com exemplos, imagem, rodapé e todos os botões na ordem escolhida.' },
+      { numero: 6, x: 39, y: 91, titulo: 'Rascunho e análise', texto: 'Salve para continuar depois. Enviar para análise encaminha o modelo à Meta, mas não envia mensagens aos contatos.' }
     ]
   },
   {
@@ -300,8 +300,8 @@ function AjudaAdministrativa() {
                 <span className="etiqueta-pagina">Valores personalizados</span>
                 <p className="ajuda-mensagem-exemplo">Olá, <mark>{'{{1}}'}</mark>! Você está convidado para <mark>{'{{2}}'}</mark>.</p>
                 <p><strong>{'{{1}}'}</strong> é a primeira informação personalizada, <strong>{'{{2}}'}</strong> é a segunda, e assim por diante.</p>
-                <div className="ajuda-mapeamento-template"><span>{'{{1}}'} → Nome da pessoa</span><span>{'{{2}}'} → Texto igual para todos</span></div>
-                <small>O sistema substitui esses campos automaticamente no momento do envio.</small>
+                <div className="ajuda-mapeamento-template"><span>{'{{1}}'} → Nome da pessoa</span><span>{'{{2}}'} → Bairro</span></div>
+                <small>Use “Adicionar ao texto”; o sistema insere e configura os marcadores oficiais automaticamente.</small>
               </article>
               <article>
                 <span className="etiqueta-pagina">Imagens</span>
@@ -315,9 +315,19 @@ function AjudaAdministrativa() {
                 <span className="etiqueta-pagina">Botões da mensagem</span>
                 <div className="ajuda-comparacao-imagens">
                   <div><strong>Abrir link</strong><span>Leva a pessoa para o endereço configurado.</span></div>
+                  <div><strong>Ligar</strong><span>Abre a ligação para o número configurado.</span></div>
                   <div><strong>Não receber mais contatos</strong><span>Ativa o fluxo SAIR e bloqueia novas comunicações.</span></div>
                 </div>
-                <small>Os botões aparecem na prévia e são enviados para análise na ordem escolhida.</small>
+                <small>Adicione, remova ou ordene os botões. Somente “Não receber mais contatos” ativa o fluxo SAIR.</small>
+              </article>
+              <article>
+                <span className="etiqueta-pagina">Depois de criar</span>
+                <div className="ajuda-comparacao-imagens">
+                  <div><strong>Rascunho</strong><span>Pode ser reaberto e alterado.</span></div>
+                  <div><strong>Em análise</strong><span>Aguarde a decisão oficial da Meta.</span></div>
+                  <div><strong>Aprovado</strong><span>Configure imagem, personalizações e SAIR para o envio.</span></div>
+                </div>
+                <small>A Meta é sempre a fonte do status. O ACORDA RJ não aprova modelos localmente.</small>
               </article>
             </div>
           )}

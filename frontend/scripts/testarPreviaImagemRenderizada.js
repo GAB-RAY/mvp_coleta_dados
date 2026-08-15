@@ -157,6 +157,10 @@ const scriptPreparacao = String.raw`
       return new Response(JSON.stringify({ mensagem: 'Configuração de envio atualizada com sucesso.', template: window.__templateQa }),
         { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
+    if (url.endsWith('/api/admin/campanhas/templates') && metodo === 'POST') {
+      return new Response(JSON.stringify({ mensagem: 'Rascunho criado com sucesso.', template: { id: 9100 } }),
+        { status: 201, headers: { 'Content-Type': 'application/json' } });
+    }
     return new Response(JSON.stringify({
       campanhas: [], templates: [window.__templateQa],
       capacidade: { capacidadeRestante: 0, limiteInterno: 250, utilizado24h: 0 },
@@ -310,6 +314,12 @@ try {
   await aguardarCondicao(cliente, `document.querySelectorAll('.botao-previa').length === 2`, 'A previa nao exibiu todos os botoes.');
   assert.equal(await executarExpressao(cliente, `(() => { const botoes=document.querySelectorAll('[aria-label*="cima"]'); botoes[1].click(); return true; })()`), true);
   await aguardarCondicao(cliente, `document.querySelector('.botao-previa')?.textContent.includes('SAIR')`, 'A previa nao acompanhou a nova ordem dos botoes.');
+  if (process.env.ATUALIZAR_GUIA_MODELOS === 'true') {
+    await executarExpressao(cliente, `document.querySelector('.gerenciar-templates-campanha').scrollIntoView({ block: 'start' })`);
+    await aguardar(200);
+    const captura = await cliente.enviar('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
+    fs.writeFileSync(path.join(raizFrontend, 'public', 'guia', 'modelos.png'), Buffer.from(captura.data, 'base64'));
+  }
   assert.equal(await executarExpressao(cliente, `(() => { const remover=Array.from(document.querySelectorAll('.editor-botao-modelo button')).find(item => item.textContent.trim()==='Remover'); remover.click(); return true; })()`), true);
   await aguardarCondicao(cliente, `document.querySelectorAll('.editor-botao-modelo').length === 1 && document.querySelectorAll('.botao-previa').length === 1`, 'A remocao do botao nao atualizou a previa.');
   assert.equal(await executarExpressao(cliente, selecionarCabecalhoImagem), true);
@@ -335,6 +345,15 @@ try {
   assert.equal(await executarExpressao(cliente, removerArquivo), true);
   await aguardarCondicao(cliente, `document.querySelector('.imagem-vazia-previa')?.textContent.includes('Sua imagem aparecerá aqui')`, 'A remoção manteve a imagem local anterior.');
 
+  const composicaoDesktop = await executarExpressao(cliente, `(() => {
+    const editor=document.querySelector('.editor-template-campanha').getBoundingClientRect();
+    const formulario=document.querySelector('.editor-template-campanha > form').getBoundingClientRect();
+    const previa=document.querySelector('.previa-modelo-mensagem').getBoundingClientRect();
+    return { proporcao: formulario.width/editor.width, alinhamento: Math.abs(formulario.top-previa.top) };
+  })()`);
+  assert.equal(composicaoDesktop.proporcao >= 0.58 && composicaoDesktop.proporcao <= 0.68, true, 'Formulário e prévia não respeitaram a proporção visual de desktop.');
+  assert.equal(composicaoDesktop.alinhamento <= 2, true, 'A prévia não ficou alinhada ao início do formulário no desktop.');
+
   await cliente.enviar('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
   assert.equal(await executarExpressao(cliente, selecionarArquivo), true);
   await validarImagem(cliente, 'blob:');
@@ -342,8 +361,39 @@ try {
   const larguraConstrutor = await executarExpressao(cliente, `Math.round(document.querySelector('.construtor-botoes-modelo').getBoundingClientRect().width)`);
   assert.equal(larguraConstrutor <= 390, true, 'O construtor de botoes ultrapassou a largura da tela movel.');
   assert.equal(larguraMobile <= 390, true, 'A prévia ultrapassou a largura da tela móvel.');
+  const composicaoMobile = await executarExpressao(cliente, `(() => {
+    const formulario=document.querySelector('.editor-template-campanha > form').getBoundingClientRect();
+    const previa=document.querySelector('.previa-modelo-mensagem').getBoundingClientRect();
+    return { previaDepois: previa.top >= formulario.bottom - 1, semOverflow: document.documentElement.scrollWidth <= window.innerWidth };
+  })()`);
+  assert.equal(composicaoMobile.previaDepois, true, 'A prévia não ficou abaixo do formulário no celular.');
+  assert.equal(composicaoMobile.semOverflow, true, 'O layout do construtor criou rolagem horizontal no celular.');
 
   await cliente.enviar('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
+  assert.equal(await executarExpressao(cliente, `(() => {
+    const localizar = texto => Array.from(document.querySelectorAll('label')).find(item => item.firstChild && item.firstChild.textContent.trim() === texto);
+    const definirInput = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+    const nome = localizar('Nome do modelo').querySelector('input');
+    const nomeMeta = localizar('Nome usado na Meta').querySelector('input');
+    definirInput.call(nome, 'Teste visual do modelo'); nome.dispatchEvent(new Event('input', { bubbles: true }));
+    definirInput.call(nomeMeta, 'teste_visual_modelo'); nomeMeta.dispatchEvent(new Event('input', { bubbles: true }));
+    return true;
+  })()`), true);
+  assert.equal(await executarExpressao(cliente, `(() => {
+    const rotulo = Array.from(document.querySelectorAll('label')).find(item => item.firstChild && item.firstChild.textContent.trim() === 'Cabeçalho');
+    const campo = rotulo.querySelector('select'); campo.value = 'nenhum'; campo.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  })()`), true);
+  assert.equal(await executarExpressao(cliente, `(() => {
+    const rotulo = Array.from(document.querySelectorAll('label')).find(item => item.firstChild && item.firstChild.textContent.trim() === 'Endereço do link');
+    const campo = rotulo.querySelector('input');
+    const definir = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+    definir.call(campo, 'https://example.com/participar'); campo.dispatchEvent(new Event('input', { bubbles: true }));
+    return true;
+  })()`), true);
+  assert.equal(await executarExpressao(cliente, `(() => { const botao=Array.from(document.querySelectorAll('button')).find(item => item.textContent.trim()==='Salvar rascunho'); botao.click(); return true; })()`), true);
+  await aguardarCondicao(cliente, `window.__requisicoesQa.some(item => item.metodo === 'POST' && item.url.endsWith('/api/admin/campanhas/templates'))`, 'O rascunho visual não foi salvo pelo fluxo existente.');
+  await aguardarCondicao(cliente, `Array.from(document.querySelectorAll('button')).some(item => item.textContent.trim() === 'Configurar imagem')`, 'A tela não foi recarregada depois de salvar o rascunho.');
   assert.equal(await executarExpressao(cliente, `(() => { const botao = Array.from(document.querySelectorAll('button')).find(item => item.textContent.trim() === 'Configurar imagem'); if (!botao) return false; botao.click(); return true; })()`), true);
   assert.equal(await executarExpressao(cliente, alterarModo('internet')), true);
   assert.equal(await executarExpressao(cliente, preencherUrl('https://example.com/imagem-salva.jpg')), true);
@@ -377,7 +427,7 @@ try {
   assert.equal(ultimoPayload.removerImagem, true);
   assert.equal(Object.hasOwn(ultimoPayload.configuracaoEnvio, 'cabecalho'), false);
 
-  console.log('Prévia e edição renderizadas: personalização assistida, imagem, persistência por URL/ID, reabertura, remoção, desktop e celular aprovados.');
+  console.log('Layout do construtor: composição desktop/mobile, rascunho, personalização, botões, prévia e imagem aprovados.');
 } finally {
   if (cliente) cliente.fechar();
   if (navegador) {

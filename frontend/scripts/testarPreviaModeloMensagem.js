@@ -13,6 +13,10 @@ const pagina = fs.readFileSync(
   path.join(diretorio, '..', 'src', 'pages', 'CampanhasAdministrativas.jsx'),
   'utf8'
 );
+const ajuda = fs.readFileSync(
+  path.join(diretorio, '..', 'src', 'pages', 'AjudaAdministrativa.jsx'),
+  'utf8'
+);
 const estilos = fs.readFileSync(
   path.join(diretorio, '..', 'src', 'styles', 'administrativo.css'),
   'utf8'
@@ -62,6 +66,10 @@ assert.match(pagina, /é a segunda/);
 assert.match(pagina, /inserirInformacaoPersonalizada/);
 assert.match(pagina, /Adicionar ao texto/);
 assert.match(pagina, /Principal necessidade/);
+assert.match(ajuda, /Adicionar ao texto/);
+assert.match(ajuda, /Rascunho/);
+assert.match(ajuda, /Em análise/);
+assert.match(ajuda, /A Meta é sempre a fonte do status/);
 assert.match(pagina, /Mostrar campanhas arquivadas/);
 assert.match(pagina, /Excluir campanha/);
 assert.match(pagina, /Prévia ilustrativa/);
@@ -79,5 +87,9 @@ assert.match(configuracaoVercel, /img-src 'self' data: blob: https:/);
 assert.match(estilos, /\.editor-template-campanha[\s\S]*grid-template-columns/);
 assert.match(estilos, /@media \(max-width: 1100px\)[\s\S]*\.editor-template-campanha[\s\S]*grid-template-columns: minmax\(0, 1fr\)/);
 assert.match(estilos, /@media \(max-width: 760px\)[\s\S]*\.previa-modelo-mensagem/);
+assert.match(estilos, /\.gerenciar-templates-campanha \.editor-template-campanha[\s\S]*1\.7fr[\s\S]*0\.95fr/);
+assert.match(estilos, /\.grade-template-mensagem \.construtor-botoes-modelo[\s\S]*grid-column: 1 \/ -1/);
+assert.match(estilos, /\.grade-template-mensagem \.disponibilidade-template[\s\S]*grid-column: 1 \/ -1/);
+assert.match(estilos, /@media \(max-width: 760px\)[\s\S]*\.gerenciar-templates-campanha \.grade-template-mensagem[\s\S]*grid-template-columns: minmax\(0, 1fr\)/);
 
-console.log('Prévia visual de modelos: 49 verificações aprovadas.');
+console.log('Prévia visual de modelos e guia: 57 verificações aprovadas.');
