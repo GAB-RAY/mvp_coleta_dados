@@ -122,14 +122,14 @@ async function atualizarNome(usuarioId, nome) {
   return resultado.rows[0] || null;
 }
 
-async function excluirUsuario(usuarioId) {
+async function excluirUsuario(usuarioId, usuarioSubstitutoId) {
   const cliente = await banco.connect();
 
   try {
     await cliente.query('BEGIN');
     await cliente.query("SELECT pg_advisory_xact_lock(hashtext('usuarios_administradores_ativos'))");
     const atual = await cliente.query(
-      'SELECT id, nome, perfil, ativo FROM usuarios WHERE id = $1 FOR UPDATE',
+      'SELECT id, nome, email, perfil, ativo FROM usuarios WHERE id = $1 FOR UPDATE',
       [usuarioId]
     );
     const usuario = atual.rows[0];
@@ -151,21 +151,69 @@ async function excluirUsuario(usuarioId) {
       }
     }
 
-    try {
-      await cliente.query('DELETE FROM usuarios WHERE id = $1', [usuarioId]);
-    } catch (erro) {
-      if (erro.code === '23503') {
-        const erroHistorico = new Error(
-          'Este administrador possui registros históricos vinculados e não pode ser apagado fisicamente.'
-        );
-        erroHistorico.codigoAplicacao = 'USUARIO_COM_HISTORICO';
-        throw erroHistorico;
-      }
-      throw erro;
+    const substituto = await cliente.query(
+      "SELECT id FROM usuarios WHERE id=$1 AND perfil='administrador' AND ativo=TRUE FOR UPDATE",
+      [usuarioSubstitutoId]
+    );
+    if (!substituto.rows[0]) {
+      const erroSubstituto = new Error('O administrador responsável pela exclusão não está mais ativo.');
+      erroSubstituto.codigoAplicacao = 'ADMINISTRADOR_SUBSTITUTO_INVALIDO';
+      throw erroSubstituto;
     }
 
+    const exclusoesHistoricas = [
+      await cliente.query('DELETE FROM historico_eventos WHERE usuario_id=$1', [usuarioId]),
+      await cliente.query('DELETE FROM historico_comunicacoes WHERE usuario_id=$1', [usuarioId]),
+      await cliente.query('DELETE FROM historico_modelos_mensagem_meta WHERE usuario_id=$1', [usuarioId]),
+      await cliente.query('DELETE FROM historico_configuracoes_sistema WHERE usuario_id=$1', [usuarioId]),
+      await cliente.query('DELETE FROM historico_contatos WHERE registrado_por_usuario_id=$1', [usuarioId]),
+      await cliente.query(`DELETE FROM solicitacoes_exclusao
+        WHERE solicitada_por_usuario_id=$1 OR analisada_por_usuario_id=$1`, [usuarioId]),
+      await cliente.query('DELETE FROM importacoes WHERE usuario_id=$1', [usuarioId]),
+      await cliente.query(`DELETE FROM tentativas_login
+        WHERE usuario_id=$1 OR lower(email_informado)=lower($2)`, [usuarioId, usuario.email]),
+      await cliente.query('DELETE FROM backups_banco WHERE usuario_id=$1', [usuarioId]),
+      await cliente.query('DELETE FROM sincronizacoes_limite_meta WHERE usuario_id=$1', [usuarioId])
+    ];
+
+    await cliente.query(`UPDATE eventos SET
+      criado_por_usuario_id=CASE WHEN criado_por_usuario_id=$1 THEN $2 ELSE criado_por_usuario_id END,
+      atualizado_por_usuario_id=CASE WHEN atualizado_por_usuario_id=$1 THEN $2 ELSE atualizado_por_usuario_id END
+      WHERE criado_por_usuario_id=$1 OR atualizado_por_usuario_id=$1`, [usuarioId, usuarioSubstitutoId]);
+    await cliente.query(`UPDATE campanhas SET
+      criado_por_usuario_id=CASE WHEN criado_por_usuario_id=$1 THEN $2 ELSE criado_por_usuario_id END,
+      atualizado_por_usuario_id=CASE WHEN atualizado_por_usuario_id=$1 THEN $2 ELSE atualizado_por_usuario_id END,
+      responsavel_usuario_id=CASE WHEN responsavel_usuario_id=$1 THEN $2 ELSE responsavel_usuario_id END,
+      arquivada_por_usuario_id=CASE WHEN arquivada_por_usuario_id=$1 THEN NULL ELSE arquivada_por_usuario_id END
+      WHERE criado_por_usuario_id=$1 OR atualizado_por_usuario_id=$1
+        OR responsavel_usuario_id=$1 OR arquivada_por_usuario_id=$1`, [usuarioId, usuarioSubstitutoId]);
+    await cliente.query(`UPDATE campanha_lotes SET criado_por_usuario_id=$2
+      WHERE criado_por_usuario_id=$1`, [usuarioId, usuarioSubstitutoId]);
+    await cliente.query(`UPDATE comunicacoes SET
+      operador_usuario_id=CASE WHEN operador_usuario_id=$1 THEN $2 ELSE operador_usuario_id END,
+      confirmado_por_usuario_id=CASE WHEN confirmado_por_usuario_id=$1 THEN NULL ELSE confirmado_por_usuario_id END
+      WHERE operador_usuario_id=$1 OR confirmado_por_usuario_id=$1`, [usuarioId, usuarioSubstitutoId]);
+    await cliente.query(`UPDATE numeros_whatsapp SET
+      criado_por_usuario_id=CASE WHEN criado_por_usuario_id=$1 THEN $2 ELSE criado_por_usuario_id END,
+      atualizado_por_usuario_id=CASE WHEN atualizado_por_usuario_id=$1 THEN $2 ELSE atualizado_por_usuario_id END
+      WHERE criado_por_usuario_id=$1 OR atualizado_por_usuario_id=$1`, [usuarioId, usuarioSubstitutoId]);
+    await cliente.query(`UPDATE modelos_mensagem SET
+      criado_por_usuario_id=CASE WHEN criado_por_usuario_id=$1 THEN NULL ELSE criado_por_usuario_id END,
+      atualizado_por_usuario_id=CASE WHEN atualizado_por_usuario_id=$1 THEN NULL ELSE atualizado_por_usuario_id END
+      WHERE criado_por_usuario_id=$1 OR atualizado_por_usuario_id=$1`, [usuarioId]);
+    await cliente.query('UPDATE configuracoes_sistema SET atualizado_por_usuario_id=NULL WHERE atualizado_por_usuario_id=$1', [usuarioId]);
+
+    await cliente.query('DELETE FROM usuarios WHERE id = $1', [usuarioId]);
+
     await cliente.query('COMMIT');
-    return { id: usuario.id, nome: usuario.nome, excluido: true };
+    return {
+      id: usuario.id,
+      nome: usuario.nome,
+      excluido: true,
+      registrosHistoricosExcluidos: exclusoesHistoricas.reduce(function (total, resultado) {
+        return total + resultado.rowCount;
+      }, 0)
+    };
   } catch (erro) {
     await cliente.query('ROLLBACK');
     throw erro;

@@ -62,6 +62,11 @@ async function login(baseUrl, email, senha) {
 
 async function executar() {
   let servidor;
+  let eventoPreservadoId;
+  let templatePreservadoId;
+  let importacaoHistoricaId;
+  let solicitacaoHistoricaId;
+  let historicoConfiguracaoId;
 
   try {
     await limpar();
@@ -410,6 +415,39 @@ async function executar() {
       { method: 'DELETE', headers: cabecalhosAdmin }
     )).status, 400);
 
+    const origemId = (await banco.query('SELECT id FROM origens ORDER BY id LIMIT 1')).rows[0].id;
+    eventoPreservadoId = (await banco.query(`
+      INSERT INTO eventos (nome,motivo,data_inicial,data_final,inscricoes_inicio,
+        inscricoes_fim,status,criado_por_usuario_id,atualizado_por_usuario_id)
+      VALUES ('Evento preservado QA','Teste de exclusao',CURRENT_TIMESTAMP,
+        CURRENT_TIMESTAMP + INTERVAL '1 day',CURRENT_TIMESTAMP,
+        CURRENT_TIMESTAMP + INTERVAL '1 hour','rascunho',$1,$1) RETURNING id
+    `, [novoAdmin.corpo.usuario.id])).rows[0].id;
+    await banco.query(`INSERT INTO historico_eventos
+      (evento_id,tipo_acao,dados_novos,usuario_id)
+      VALUES ($1,'criacao','{}'::jsonb,$2)`, [eventoPreservadoId, novoAdmin.corpo.usuario.id]);
+    templatePreservadoId = (await banco.query(`
+      INSERT INTO modelos_mensagem (nome,categoria,texto,criado_por_usuario_id,atualizado_por_usuario_id)
+      VALUES ('Template preservado QA','Teste','Mensagem preservada',$1,$1) RETURNING id
+    `, [novoAdmin.corpo.usuario.id])).rows[0].id;
+    await banco.query(`INSERT INTO historico_modelos_mensagem_meta
+      (modelo_id,acao,origem,usuario_id)
+      VALUES ($1,'rascunho_criado','sistema',$2)`, [templatePreservadoId, novoAdmin.corpo.usuario.id]);
+    importacaoHistoricaId = (await banco.query(`
+      INSERT INTO importacoes (nome_arquivo,formato,origem_id,usuario_id,status)
+      VALUES ('historico-usuario.csv','csv',$1,$2,'concluida') RETURNING id
+    `, [origemId, novoAdmin.corpo.usuario.id])).rows[0].id;
+    solicitacaoHistoricaId = (await banco.query(`
+      INSERT INTO solicitacoes_exclusao
+        (contato_id,contato_id_original,status,solicitada_por_usuario_id)
+      VALUES (NULL,999999999,'pendente',$1) RETURNING id
+    `, [novoAdmin.corpo.usuario.id])).rows[0].id;
+    historicoConfiguracaoId = (await banco.query(`
+      INSERT INTO historico_configuracoes_sistema
+        (chave,valor_anterior,valor_novo,motivo,usuario_id)
+      VALUES ('qa_exclusao_usuario',1,2,'Teste de exclusao',$1) RETURNING id
+    `, [novoAdmin.corpo.usuario.id])).rows[0].id;
+
     const exclusaoAdmin = await requisitar(
       baseUrl,
       '/api/admin/usuarios/' + novoAdmin.corpo.usuario.id,
@@ -425,11 +463,24 @@ async function executar() {
       { method: 'DELETE', headers: cabecalhosAdmin }
     )).status, 404);
 
-    const auditoriaAdminExcluido = await banco.query(
-      'SELECT COUNT(*)::integer AS total FROM tentativas_login WHERE email_informado = $1',
-      [EMAIL_NOVO_ADMIN]
-    );
-    assert.ok(auditoriaAdminExcluido.rows[0].total >= 1);
+    const rastrosAdminExcluido = (await banco.query(`SELECT
+      (SELECT COUNT(*)::integer FROM tentativas_login WHERE email_informado=$1) AS logins,
+      (SELECT COUNT(*)::integer FROM historico_eventos WHERE usuario_id=$2) AS historicos_eventos,
+      (SELECT COUNT(*)::integer FROM historico_modelos_mensagem_meta WHERE usuario_id=$2) AS historicos_modelos,
+      (SELECT COUNT(*)::integer FROM importacoes WHERE id=$3) AS importacoes,
+      (SELECT COUNT(*)::integer FROM solicitacoes_exclusao WHERE id=$4) AS exclusoes,
+      (SELECT COUNT(*)::integer FROM historico_configuracoes_sistema WHERE id=$5) AS historicos_configuracoes
+    `, [EMAIL_NOVO_ADMIN, novoAdmin.corpo.usuario.id, importacaoHistoricaId,
+      solicitacaoHistoricaId, historicoConfiguracaoId])).rows[0];
+    assert.ok(Object.values(rastrosAdminExcluido).every(function (total) { return Number(total) === 0; }));
+    const eventoPreservado = (await banco.query(`SELECT criado_por_usuario_id,atualizado_por_usuario_id
+      FROM eventos WHERE id=$1`, [eventoPreservadoId])).rows[0];
+    assert.strictEqual(Number(eventoPreservado.criado_por_usuario_id), Number(loginAdmin.corpo.usuario.id));
+    assert.strictEqual(Number(eventoPreservado.atualizado_por_usuario_id), Number(loginAdmin.corpo.usuario.id));
+    const templatePreservado = (await banco.query(`SELECT criado_por_usuario_id,atualizado_por_usuario_id
+      FROM modelos_mensagem WHERE id=$1`, [templatePreservadoId])).rows[0];
+    assert.strictEqual(templatePreservado.criado_por_usuario_id, null);
+    assert.strictEqual(templatePreservado.atualizado_por_usuario_id, null);
 
     const exclusaoOperador = await requisitar(
       baseUrl,
@@ -469,6 +520,18 @@ async function executar() {
       await new Promise(function (resolver) {
         servidor.close(resolver);
       });
+    }
+
+    if (solicitacaoHistoricaId) await banco.query('DELETE FROM solicitacoes_exclusao WHERE id=$1', [solicitacaoHistoricaId]);
+    if (importacaoHistoricaId) await banco.query('DELETE FROM importacoes WHERE id=$1', [importacaoHistoricaId]);
+    if (historicoConfiguracaoId) await banco.query('DELETE FROM historico_configuracoes_sistema WHERE id=$1', [historicoConfiguracaoId]);
+    if (templatePreservadoId) {
+      await banco.query('DELETE FROM historico_modelos_mensagem_meta WHERE modelo_id=$1', [templatePreservadoId]);
+      await banco.query('DELETE FROM modelos_mensagem WHERE id=$1', [templatePreservadoId]);
+    }
+    if (eventoPreservadoId) {
+      await banco.query('DELETE FROM historico_eventos WHERE evento_id=$1', [eventoPreservadoId]);
+      await banco.query('DELETE FROM eventos WHERE id=$1', [eventoPreservadoId]);
     }
 
     await limpar();

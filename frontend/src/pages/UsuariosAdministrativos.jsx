@@ -123,7 +123,7 @@ function UsuariosAdministrativos() {
     }
 
     const perfil = usuario.perfil === 'administrador' ? 'administrador' : 'operador';
-    const pergunta = 'Deseja excluir este ' + perfil + '?\nEle perderá o acesso ao sistema, mas os registros históricos permanecerão preservados.';
+    const pergunta = 'Deseja excluir este ' + perfil + '?\nEle perderá o acesso. Históricos vinculados à conta e importações realizadas por ela serão apagados. Eventos, modelos e campanhas continuarão disponíveis.';
     if (!window.confirm(pergunta)) return;
 
     setExcluindoUsuarioId(usuario.id);

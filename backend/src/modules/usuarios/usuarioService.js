@@ -224,7 +224,7 @@ async function excluirUsuario(idRecebido, usuarioResponsavel) {
   }
 
   try {
-    const resultado = await usuarioModel.excluirUsuario(usuarioId);
+    const resultado = await usuarioModel.excluirUsuario(usuarioId, Number(usuarioResponsavel.id));
     if (!resultado) {
       throw criarAppError('Usuário não encontrado.', 404);
     }
@@ -233,7 +233,7 @@ async function excluirUsuario(idRecebido, usuarioResponsavel) {
     if (erro.codigoAplicacao === 'ULTIMO_ADMINISTRADOR') {
       throw criarAppError(erro.message, 409);
     }
-    if (erro.codigoAplicacao === 'USUARIO_COM_HISTORICO') {
+    if (erro.codigoAplicacao === 'ADMINISTRADOR_SUBSTITUTO_INVALIDO') {
       throw criarAppError(erro.message, 409);
     }
     throw erro;
