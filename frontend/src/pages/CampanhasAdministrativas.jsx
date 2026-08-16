@@ -151,6 +151,7 @@ function CampanhasAdministrativas(){
   const [templateOficialEdicao,setTemplateOficialEdicao]=useState(false);
   const [selecionada,setSelecionada]=useState(null);
   const [publico,setPublico]=useState(null);
+  const [atualizandoPublico,setAtualizandoPublico]=useState(false);
   const [lotes,setLotes]=useState([]);
   const [falhas,setFalhas]=useState([]);
   const [tamanho,setTamanho]=useState(250);
@@ -398,6 +399,18 @@ function CampanhasAdministrativas(){
     }catch(erro){setMensagem(erro.message);}
   }
 
+  async function atualizarPublicoAtual(){
+    if(!selecionada||atualizandoPublico)return;
+    setAtualizandoPublico(true);
+    try{
+      const resposta=await visualizarPublicoCampanha(selecionada.id,1000);
+      setPublico(resposta.publico);
+      setTamanho(Number(resposta.publico.podeEnviarAgora||0));
+      setMensagem('Público atual recalculado com os filtros salvos da campanha.');
+    }catch(erro){setMensagem(erro.message);}
+    finally{setAtualizandoPublico(false);}
+  }
+
   async function abrirLote(lote){
     setLoteAberto(lote);
     setContatosLote([]);
@@ -427,7 +440,7 @@ function CampanhasAdministrativas(){
 
   async function removerCampanha(item){
     const possuiHistorico=Number(item.quantidade_lotes||0)>0||Number(item.reservado||0)>0||Number(item.enviado||0)>0||Number(item.entregue||0)>0||Number(item.lido||0)>0||Number(item.falhou||0)>0;
-    const pergunta=possuiHistorico?'Esta campanha possui histórico de envios e será arquivada para preservar os registros. Deseja continuar?':'Deseja excluir esta campanha permanentemente?';
+    const pergunta=possuiHistorico?'Esta campanha já possui envios. A campanha e todo o histórico operacional ligado a ela serão apagados permanentemente. Deseja continuar?':'Deseja excluir esta campanha permanentemente?';
     if(!window.confirm(pergunta))return;
     try{
       const resposta=await excluirCampanha(item.id);
@@ -533,7 +546,7 @@ function CampanhasAdministrativas(){
       <div className="cabecalho-resultados"><div><span className="etiqueta-pagina">1. Escolha</span><h2>Campanhas</h2><p>Abra uma campanha para acompanhar o público, continuar os envios e conferir os resultados.</p>{administrador&&<label className="filtro-campanhas-arquivadas"><input type="checkbox" checked={mostrarArquivadas} onChange={function(evento){setMostrarArquivadas(evento.target.checked);setSelecionada(null);}}/> Mostrar campanhas arquivadas</label>}</div>{administrador&&<button className="botao botao-primario" type="button" onClick={function(){setMostrarCriacao(!mostrarCriacao);setSelecionada(null);}}>{mostrarCriacao?'Fechar criação':'Nova campanha'}</button>}</div>
       {carregando?<Carregando mensagem="Carregando campanhas..."/>:campanhas.length===0?<div className="estado-vazio-campanha"><strong>Nenhuma campanha cadastrada.</strong><span>Crie a primeira campanha para começar.</span></div>:<div className="grade-campanhas">{campanhas.map(function(item){return <article className={'cartao-campanha-resumo '+(selecionada&&selecionada.id===item.id?'ativo':'')+(item.arquivada_em?' arquivado':'')} key={item.id}>
         <div><span className={'status-campanha status-'+item.status}>{item.arquivada_em?'Arquivada':textoStatus(item.status)}</span><h3>{item.nome}</h3><p>Mensagem: {item.modelo_nome||'Não informada'} · Aprovação: {item.modelo_meta_status_oficial==='APPROVED'?'Aprovado pela Meta':textoStatus(item.modelo_meta_status||'rascunho')}</p></div>
-        <div className="rodape-cartao-campanha"><span>{formatarQuantidade(Number(item.enviado||0)+Number(item.entregue||0)+Number(item.lido||0))} enviados</span><div><button className="botao botao-secundario" type="button" onClick={function(){abrirCampanha(item);}}>Abrir campanha</button>{administrador&&!item.arquivada_em&&<button className="botao botao-perigo" type="button" onClick={function(){removerCampanha(item);}}>Excluir campanha</button>}</div></div>
+        <div className="rodape-cartao-campanha"><span>{formatarQuantidade(Number(item.enviado||0)+Number(item.entregue||0)+Number(item.lido||0))} enviados</span><div><button className="botao botao-secundario" type="button" onClick={function(){abrirCampanha(item);}}>Abrir campanha</button>{administrador&&<button className="botao botao-perigo" type="button" onClick={function(){removerCampanha(item);}}>Excluir campanha</button>}</div></div>
       </article>;})}</div>}
     </section>
 
@@ -562,6 +575,8 @@ function CampanhasAdministrativas(){
       <div className="cabecalho-campanha-aberta"><div><span className="etiqueta-pagina">Campanha aberta</span><h2>{selecionada.nome}</h2><div className="linha-informacoes-campanha"><span className={'status-campanha status-'+selecionada.status}>{selecionada.arquivada_em?'Arquivada':textoStatus(selecionada.status)}</span><span>Mensagem: {selecionada.modelo_nome||'Não informada'}</span><span>Aprovação na Meta: {selecionada.modelo_meta_status_oficial==='APPROVED'?'Aprovado pela Meta':textoStatus(selecionada.modelo_meta_status||'rascunho')}</span></div>{selecionada.arquivada_em?<p className="aviso-estado-campanha">Esta campanha está arquivada. O histórico permanece disponível, mas novos envios e alterações estão bloqueados.</p>:!selecionada.modelo_nome?<p className="aviso-estado-campanha">Esta campanha não possui uma mensagem associada e não pode realizar envios.</p>:selecionada.modelo_meta_status_oficial!=='APPROVED'&&<p className="aviso-estado-campanha">A mensagem ainda não está oficialmente aprovada pela Meta. É possível conferir o público, mas o envio permanece bloqueado.</p>}</div><button className="botao botao-secundario" type="button" onClick={function(){setSelecionada(null);setPublico(null);}}>Voltar às campanhas</button></div>
 
       <div className="metricas-campanha metricas-envio-campanha"><article><span>Aptos</span><strong>{publico?formatarQuantidade(publico.publicoApto):0}</strong></article><article><span>Enviados</span><strong>{formatarQuantidade(enviados)}</strong></article><article><span>Restantes</span><strong>{formatarQuantidade(restantes)}</strong></article><article className="metrica-envio-disponivel"><span>Pode enviar agora</span><strong>{formatarQuantidade(podeEnviarAgora)}</strong></article></div>
+
+      {!selecionada.arquivada_em&&<section className="painel-publico-atual-campanha"><div className="cabecalho-secao"><div><span className="etiqueta-pagina">Filtros salvos</span><h3>Público atual</h3><p>A consulta considera os contatos e consentimentos existentes neste momento. Ela não cria envio nem reserva contatos.</p></div><button className="botao botao-secundario" type="button" disabled={atualizandoPublico} onClick={atualizarPublicoAtual}>{atualizandoPublico?'Atualizando...':'Atualizar público'}</button></div>{publico&&<><div className="metricas-previa-campanha metricas-publico-atual"><article><span>Encontrados</span><strong>{formatarQuantidade(publico.publicoEncontrado)}</strong><small>Correspondem aos filtros salvos.</small></article><article><span>Já receberam</span><strong>{formatarQuantidade(publico.jaReceberam)}</strong><small>Já foram processados com sucesso nesta campanha.</small></article><article><span>Aptos para próximo envio</span><strong>{formatarQuantidade(publico.aptosProximoEnvio)}</strong><small>Ainda podem entrar em um novo envio.</small></article><article><span>Não aptos</span><strong>{formatarQuantidade(publico.naoAptosProximoEnvio)}</strong><small>Estão bloqueados, sem consentimento ou já vinculados a esta campanha.</small></article></div><ListaContatosCampanha contatos={publico.contatos} vazia="Nenhum contato está apto para o próximo envio."/></>}</section>}
 
       {!selecionada.arquivada_em&&<div className="acoes-status-campanha">{selecionada.status==='rascunho'&&administrador&&<button className="botao botao-primario" type="button" onClick={function(){mudarStatus('pronta');}}>Disponibilizar para envio</button>}{selecionada.status==='ativa'&&administrador&&<button className="botao botao-secundario" type="button" onClick={function(){mudarStatus('pausada');}}>Pausar envios</button>}{selecionada.status==='pausada'&&administrador&&<button className="botao botao-primario" type="button" onClick={function(){mudarStatus('ativa');}}>Retomar envios</button>}{['ativa','pausada'].includes(selecionada.status)&&administrador&&<button className="botao botao-secundario" type="button" onClick={function(){mudarStatus('concluida');}}>Encerrar campanha</button>}{['rascunho','pronta','ativa','pausada'].includes(selecionada.status)&&administrador&&<button className="botao botao-perigo" type="button" onClick={function(){mudarStatus('cancelada');}}>Cancelar campanha</button>}</div>}
 

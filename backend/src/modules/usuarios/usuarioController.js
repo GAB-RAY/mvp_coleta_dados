@@ -75,10 +75,26 @@ async function alterarPropriaSenha(requisicao, resposta, proximo) {
   }
 }
 
+async function excluirUsuario(requisicao, resposta, proximo) {
+  try {
+    const resultado = await usuarioService.excluirUsuario(
+      requisicao.params.id,
+      requisicao.usuario
+    );
+    return resposta.status(200).json({
+      mensagem: 'Usuário excluído com sucesso.',
+      resultado
+    });
+  } catch (erro) {
+    return proximo(erro);
+  }
+}
+
 module.exports = {
   alterarPropriaSenha,
   atualizarProprioNome,
   criar,
+  excluirUsuario,
   listar,
   redefinirSenha
 };

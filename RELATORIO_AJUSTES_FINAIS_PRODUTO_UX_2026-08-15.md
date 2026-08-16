@@ -114,31 +114,31 @@ ocupam linhas próprias; disponibilidade fica próxima das ações; e a prévia 
 mantém altura vazia desnecessária. Em tablet e celular, o formulário aparece
 primeiro e a prévia abaixo, em uma coluna e sem rolagem horizontal.
 
-## 6. Exclusão e arquivamento de campanhas
+## 6. Exclusão permanente de campanhas
 
 Somente administrador recebe e pode executar **Excluir campanha**. A rota também
-é protegida no backend.
+é protegida no backend. Por decisão final de produto, a exclusão agora é sempre
+permanente, inclusive quando a campanha já possui envios.
 
-- sem lote, participação, tentativa ou comunicação: exclusão permanente;
-- com histórico operacional: arquivamento transacional, preservando todos os
-  registros;
-- repetição do arquivamento: resultado idempotente;
-- campanha arquivada: não aparece na listagem principal, pode ser consultada no
-  filtro **Mostrar campanhas arquivadas** e não aceita alteração nem novo envio.
+A operação usa transação e trava por campanha, remove histórico de status,
+tentativas, participações, lotes e comunicações vinculadas e, por último, remove
+a campanha. A confirmação informa claramente que o histórico operacional será
+apagado. Campanhas arquivadas anteriormente também podem ser excluídas.
 
 Locks, constraints e a barreira de criação de envio foram preservados.
 
 ## 7. Migration 017 e banco local
 
-Foi necessária a migration incremental:
+A migration incremental criada no ajuste anterior permanece no histórico:
 
 ```text
 017_arquivar_campanhas_com_historico.sql
 ```
 
 Ela adiciona somente `arquivada_em`, `arquivada_por_usuario_id`, chave estrangeira
-para o administrador responsável e índice de listagem. Não altera migration 016,
-status de campanha nem registros existentes.
+para o administrador responsável e índice de listagem. Esses campos são mantidos
+para compatibilidade com campanhas que já tenham sido arquivadas, mas a operação
+final **Excluir campanha** não cria novos arquivamentos: ela apaga permanentemente.
 
 Após autorização explícita, a migration 017 foi aplicada pelo migrador normal
 somente no PostgreSQL local. A estrutura local foi revalidada e os dados
@@ -149,7 +149,7 @@ artificiais do teste foram removidos. O banco publicado não foi acessado.
 A central foi atualizada depois da interface e agora descreve criação do modelo,
 conteúdo, imagem, personalizações, vários botões, link, SAIR, prévia, análise,
 aprovação, configuração do modelo aprovado, campanhas, aptos e não aptos, envio,
-continuação, revogação global e exclusão/arquivamento.
+continuação, revogação global e exclusão permanente de campanhas.
 
 O tópico **Modelos de mensagem** foi novamente alinhado após a personalização
 assistida. Ele explica **Adicionar ao texto**, `{{1}}`/`{{2}}`, link, ligação,
@@ -195,7 +195,7 @@ npm run testar:construtor-botoes
 Construtor de botoes: 10 verificacoes aprovadas.
 
 npm run testar:exclusao-campanhas
-Exclusao e arquivamento de campanhas: 10 verificacoes aprovadas.
+Exclusão permanente de campanhas: 7 verificações aprovadas.
 
 npm run testar:templates-meta
 Templates oficiais da Meta: 42 verificações aprovadas.
@@ -219,7 +219,7 @@ Composição desktop/mobile, salvamento de rascunho, personalização, imagem, m
 Os testes de regressão incluíram modelo sem botão, URL, URL + SAIR, ordem real,
 combinações rejeitadas antes do provider, rascunho reaberto, submissão fake,
 modelo externo `APPROVED`, SAIR, status de webhook, campanha limpa, campanha com
-histórico, permissão administrativa, ocultação de arquivada, desktop e celular.
+histórico, permissão administrativa, exclusão permanente com envios, desktop e celular.
 
 ## 11. Validação manual pelo usuário
 

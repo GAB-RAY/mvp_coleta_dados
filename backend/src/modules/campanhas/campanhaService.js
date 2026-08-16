@@ -119,7 +119,8 @@ async function visualizarPublico(idRecebido, quantidadeRecebida) {
     campanhaModel.contarPublico(campanha.filtros_snapshot, true),
     campanhaModel.obterCapacidade(obterAgora()),
     campanhaModel.contarDisponiveis(campanha.filtros_snapshot, id),
-    campanhaModel.listarTentativasPendentesCampanha(id, 10000, null)
+    campanhaModel.listarTentativasPendentesCampanha(id, 10000, null),
+    campanhaModel.contarJaReceberam(campanha.filtros_snapshot, id)
   ]);
   const agora = obterAgora();
   const inicioJanela = new Date(agora.getTime() - 24 * 60 * 60 * 1000);
@@ -142,6 +143,9 @@ async function visualizarPublico(idRecebido, quantidadeRecebida) {
   return {
     publicoEncontrado: resultados[0], publicoApto: resultados[1],
     publicoNaoApto: resultados[0] - resultados[1], capacidade: resultados[2],
+    jaReceberam: resultados[5],
+    aptosProximoEnvio: resultados[3],
+    naoAptosProximoEnvio: Math.max(0, resultados[0] - resultados[5] - resultados[3]),
     restantes: resultados[3] + resultados[4].length,
     novosRestantes: resultados[3], pendentesEnvio: resultados[4].length,
     podeEnviarAgora, quantidadeSolicitada: quantidade,

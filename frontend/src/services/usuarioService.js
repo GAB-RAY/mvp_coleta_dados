@@ -40,10 +40,18 @@ async function alterarPropriaSenha(senhaAtual, novaSenha) {
   });
 }
 
+async function excluirUsuario(usuarioId) {
+  return requisitar('/api/admin/usuarios/' + usuarioId, {
+    method: 'DELETE',
+    autenticado: true
+  });
+}
+
 export {
   alterarPropriaSenha,
   atualizarProprioNome,
   criarUsuario,
+  excluirUsuario,
   listarUsuarios,
   redefinirSenhaUsuario
 };

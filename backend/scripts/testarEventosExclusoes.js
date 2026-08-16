@@ -81,6 +81,8 @@ async function limparDadosTeste() {
 async function executar() {
   let servidor;
   let idsEventosAtivosPreservados = [];
+  let campanhaExclusaoId = null;
+  let modeloExclusaoId = null;
   const emailAdmin = 'eventos.admin@invalid.local';
   const emailOperador = 'eventos.operador@invalid.local';
   const telefoneEvento = '21999001122';
@@ -424,6 +426,42 @@ async function executar() {
     });
     const contatoId = contatoInscritoNovo.id;
 
+    modeloExclusaoId = (await banco.query(
+      `INSERT INTO modelos_mensagem (nome,categoria,texto,ativo)
+       VALUES ('Modelo exclusão teste','Teste','Mensagem de teste',TRUE) RETURNING id`
+    )).rows[0].id;
+    campanhaExclusaoId = (await banco.query(
+      `INSERT INTO campanhas
+       (nome,finalidade,modelo_id,filtros_snapshot,status,responsavel_usuario_id,
+        criado_por_usuario_id,atualizado_por_usuario_id)
+       VALUES ('Campanha exclusão teste','Validar exclusão com histórico',$1,'{}','rascunho',$2,$2,$2)
+       RETURNING id`,
+      [modeloExclusaoId, admin.corpo.usuario.id]
+    )).rows[0].id;
+    const loteExclusaoId = (await banco.query(
+      `INSERT INTO campanha_lotes
+       (campanha_id,tamanho_solicitado,tamanho_efetivo,ordem,status,chave_idempotencia,criado_por_usuario_id)
+       VALUES ($1,1,1,1,'processado','exclusao-contato-teste',$2) RETURNING id`,
+      [campanhaExclusaoId, admin.corpo.usuario.id]
+    )).rows[0].id;
+    const participacaoExclusaoId = (await banco.query(
+      `INSERT INTO campanha_participacoes
+       (campanha_id,contato_id,lote_original_id,status)
+       VALUES ($1,$2,$3,'enviada') RETURNING id`,
+      [campanhaExclusaoId, contatoId, loteExclusaoId]
+    )).rows[0].id;
+    const tentativaExclusaoId = (await banco.query(
+      `INSERT INTO campanha_tentativas
+       (participacao_id,numero_tentativa,status) VALUES ($1,1,'enviada') RETURNING id`,
+      [participacaoExclusaoId]
+    )).rows[0].id;
+    await banco.query(
+      `INSERT INTO historico_status_mensageria
+       (participacao_id,tentativa_id,status_anterior,status_novo,origem)
+       VALUES ($1,$2,'enviando','enviada','processamento')`,
+      [participacaoExclusaoId, tentativaExclusaoId]
+    );
+
     verificar((await requisitar(baseUrl, '/api/admin/relatorios/exportar.csv', { headers: operadorHeaders })).status === 403, 'Operador conseguiu exportar CSV.');
     verificar((await requisitar(baseUrl, '/api/admin/relatorios/exportar.xlsx', { headers: operadorHeaders })).status === 403, 'Operador conseguiu exportar Excel.');
     verificar((await requisitar(baseUrl, '/api/admin/contatos/' + contatoId, { method: 'DELETE', headers: operadorHeaders })).status === 404, 'Operador encontrou exclusão direta de contato.');
@@ -454,6 +492,25 @@ async function executar() {
     verificar(Number((await banco.query('SELECT COUNT(*) AS total FROM contatos WHERE id = $1', [contatoId])).rows[0].total) === 0, 'Contato não foi excluído fisicamente.');
     verificar(Number((await banco.query('SELECT COUNT(*) AS total FROM consentimentos WHERE contato_id_original = $1', [contatoId])).rows[0].total) >= 3, 'Consentimentos/revogações foram apagados.');
     verificar(Number((await banco.query('SELECT COUNT(*) AS total FROM solicitacoes_exclusao WHERE id = $1 AND status = \'aprovada\' AND contato_id IS NULL', [solicitacaoId])).rows[0].total) === 1, 'Pedido aprovado não foi preservado sem dados pessoais.');
+    verificar(Number((await banco.query('SELECT COUNT(*) AS total FROM campanha_participacoes WHERE id = $1', [participacaoExclusaoId])).rows[0].total) === 0, 'Participação vinculada impediu ou sobreviveu à exclusão do contato.');
+    verificar((await requisitar(baseUrl, '/api/admin/solicitacoes-exclusao/' + solicitacaoId + '/aprovar', { method: 'POST', headers: adminHeaders })).status === 409, 'Repetição da aprovação não foi tratada como conflito esperado.');
+
+    const telefoneSemHistorico = '21999001155';
+    const cadastroSemHistorico = await requisitar(baseUrl, '/api/publico/contatos', {
+      method: 'POST',
+      body: JSON.stringify({ nome: 'Contato sem histórico', telefone: telefoneSemHistorico, idade: 28, bairro: 'Vila Kennedy', problema: 'Saúde', aceitePrivacidade: true, autorizacaoMensagens: false, autorizacaoLigacoes: false, eventoIdExibido: null })
+    });
+    verificar(cadastroSemHistorico.status === 201, 'Contato sem histórico não foi criado para o teste de exclusão.');
+    const contatoSemHistoricoId = (await banco.query(
+      'SELECT id FROM contatos WHERE telefone_normalizado = $1',
+      [telefoneSemHistorico]
+    )).rows[0].id;
+    const pedidoSemHistorico = await requisitar(baseUrl, '/api/admin/contatos/' + contatoSemHistoricoId + '/solicitacao-exclusao', {
+      method: 'POST', headers: operadorHeaders, body: JSON.stringify({ observacoes: 'Pedido sem histórico operacional' })
+    });
+    const aprovacaoSemHistorico = await requisitar(baseUrl, '/api/admin/solicitacoes-exclusao/' + pedidoSemHistorico.corpo.solicitacaoId + '/aprovar', { method: 'POST', headers: adminHeaders });
+    verificar(aprovacaoSemHistorico.status === 200, 'Contato sem histórico não foi excluído.');
+    verificar(Number((await banco.query('SELECT COUNT(*) AS total FROM contatos WHERE id = $1', [contatoSemHistoricoId])).rows[0].total) === 0, 'Contato sem histórico permaneceu no banco.');
 
     verificar((await requisitar(baseUrl, '/api/admin/eventos/' + eventoId + '/encerrar', { method: 'POST', headers: adminHeaders })).status === 200, 'Evento não foi encerrado.');
     verificar(
@@ -517,6 +574,13 @@ async function executar() {
   } finally {
     if (servidor) {
       await new Promise(function (resolver) { servidor.close(resolver); });
+    }
+    if (campanhaExclusaoId) {
+      await banco.query('DELETE FROM campanha_lotes WHERE campanha_id = $1', [campanhaExclusaoId]);
+      await banco.query('DELETE FROM campanhas WHERE id = $1', [campanhaExclusaoId]);
+    }
+    if (modeloExclusaoId) {
+      await banco.query('DELETE FROM modelos_mensagem WHERE id = $1', [modeloExclusaoId]);
     }
     await limparDadosTeste();
     if (idsEventosAtivosPreservados.length > 0) {

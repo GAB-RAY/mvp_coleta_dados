@@ -9,6 +9,7 @@ import {
   alterarPropriaSenha,
   atualizarProprioNome,
   criarUsuario,
+  excluirUsuario,
   listarUsuarios,
   redefinirSenhaUsuario
 } from '../services/usuarioService';
@@ -68,6 +69,7 @@ function UsuariosAdministrativos() {
   const [redefinindoSenha, setRedefinindoSenha] = useState(false);
   const [mensagemSenha, setMensagemSenha] = useState('');
   const [tipoMensagemSenha, setTipoMensagemSenha] = useState('informacao');
+  const [excluindoUsuarioId, setExcluindoUsuarioId] = useState(null);
 
   useEffect(function () {
     const controlador = new AbortController();
@@ -111,6 +113,32 @@ function UsuariosAdministrativos() {
     setDados(Object.assign({}, dados, {
       [evento.target.name]: evento.target.value
     }));
+  }
+
+  async function excluirConta(usuario) {
+    if (!usuarioAtual || Number(usuarioAtual.id) === Number(usuario.id)) {
+      setTipoMensagem('erro');
+      setMensagem('Você não pode excluir sua própria conta.');
+      return;
+    }
+
+    const perfil = usuario.perfil === 'administrador' ? 'administrador' : 'operador';
+    const pergunta = 'Deseja excluir este ' + perfil + '?\nEle perderá o acesso ao sistema, mas os registros históricos permanecerão preservados.';
+    if (!window.confirm(pergunta)) return;
+
+    setExcluindoUsuarioId(usuario.id);
+    setMensagem('');
+    try {
+      const resposta = await excluirUsuario(usuario.id);
+      setTipoMensagem('sucesso');
+      setMensagem(resposta.mensagem);
+      setVersaoLista(versaoLista + 1);
+    } catch (erro) {
+      setTipoMensagem('erro');
+      setMensagem(erro.message);
+    } finally {
+      setExcluindoUsuarioId(null);
+    }
   }
 
   async function salvarNomeProprio(evento) {
@@ -386,7 +414,7 @@ function UsuariosAdministrativos() {
               <div className="explicacao-perfis">
                 <p><strong>Operador:</strong> acessa contatos, cadastros, importações e relatórios.</p>
                 <p><strong>Administrador:</strong> possui os mesmos acessos e também gerencia usuários.</p>
-                <p>Administradores podem criar outros administradores, mas não podem alterar contas administrativas de outras pessoas.</p>
+                <p>Administradores podem excluir outras contas, mas nunca a própria conta ou o último administrador ativo.</p>
               </div>
 
               <button className="botao botao-primario" type="submit" disabled={salvando}>
@@ -473,16 +501,24 @@ function UsuariosAdministrativos() {
                           <td>
                             {usuarioAtual && Number(usuarioAtual.id) === Number(usuario.id) ? (
                               <span className="texto-conta-atual">Conta atual</span>
-                            ) : usuario.perfil === 'administrador' ? (
-                              <span className="texto-conta-atual">Administrador protegido</span>
                             ) : (
-                              <button
-                                className="botao botao-secundario botao-redefinir-senha"
-                                type="button"
-                                onClick={function () { abrirRedefinicaoSenha(usuario); }}
-                              >
-                                Redefinir senha
-                              </button>
+                              <span className="acoes-tabela">
+                                {usuario.perfil === 'operador' && <button
+                                  className="botao botao-secundario botao-redefinir-senha"
+                                  type="button"
+                                  onClick={function () { abrirRedefinicaoSenha(usuario); }}
+                                >
+                                  Redefinir senha
+                                </button>}
+                                <button
+                                  className="botao botao-perigo"
+                                  type="button"
+                                  disabled={excluindoUsuarioId === usuario.id}
+                                  onClick={function () { excluirConta(usuario); }}
+                                >
+                                  {excluindoUsuarioId === usuario.id ? 'Excluindo...' : 'Excluir usuário'}
+                                </button>
+                              </span>
                             )}
                           </td>
                         </tr>

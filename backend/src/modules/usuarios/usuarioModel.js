@@ -122,6 +122,58 @@ async function atualizarNome(usuarioId, nome) {
   return resultado.rows[0] || null;
 }
 
+async function excluirUsuario(usuarioId) {
+  const cliente = await banco.connect();
+
+  try {
+    await cliente.query('BEGIN');
+    await cliente.query("SELECT pg_advisory_xact_lock(hashtext('usuarios_administradores_ativos'))");
+    const atual = await cliente.query(
+      'SELECT id, nome, perfil, ativo FROM usuarios WHERE id = $1 FOR UPDATE',
+      [usuarioId]
+    );
+    const usuario = atual.rows[0];
+
+    if (!usuario) {
+      await cliente.query('ROLLBACK');
+      return null;
+    }
+
+    if (usuario.perfil === 'administrador' && usuario.ativo === true) {
+      const quantidade = await cliente.query(
+        "SELECT COUNT(*)::integer AS total FROM usuarios WHERE perfil = 'administrador' AND ativo = TRUE"
+      );
+
+      if (quantidade.rows[0].total <= 1) {
+        const erroUltimo = new Error('É necessário manter pelo menos um administrador ativo no sistema.');
+        erroUltimo.codigoAplicacao = 'ULTIMO_ADMINISTRADOR';
+        throw erroUltimo;
+      }
+    }
+
+    try {
+      await cliente.query('DELETE FROM usuarios WHERE id = $1', [usuarioId]);
+    } catch (erro) {
+      if (erro.code === '23503') {
+        const erroHistorico = new Error(
+          'Este administrador possui registros históricos vinculados e não pode ser apagado fisicamente.'
+        );
+        erroHistorico.codigoAplicacao = 'USUARIO_COM_HISTORICO';
+        throw erroHistorico;
+      }
+      throw erro;
+    }
+
+    await cliente.query('COMMIT');
+    return { id: usuario.id, nome: usuario.nome, excluido: true };
+  } catch (erro) {
+    await cliente.query('ROLLBACK');
+    throw erro;
+  } finally {
+    cliente.release();
+  }
+}
+
 async function contarFalhasRecentesPorIp(enderecoIp, janelaMinutos) {
   const resultado = await banco.query(
     `
@@ -241,6 +293,7 @@ module.exports = {
   contarFalhasRecentesPorEmail,
   contarFalhasRecentesPorIp,
   criar,
+  excluirUsuario,
   liberarBloqueioExpirado,
   listar,
   redefinirSenha,

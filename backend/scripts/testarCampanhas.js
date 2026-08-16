@@ -57,6 +57,36 @@ async function executar() {
     templateId=template.id;
 
     async function novaCampanha(sufixo,filtros){const campanha=await campanhaService.criar({nome:marca+' '+sufixo,finalidade:'Validacao automatizada',modeloId:templateId,filtros},usuario);nomesCampanhas.push(campanha.id);return campanhaService.alterarStatus(campanha.id,'pronta',usuario);}
+    const nomeDinamico='CONTATO POSTERIOR DINAMICO '+Date.now();
+    const dinamica=await novaCampanha('DINAMICA',{nome:nomeDinamico});
+    const previaDinamicaVazia=await campanhaService.visualizarPublico(dinamica.id,20);
+    confirmar(previaDinamicaVazia.publicoEncontrado===0,'Campanha ainda nao deve encontrar contato criado posteriormente.');
+    const telefoneDinamico='247'+String(10000000+(Date.now()%80000000)).slice(-8);
+    const contatoDinamico=(await banco.query(`
+      INSERT INTO contatos (nome,telefone,telefone_normalizado,bairro,problema,
+        consentimento_armazenamento,consentimento_mensagens,origem_id,status_contato)
+      VALUES ($1,$2,$2,$3,$4,TRUE,FALSE,$5,'ativo') RETURNING id
+    `,[nomeDinamico,telefoneDinamico,bairro,'Saude',origem])).rows[0];
+    contatoIds.push(contatoDinamico.id);
+    const contagensAntes=await banco.query(`SELECT
+      (SELECT COUNT(*)::integer FROM campanha_lotes WHERE campanha_id=$1) AS lotes,
+      (SELECT COUNT(*)::integer FROM campanha_participacoes WHERE campanha_id=$1) AS participacoes,
+      (SELECT COUNT(*)::integer FROM campanha_tentativas tentativa INNER JOIN campanha_participacoes participacao ON participacao.id=tentativa.participacao_id WHERE participacao.campanha_id=$1) AS tentativas`,[dinamica.id]);
+    const previaDinamica=await campanhaService.visualizarPublico(dinamica.id,20);
+    const contagensDepois=await banco.query(`SELECT
+      (SELECT COUNT(*)::integer FROM campanha_lotes WHERE campanha_id=$1) AS lotes,
+      (SELECT COUNT(*)::integer FROM campanha_participacoes WHERE campanha_id=$1) AS participacoes,
+      (SELECT COUNT(*)::integer FROM campanha_tentativas tentativa INNER JOIN campanha_participacoes participacao ON participacao.id=tentativa.participacao_id WHERE participacao.campanha_id=$1) AS tentativas`,[dinamica.id]);
+    confirmar(previaDinamica.publicoEncontrado===1&&previaDinamica.jaReceberam===0&&previaDinamica.aptosProximoEnvio===1&&previaDinamica.naoAptosProximoEnvio===0,'Publico atual deve incluir contato elegivel cadastrado depois da campanha.');
+    confirmar(JSON.stringify(contagensAntes.rows[0])===JSON.stringify(contagensDepois.rows[0]),'Consultar publico nao pode criar lote, participacao ou tentativa.');
+    const loteDinamico=(await banco.query(`INSERT INTO campanha_lotes
+      (campanha_id,tamanho_solicitado,tamanho_efetivo,ordem,status,chave_idempotencia,criado_por_usuario_id)
+      VALUES ($1,1,1,1,'processado',$2,$3) RETURNING id`,[dinamica.id,marca+'-dinamica',usuario.id])).rows[0];
+    await banco.query(`INSERT INTO campanha_participacoes
+      (campanha_id,contato_id,lote_original_id,status,reservado_em) VALUES ($1,$2,$3,'enviada','2000-01-01T00:00:00Z')`,
+    [dinamica.id,contatoDinamico.id,loteDinamico.id]);
+    const previaDinamicaRecebida=await campanhaService.visualizarPublico(dinamica.id,20);
+    confirmar(previaDinamicaRecebida.jaReceberam===1&&previaDinamicaRecebida.aptosProximoEnvio===0&&previaDinamicaRecebida.naoAptosProximoEnvio===0,'Quem ja recebeu nao pode voltar ao proximo envio.');
     const principal=await novaCampanha('PRINCIPAL',{nome:marca});
     const previaFiltros=await campanhaService.visualizarPreviaFiltros({filtros:{nome:marca},quantidade:20});
     confirmar(previaFiltros.publicoEncontrado===600&&previaFiltros.publicoApto===599&&previaFiltros.publicoNaoApto===1&&previaFiltros.contatos.length===20,'Previa deve separar contato sem resposta de contato explicitamente recusado.');

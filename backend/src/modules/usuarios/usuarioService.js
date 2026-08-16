@@ -212,10 +212,39 @@ async function atualizarProprioNome(dadosRecebidos, usuarioResponsavel) {
   return transformarUsuario(usuario);
 }
 
+async function excluirUsuario(idRecebido, usuarioResponsavel) {
+  if (!usuarioResponsavel || usuarioResponsavel.perfil !== 'administrador') {
+    throw criarAppError('Acesso permitido somente para administradores.', 403);
+  }
+
+  const usuarioId = validarIdentificadorUsuario(idRecebido);
+
+  if (usuarioId === Number(usuarioResponsavel.id)) {
+    throw criarAppError('Você não pode excluir sua própria conta.', 400);
+  }
+
+  try {
+    const resultado = await usuarioModel.excluirUsuario(usuarioId);
+    if (!resultado) {
+      throw criarAppError('Usuário não encontrado.', 404);
+    }
+    return resultado;
+  } catch (erro) {
+    if (erro.codigoAplicacao === 'ULTIMO_ADMINISTRADOR') {
+      throw criarAppError(erro.message, 409);
+    }
+    if (erro.codigoAplicacao === 'USUARIO_COM_HISTORICO') {
+      throw criarAppError(erro.message, 409);
+    }
+    throw erro;
+  }
+}
+
 module.exports = {
   alterarPropriaSenha,
   atualizarProprioNome,
   criarUsuario,
+  excluirUsuario,
   listarUsuarios,
   redefinirSenha
 };

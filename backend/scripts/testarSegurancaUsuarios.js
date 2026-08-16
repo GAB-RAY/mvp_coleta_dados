@@ -5,6 +5,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const aplicacao = require('../src/app');
 const banco = require('../src/config/banco');
+const usuarioService = require('../src/modules/usuarios/usuarioService');
 
 const EMAIL_ADMIN = 'seguranca.admin@invalid.local';
 const EMAIL_OPERADOR = 'seguranca.operador@invalid.local';
@@ -302,10 +303,8 @@ async function executar() {
         body: JSON.stringify({ novaSenha: NOVA_SENHA_ADMIN })
       }
     )).status, 403);
-    assert.strictEqual(
-      (await login(baseUrl, EMAIL_NOVO_ADMIN, SENHA)).status,
-      200
-    );
+    const loginNovoAdmin = await login(baseUrl, EMAIL_NOVO_ADMIN, SENHA);
+    assert.strictEqual(loginNovoAdmin.status, 200);
 
     assert.strictEqual((await requisitar(baseUrl, '/api/admin/usuarios/meu-perfil/senha', {
       method: 'PATCH',
@@ -400,8 +399,71 @@ async function executar() {
     }
     assert.strictEqual((await login(baseUrl, EMAIL_DESCONHECIDO, 'SenhaIncorreta!')).status, 429);
 
+    assert.strictEqual((await requisitar(
+      baseUrl,
+      '/api/admin/usuarios/' + novoAdmin.corpo.usuario.id,
+      { method: 'DELETE', headers: cabecalhosOperador }
+    )).status, 403);
+    assert.strictEqual((await requisitar(
+      baseUrl,
+      '/api/admin/usuarios/' + loginAdmin.corpo.usuario.id,
+      { method: 'DELETE', headers: cabecalhosAdmin }
+    )).status, 400);
+
+    const exclusaoAdmin = await requisitar(
+      baseUrl,
+      '/api/admin/usuarios/' + novoAdmin.corpo.usuario.id,
+      { method: 'DELETE', headers: cabecalhosAdmin }
+    );
+    assert.strictEqual(exclusaoAdmin.status, 200);
+    assert.strictEqual((await requisitar(baseUrl, '/api/admin/usuarios', {
+      headers: { Authorization: 'Bearer ' + loginNovoAdmin.corpo.token }
+    })).status, 401);
+    assert.strictEqual((await requisitar(
+      baseUrl,
+      '/api/admin/usuarios/' + novoAdmin.corpo.usuario.id,
+      { method: 'DELETE', headers: cabecalhosAdmin }
+    )).status, 404);
+
+    const auditoriaAdminExcluido = await banco.query(
+      'SELECT COUNT(*)::integer AS total FROM tentativas_login WHERE email_informado = $1',
+      [EMAIL_NOVO_ADMIN]
+    );
+    assert.ok(auditoriaAdminExcluido.rows[0].total >= 1);
+
+    const exclusaoOperador = await requisitar(
+      baseUrl,
+      '/api/admin/usuarios/' + novoOperador.corpo.usuario.id,
+      { method: 'DELETE', headers: cabecalhosAdmin }
+    );
+    assert.strictEqual(exclusaoOperador.status, 200);
+    assert.strictEqual((await login(baseUrl, EMAIL_NOVO_OPERADOR, NOVA_SENHA_OPERADOR)).status, 401);
+
+    const outrosAdministradores = await banco.query(
+      `UPDATE usuarios SET ativo = FALSE
+       WHERE perfil = 'administrador' AND ativo = TRUE AND id <> $1
+       RETURNING id`,
+      [loginAdmin.corpo.usuario.id]
+    );
+    try {
+      await assert.rejects(
+        usuarioService.excluirUsuario(loginAdmin.corpo.usuario.id, {
+          id: 999999,
+          perfil: 'administrador'
+        }),
+        function (erro) { return erro.statusHttp === 409; }
+      );
+    } finally {
+      if (outrosAdministradores.rows.length > 0) {
+        await banco.query(
+          'UPDATE usuarios SET ativo = TRUE WHERE id = ANY($1::bigint[])',
+          [outrosAdministradores.rows.map(function (item) { return item.id; })]
+        );
+      }
+    }
+
     console.log('Segurança e usuários aprovados.');
-    console.log('Perfis, senha própria do administrador, redefinição de operador, permissões, auditoria e bloqueio aprovados.');
+    console.log('Perfis, senhas, exclusão de administrador e operador, último administrador, permissões, auditoria e bloqueio aprovados.');
   } finally {
     if (servidor) {
       await new Promise(function (resolver) {

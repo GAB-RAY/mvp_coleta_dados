@@ -193,41 +193,28 @@ async function excluirOuArquivar(id, usuarioId) {
     await cliente.query('BEGIN');
     await cliente.query('SELECT pg_advisory_xact_lock(41027, $1)', [id]);
     const campanhaResultado = await cliente.query(
-      'SELECT id,arquivada_em FROM campanhas WHERE id=$1 FOR UPDATE', [id]
+      'SELECT id FROM campanhas WHERE id=$1 FOR UPDATE', [id]
     );
     const campanha = campanhaResultado.rows[0];
     if (!campanha) {
       await cliente.query('ROLLBACK');
       return null;
     }
-    if (campanha.arquivada_em) {
-      await cliente.query('COMMIT');
-      return { acao: 'arquivada', repetido: true };
-    }
-    const historico = await cliente.query(`
-      SELECT
-        EXISTS (SELECT 1 FROM campanha_lotes WHERE campanha_id=$1) AS possui_lote,
-        EXISTS (SELECT 1 FROM campanha_participacoes WHERE campanha_id=$1) AS possui_participacao,
-        EXISTS (
-          SELECT 1 FROM campanha_tentativas tentativa
-          INNER JOIN campanha_participacoes participacao ON participacao.id=tentativa.participacao_id
-          WHERE participacao.campanha_id=$1
-        ) AS possui_tentativa,
-        EXISTS (SELECT 1 FROM comunicacoes WHERE campanha_id=$1) AS possui_comunicacao
+    await cliente.query(`
+      DELETE FROM historico_status_mensageria
+      WHERE participacao_id IN (
+        SELECT id FROM campanha_participacoes WHERE campanha_id=$1
+      )
     `, [id]);
-    const possuiHistorico = Object.values(historico.rows[0]).some(Boolean);
-    if (possuiHistorico) {
-      await cliente.query(`
-        UPDATE campanhas
-        SET arquivada_em=CURRENT_TIMESTAMP,
-            arquivada_por_usuario_id=$2,
-            atualizado_por_usuario_id=$2,
-            atualizado_em=CURRENT_TIMESTAMP
-        WHERE id=$1
-      `, [id, usuarioId]);
-      await cliente.query('COMMIT');
-      return { acao: 'arquivada', repetido: false };
-    }
+    await cliente.query(`
+      DELETE FROM campanha_tentativas
+      WHERE participacao_id IN (
+        SELECT id FROM campanha_participacoes WHERE campanha_id=$1
+      )
+    `, [id]);
+    await cliente.query('DELETE FROM campanha_participacoes WHERE campanha_id=$1', [id]);
+    await cliente.query('DELETE FROM campanha_lotes WHERE campanha_id=$1', [id]);
+    await cliente.query('DELETE FROM comunicacoes WHERE campanha_id=$1', [id]);
     await cliente.query('DELETE FROM campanhas WHERE id=$1', [id]);
     await cliente.query('COMMIT');
     return { acao: 'excluida', repetido: false };
@@ -256,6 +243,26 @@ async function contarDisponiveis(filtros, campanhaId) {
     SELECT 1 FROM campanha_participacoes participacao_existente
     WHERE participacao_existente.campanha_id = $${valores.length}
       AND participacao_existente.contato_id = contato.id
+  )`);
+  const resultado = await banco.query(`
+    SELECT COUNT(*)::integer AS total
+    FROM contatos AS contato
+    LEFT JOIN origens AS origem ON origem.id = contato.origem_id
+    ${clausula}
+  `, valores);
+  return resultado.rows[0].total;
+}
+
+async function contarJaReceberam(filtros, campanhaId) {
+  const consulta = montarConsultaPublico(filtros, false);
+  const valores = consulta.valores.slice();
+  valores.push(campanhaId);
+  const clausula = adicionarCondicao(consulta.clausula, `EXISTS (
+    SELECT 1
+    FROM campanha_participacoes AS participacao_recebida
+    WHERE participacao_recebida.campanha_id = $${valores.length}
+      AND participacao_recebida.contato_id = contato.id
+      AND participacao_recebida.status IN ('enviada', 'entregue', 'lida')
   )`);
   const resultado = await banco.query(`
     SELECT COUNT(*)::integer AS total
@@ -962,6 +969,7 @@ module.exports = {
   buscarTemplatePorId,
   buscarPorId,
   contarDisponiveis,
+  contarJaReceberam,
   contarPublico,
   configurarEnvioTemplate,
   criar,

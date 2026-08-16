@@ -21,5 +21,10 @@ roteador.patch(
   autorizarAdministrador,
   usuarioController.redefinirSenha
 );
+roteador.delete(
+  '/:id',
+  autorizarAdministrador,
+  usuarioController.excluirUsuario
+);
 
 module.exports = roteador;

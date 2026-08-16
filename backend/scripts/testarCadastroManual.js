@@ -7,6 +7,8 @@ const aplicacao = require('../src/app');
 const banco = require('../src/config/banco');
 
 const TELEFONE = '21999986001';
+const TELEFONE_CONCORRENTE = '21999986002';
+const TELEFONES_TESTE = [TELEFONE, TELEFONE_CONCORRENTE];
 const EMAIL_OPERADOR = 'cadastro.operador@invalid.local';
 const EMAIL_ADMIN = 'cadastro.admin@invalid.local';
 const EMAILS_TESTE = [EMAIL_OPERADOR, EMAIL_ADMIN];
@@ -22,16 +24,16 @@ async function requisitar(baseUrl, caminho, opcoes) {
 
 async function limpar() {
   const resultado = await banco.query(
-    'SELECT id FROM contatos WHERE telefone_normalizado = $1',
-    [TELEFONE]
+    'SELECT id FROM contatos WHERE telefone_normalizado = ANY($1::text[])',
+    [TELEFONES_TESTE]
   );
 
-  if (resultado.rows[0]) {
-    const id = resultado.rows[0].id;
-    await banco.query('DELETE FROM aceites_privacidade WHERE contato_id = $1', [id]);
-    await banco.query('DELETE FROM consentimentos WHERE contato_id = $1', [id]);
-    await banco.query('DELETE FROM historico_contatos WHERE contato_id = $1', [id]);
-    await banco.query('DELETE FROM contatos WHERE id = $1', [id]);
+  if (resultado.rows.length > 0) {
+    const ids = resultado.rows.map(function (item) { return item.id; });
+    await banco.query('DELETE FROM aceites_privacidade WHERE contato_id = ANY($1::bigint[])', [ids]);
+    await banco.query('DELETE FROM consentimentos WHERE contato_id = ANY($1::bigint[])', [ids]);
+    await banco.query('DELETE FROM historico_contatos WHERE contato_id = ANY($1::bigint[])', [ids]);
+    await banco.query('DELETE FROM contatos WHERE id = ANY($1::bigint[])', [ids]);
   }
 
   await banco.query(
@@ -203,8 +205,49 @@ async function executar() {
     );
     assert.strictEqual(consentimentosDepois.rows[0].total, 2);
 
-    console.log('Cadastro manual: 24 verificações aprovadas.');
-    console.log('Operador e administrador editaram com histórico; consentimentos explícitos aprovados.');
+    const cadastroPublicoMesmoTelefone = await requisitar(baseUrl, '/api/publico/contatos', {
+      method: 'POST',
+      body: JSON.stringify({
+        nome: 'Cadastro pelo formulário',
+        telefone: '+55 (21) 99998-6001',
+        bairro: 'Vila Kennedy',
+        idade: 42,
+        problema: 'Educação',
+        aceitePrivacidade: true,
+        autorizacaoMensagens: false,
+        autorizacaoLigacoes: false,
+        eventoIdExibido: null
+      })
+    });
+    assert.strictEqual(cadastroPublicoMesmoTelefone.status, 201);
+    assert.strictEqual(cadastroPublicoMesmoTelefone.corpo.contatoCriado, false);
+    assert.strictEqual(Number((await banco.query(
+      'SELECT COUNT(*) AS total FROM contatos WHERE telefone_normalizado = $1',
+      [TELEFONE]
+    )).rows[0].total), 1);
+
+    const dadosConcorrentes = Object.assign({}, dados, {
+      nome: 'Cadastro concorrente',
+      telefone: TELEFONE_CONCORRENTE,
+      autorizacaoMensagens: 'nao_informado',
+      autorizacaoLigacoes: 'nao_informado'
+    });
+    const respostasConcorrentes = await Promise.all([
+      requisitar(baseUrl, '/api/admin/contatos', {
+        method: 'POST', headers: cabecalhosOperador, body: JSON.stringify(dadosConcorrentes)
+      }),
+      requisitar(baseUrl, '/api/admin/contatos', {
+        method: 'POST', headers: cabecalhosAdministrador, body: JSON.stringify(dadosConcorrentes)
+      })
+    ]);
+    assert.deepStrictEqual(respostasConcorrentes.map(function (item) { return item.status; }).sort(), [200, 201]);
+    assert.strictEqual(Number((await banco.query(
+      'SELECT COUNT(*) AS total FROM contatos WHERE telefone_normalizado = $1',
+      [TELEFONE_CONCORRENTE]
+    )).rows[0].total), 1);
+
+    console.log('Cadastro manual: 30 verificações aprovadas.');
+    console.log('Cadastro manual, formulário, formatações e concorrência preservaram um contato por telefone canônico.');
   } finally {
     if (servidor) {
       await new Promise(function (resolver) {

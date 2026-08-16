@@ -2328,6 +2328,43 @@
   }
 }
 
+.painel-publico-atual-campanha {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--cor-borda, #d9e0e7);
+  border-radius: 0.75rem;
+  background: #fff;
+}
+
+.painel-publico-atual-campanha .cabecalho-secao {
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.metricas-publico-atual {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+@media (max-width: 900px) {
+  .metricas-publico-atual {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .painel-publico-atual-campanha .cabecalho-secao {
+    align-items: stretch;
+  }
+
+  .painel-publico-atual-campanha .cabecalho-secao .botao {
+    width: 100%;
+  }
+
+  .metricas-publico-atual {
+    grid-template-columns: 1fr;
+  }
+}
+
 .badge-consentimento {
   display: inline-flex;
   min-height: 26px;

@@ -10,6 +10,7 @@ function confirmar(condicao, mensagem) { if (!condicao) throw new Error(mensagem
 async function executar() {
   const marca = 'QA_EXCLUSAO_CAMPANHA_' + Date.now();
   const campanhaIds = [];
+  const contatoIds = [];
   let templateId;
   const usuario = (await banco.query("SELECT id FROM usuarios WHERE perfil='administrador' AND ativo=TRUE ORDER BY id LIMIT 1")).rows[0];
   if (!usuario) throw new Error('O teste requer um administrador ativo.');
@@ -29,30 +30,60 @@ async function executar() {
 
     const historica = await campanhaService.criar({ nome: marca + ' HISTORICA', finalidade: 'Teste local', modeloId: templateId, filtros: {} }, usuario);
     campanhaIds.push(historica.id);
-    await banco.query(`INSERT INTO campanha_lotes
+    const bairro = (await banco.query('SELECT nome FROM bairros WHERE ativo=TRUE ORDER BY id LIMIT 1')).rows[0].nome;
+    const origem = (await banco.query('SELECT id FROM origens ORDER BY id LIMIT 1')).rows[0].id;
+    const telefone = '246' + String(10000000 + (Date.now() % 80000000)).slice(-8);
+    const contato = (await banco.query(`
+      INSERT INTO contatos (nome,telefone,telefone_normalizado,bairro,problema,
+        consentimento_armazenamento,consentimento_mensagens,origem_id,status_contato)
+      VALUES ($1,$2,$2,$3,'Teste local',TRUE,FALSE,$4,'ativo') RETURNING id
+    `, [marca + ' CONTATO', telefone, bairro, origem])).rows[0];
+    contatoIds.push(contato.id);
+    const lote = (await banco.query(`INSERT INTO campanha_lotes
       (campanha_id,tamanho_solicitado,tamanho_efetivo,ordem,status,chave_idempotencia,criado_por_usuario_id)
-      VALUES ($1,1,1,1,'processado',$2,$3)`, [historica.id, marca, usuario.id]);
-    const arquivamento = await campanhaService.excluirOuArquivar(historica.id, usuario);
-    confirmar(arquivamento.acao === 'arquivada' && arquivamento.repetido === false, 'Campanha com historico deveria ser arquivada.');
-    const persistida = (await banco.query('SELECT arquivada_em,arquivada_por_usuario_id FROM campanhas WHERE id=$1', [historica.id])).rows[0];
-    confirmar(Boolean(persistida.arquivada_em) && Number(persistida.arquivada_por_usuario_id) === Number(usuario.id), 'Arquivamento nao registrou data e administrador.');
-    confirmar(Number((await banco.query('SELECT COUNT(*)::int total FROM campanha_lotes WHERE campanha_id=$1', [historica.id])).rows[0].total) === 1, 'Historico operacional foi removido.');
-    confirmar(!(await campanhaService.listar(false)).some(function(item){return Number(item.id)===Number(historica.id);}), 'Campanha arquivada permaneceu na listagem principal.');
-    confirmar((await campanhaService.listar(true)).some(function(item){return Number(item.id)===Number(historica.id)&&Boolean(item.arquivada_em);}), 'Filtro de arquivadas nao retornou a campanha.');
-    const repetido = await campanhaService.excluirOuArquivar(historica.id, usuario);
-    confirmar(repetido.acao === 'arquivada' && repetido.repetido === true, 'Arquivamento repetido nao foi idempotente.');
+      VALUES ($1,1,1,1,'processado',$2,$3) RETURNING id`, [historica.id, marca, usuario.id])).rows[0];
+    const participacao = (await banco.query(`
+      INSERT INTO campanha_participacoes (campanha_id,contato_id,lote_original_id,status)
+      VALUES ($1,$2,$3,'enviada') RETURNING id
+    `, [historica.id, contato.id, lote.id])).rows[0];
+    const tentativa = (await banco.query(`
+      INSERT INTO campanha_tentativas (participacao_id,numero_tentativa,status,finalizada_em)
+      VALUES ($1,1,'enviada',CURRENT_TIMESTAMP) RETURNING id
+    `, [participacao.id])).rows[0];
+    await banco.query(`
+      INSERT INTO historico_status_mensageria
+        (participacao_id,tentativa_id,status_anterior,status_novo,origem)
+      VALUES ($1,$2,'enviando','enviada','processamento')
+    `, [participacao.id, tentativa.id]);
+    const exclusaoHistorica = await campanhaService.excluirOuArquivar(historica.id, usuario);
+    confirmar(exclusaoHistorica.acao === 'excluida', 'Campanha com envio deveria ser excluida permanentemente.');
+    const contagens = (await banco.query(`SELECT
+      (SELECT COUNT(*)::integer FROM campanhas WHERE id=$1) AS campanhas,
+      (SELECT COUNT(*)::integer FROM campanha_lotes WHERE campanha_id=$1) AS lotes,
+      (SELECT COUNT(*)::integer FROM campanha_participacoes WHERE campanha_id=$1) AS participacoes,
+      (SELECT COUNT(*)::integer FROM campanha_tentativas WHERE participacao_id=$2) AS tentativas,
+      (SELECT COUNT(*)::integer FROM historico_status_mensageria WHERE participacao_id=$2) AS historicos
+    `, [historica.id, participacao.id])).rows[0];
+    confirmar(Object.values(contagens).every(function(total){return Number(total)===0;}), 'Campanha ou historico operacional permaneceu no banco.');
+    confirmar(!(await campanhaService.listar(true)).some(function(item){return Number(item.id)===Number(historica.id);}), 'Campanha excluida permaneceu na listagem.');
+    let erroRepetido;
+    try { await campanhaService.excluirOuArquivar(historica.id, usuario); } catch (erro) { erroRepetido = erro; }
+    confirmar(erroRepetido && erroRepetido.statusHttp === 404, 'Exclusao repetida deveria informar campanha inexistente.');
     let erroOperador;
     autorizarAdministrador({ usuario: { perfil: 'operador' } }, {}, function(erro){erroOperador=erro;});
     confirmar(erroOperador && erroOperador.statusHttp === 403, 'Operador conseguiu acessar a exclusao administrativa.');
-    let erroStatus;
-    try { await campanhaService.alterarStatus(historica.id, 'pronta', usuario); } catch (erro) { erroStatus = erro; }
-    confirmar(erroStatus && erroStatus.statusHttp === 409, 'Campanha arquivada aceitou alteracao de status.');
-    console.log('Exclusao e arquivamento de campanhas: ' + verificacoes + ' verificacoes aprovadas.');
+    console.log('Exclusao permanente de campanhas: ' + verificacoes + ' verificacoes aprovadas.');
   } finally {
     if (campanhaIds.length) {
+      await banco.query(`DELETE FROM historico_status_mensageria WHERE participacao_id IN
+        (SELECT id FROM campanha_participacoes WHERE campanha_id=ANY($1::bigint[]))`, [campanhaIds]);
+      await banco.query(`DELETE FROM campanha_tentativas WHERE participacao_id IN
+        (SELECT id FROM campanha_participacoes WHERE campanha_id=ANY($1::bigint[]))`, [campanhaIds]);
+      await banco.query('DELETE FROM campanha_participacoes WHERE campanha_id=ANY($1::bigint[])', [campanhaIds]);
       await banco.query('DELETE FROM campanha_lotes WHERE campanha_id=ANY($1::bigint[])', [campanhaIds]);
       await banco.query('DELETE FROM campanhas WHERE id=ANY($1::bigint[])', [campanhaIds]);
     }
+    if (contatoIds.length) await banco.query('DELETE FROM contatos WHERE id=ANY($1::bigint[])', [contatoIds]);
     if (templateId) {
       await banco.query('DELETE FROM historico_modelos_mensagem_meta WHERE modelo_id=$1', [templateId]);
       await banco.query('DELETE FROM modelos_mensagem WHERE id=$1', [templateId]);

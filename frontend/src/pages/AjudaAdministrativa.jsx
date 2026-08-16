@@ -75,7 +75,7 @@ const MODULOS = [
       { numero: 3, x: 40, y: 62, titulo: 'Público', texto: 'Encontrados correspondem aos filtros; aptos podem receber; não aptos estão impedidos.' },
       { numero: 4, x: 58, y: 70, titulo: 'Pode enviar agora', texto: 'O sistema calcula automaticamente a maior quantidade segura para este momento.' },
       { numero: 5, x: 74, y: 76, titulo: 'Enviar e continuar', texto: '“Enviar agora” pede confirmação. Os contatos restantes continuam na mesma campanha.' },
-      { numero: 6, x: 88, y: 89, titulo: 'Excluir ou arquivar', texto: 'Sem histórico, a campanha pode ser excluída. Com envios, ela é arquivada e a auditoria permanece.' }
+      { numero: 6, x: 88, y: 89, titulo: 'Excluir campanha', texto: 'A exclusão é permanente. Se já houver envios, o histórico operacional da campanha também será apagado.' }
     ]
   },
   {

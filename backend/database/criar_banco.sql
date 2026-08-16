@@ -1340,6 +1340,7 @@ INSERT INTO public.schema_migrations (
   ('014', '014_garantir_auditoria_campanhas.sql', 'e856eec3eda0d280534e996e60dad3e2c3d3aa11b95b41f791d0d5d6d36e6f30'),
   ('015', '015_atualizar_templates_por_webhook_meta.sql', 'a7942ed6fbc44d230200ffca95baffa1626bbf089cca5081fff6f4a030596b9d'),
   ('016', '016_alinhar_status_campanhas.sql', '0a9ae25dce9417295dc249e284fbe7f9b2584488887c095d0405068ab6a85b3d'),
-  ('017', '017_arquivar_campanhas_com_historico.sql', 'c0f9c7f3fd353b8277ba199cf113c6654ed741ae95421b44223205fed14af654');
+  ('017', '017_arquivar_campanhas_com_historico.sql', 'c0f9c7f3fd353b8277ba199cf113c6654ed741ae95421b44223205fed14af654'),
+  ('018', '018_garantir_telefone_canonico_unico.sql', '782bf9795daa02bbdd7e30a9efaabd7888977447efed1a4cc99327ba3af5cff2');
 
 COMMIT;

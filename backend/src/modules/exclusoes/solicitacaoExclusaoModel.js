@@ -211,6 +211,33 @@ async function aprovar(id, usuarioId, observacoes) {
       `,
       [id, usuarioId, observacoes]
     );
+
+    await cliente.query(
+      `
+        DELETE FROM historico_status_mensageria
+        WHERE participacao_id IN (
+          SELECT id
+          FROM campanha_participacoes
+          WHERE contato_id = $1
+        )
+      `,
+      [solicitacao.contato_id]
+    );
+    await cliente.query(
+      `
+        DELETE FROM campanha_tentativas
+        WHERE participacao_id IN (
+          SELECT id
+          FROM campanha_participacoes
+          WHERE contato_id = $1
+        )
+      `,
+      [solicitacao.contato_id]
+    );
+    await cliente.query(
+      'DELETE FROM campanha_participacoes WHERE contato_id = $1',
+      [solicitacao.contato_id]
+    );
     const exclusao = await cliente.query(
       'DELETE FROM contatos WHERE id = $1 RETURNING id',
       [solicitacao.contato_id]
