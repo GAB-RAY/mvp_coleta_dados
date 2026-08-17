@@ -319,7 +319,10 @@ async function listarContatosLote(campanhaId, loteId) {
       contato.problema,
       participacao.status,
       tentativa_atual.id AS tentativa_id,
-      tentativa_atual.status AS tentativa_status
+      tentativa_atual.status AS tentativa_status,
+      status_atual.criado_em AS tentativa_status_em,
+      CASE WHEN opt_out.id IS NOT NULL THEN 'opt_out' END AS acao_contato,
+      opt_out.criado_em AS acao_contato_em
     FROM campanha_participacoes AS participacao
     INNER JOIN campanha_lotes AS lote ON lote.id = participacao.lote_original_id
     INNER JOIN contatos AS contato ON contato.id = participacao.contato_id
@@ -329,6 +332,23 @@ async function listarContatosLote(campanhaId, loteId) {
       WHERE tentativa.participacao_id=participacao.id
       ORDER BY tentativa.numero_tentativa DESC LIMIT 1
     ) tentativa_atual ON TRUE
+    LEFT JOIN LATERAL (
+      SELECT historico.criado_em
+      FROM historico_status_mensageria historico
+      WHERE historico.tentativa_id=tentativa_atual.id
+        AND historico.status_novo=tentativa_atual.status
+      ORDER BY historico.criado_em DESC, historico.id DESC
+      LIMIT 1
+    ) status_atual ON TRUE
+    LEFT JOIN LATERAL (
+      SELECT historico.id, historico.criado_em
+      FROM historico_contatos historico
+      WHERE historico.contato_id=contato.id
+        AND historico.tipo_evento='opt_out_whatsapp'
+        AND historico.dados_novos->>'tentativaId'=tentativa_atual.id::text
+      ORDER BY historico.criado_em DESC, historico.id DESC
+      LIMIT 1
+    ) opt_out ON TRUE
     WHERE participacao.campanha_id = $1
       AND lote.id = $2
       AND lote.campanha_id = $1

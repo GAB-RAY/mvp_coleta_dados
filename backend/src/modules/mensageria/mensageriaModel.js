@@ -53,7 +53,7 @@ function candidatosTelefone(telefone) {
 
 async function registrarOptOut(dados) {
   const tiposRevogados = ['mensagens', 'ligacoes'];
-  const motivoRevogacao = 'Consentimentos revogados pela pr\u00f3pria pessoa atrav\u00e9s do bot\u00e3o SAIR no WhatsApp.';
+  const motivoRevogacao = 'Consentimentos revogados pela pr\u00f3pria pessoa atrav\u00e9s do bot\u00e3o de n\u00e3o receber mais contatos no WhatsApp.';
   const cliente = await banco.connect();
   try {
     await cliente.query('BEGIN');

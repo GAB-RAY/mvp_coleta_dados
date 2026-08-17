@@ -13,6 +13,10 @@ const pagina = fs.readFileSync(
   path.join(diretorio, '..', 'src', 'pages', 'CampanhasAdministrativas.jsx'),
   'utf8'
 );
+const detalhesContato = fs.readFileSync(
+  path.join(diretorio, '..', 'src', 'pages', 'DetalhesContato.jsx'),
+  'utf8'
+);
 const ajuda = fs.readFileSync(
   path.join(diretorio, '..', 'src', 'pages', 'AjudaAdministrativa.jsx'),
   'utf8'
@@ -83,6 +87,9 @@ assert.match(pagina, /Remover imagem configurada/);
 assert.match(pagina, /Não foi possível salvar as informações de envio/);
 assert.match(pagina, /parameter_format/);
 assert.match(pagina, /Escolha uma informação/);
+assert.match(pagina, /Status da mensagem/);
+assert.match(pagina, /A\u00e7\u00e3o do contato/);
+assert.match(detalhesContato, /N\u00e3o deseja mais receber contatos/);
 assert.match(configuracaoVercel, /img-src 'self' data: blob: https:/);
 assert.match(estilos, /\.editor-template-campanha[\s\S]*grid-template-columns/);
 assert.match(estilos, /@media \(max-width: 1100px\)[\s\S]*\.editor-template-campanha[\s\S]*grid-template-columns: minmax\(0, 1fr\)/);
@@ -92,4 +99,4 @@ assert.match(estilos, /\.grade-template-mensagem \.construtor-botoes-modelo[\s\S
 assert.match(estilos, /\.grade-template-mensagem \.disponibilidade-template[\s\S]*grid-column: 1 \/ -1/);
 assert.match(estilos, /@media \(max-width: 760px\)[\s\S]*\.gerenciar-templates-campanha \.grade-template-mensagem[\s\S]*grid-template-columns: minmax\(0, 1fr\)/);
 
-console.log('Prévia visual de modelos e guia: 57 verificações aprovadas.');
+console.log('Prévia visual de modelos e guia: 60 verificações aprovadas.');

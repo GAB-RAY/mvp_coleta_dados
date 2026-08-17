@@ -47,7 +47,10 @@ function apresentarContatos(contatos) {
       problema: contato.problema || 'Nao informado',
       status: contato.status || undefined,
       tentativaId: contato.tentativa_id ? Number(contato.tentativa_id) : undefined,
-      tentativaStatus: contato.tentativa_status || undefined
+      tentativaStatus: contato.tentativa_status || undefined,
+      tentativaStatusEm: contato.tentativa_status_em || undefined,
+      acaoContato: contato.acao_contato || undefined,
+      acaoContatoEm: contato.acao_contato_em || undefined
     };
   });
 }

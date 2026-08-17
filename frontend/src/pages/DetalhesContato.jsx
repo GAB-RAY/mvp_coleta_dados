@@ -341,10 +341,11 @@ function DetalhesContato() {
               <h2>Histórico de alterações</h2>
               {dados.historico.length === 0 && <p>Nenhuma alteração registrada.</p>}
               {dados.historico.map(function (historico) {
+                const optOutWhatsapp = historico.tipoEvento === 'opt_out_whatsapp';
                 return (
                   <article className="registro-historico" key={historico.id}>
-                    <strong>{historico.tipoEvento}</strong>
-                    <p>Novos dados: {JSON.stringify(historico.dadosNovos)}</p>
+                    <strong>{optOutWhatsapp ? 'Ação do contato' : historico.tipoEvento}</strong>
+                    <p>{optOutWhatsapp ? 'Não deseja mais receber contatos.' : 'Novos dados: ' + JSON.stringify(historico.dadosNovos)}</p>
                     <small>
                       {formatarData(historico.criadoEm)} · {formatarValor(historico.origem)}
                       {historico.usuario ? ' · ' + historico.usuario : ''}

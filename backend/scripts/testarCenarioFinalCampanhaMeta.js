@@ -151,6 +151,25 @@ async function executar() {
       Number(item.historicos) >= 3;
   }), 'Estado ou historico dos envios nao foi persistido.');
 
+  await mensageriaService.processarWebhook({
+    entry: [{ changes: [{ value: { statuses: tentativas.map(function (item) {
+      return { id: 'wamid.qa.' + item.telefone_normalizado, status: 'read' };
+    }) } }] }]
+  });
+  const historicoSomenteLeitura = await campanhaService.listarContatosLote(campanha.id, lote.lote.id);
+  confirmar(historicoSomenteLeitura.every(function (item) {
+    return item.tentativaStatus === 'lida' && item.tentativaStatusEm && !item.acaoContato;
+  }), 'Mensagem lida sem opt-out deve permanecer apenas como lida no historico.');
+
+  await banco.query('UPDATE contatos SET bloqueado_para_mensagens=TRUE WHERE id=$1', [contatos[1].id]);
+  const historicoContatoBloqueado = await campanhaService.listarContatosLote(campanha.id, lote.lote.id);
+  const segundoBloqueado = historicoContatoBloqueado.find(function (item) {
+    return item.tentativaId === Number(tentativas[1].id);
+  });
+  confirmar(segundoBloqueado && !segundoBloqueado.acaoContato,
+    'Bloqueio sem evento de clique nao pode ser apresentado como opt-out.');
+  await banco.query('UPDATE contatos SET bloqueado_para_mensagens=FALSE WHERE id=$1', [contatos[1].id]);
+
   const primeiro = tentativas[0];
   const eventoBarreira = (await banco.query(`
     INSERT INTO eventos (
@@ -167,12 +186,26 @@ async function executar() {
     INNER JOIN campanha_participacoes participacao ON participacao.id=tentativa.participacao_id
     WHERE participacao.campanha_id=$1
   `, [campanhaBarreira.id])).rows[0];
+  const respostaRapidaComum = await mensageriaService.processarWebhook({
+    entry: [{ changes: [{ value: { messages: [{
+      id: 'wamid.qa.quick-reply.' + crypto.randomUUID(), from: primeiro.telefone_normalizado,
+      context: { id: 'wamid.qa.' + primeiro.telefone_normalizado },
+      type: 'button', button: { payload: 'resposta_rapida_comum', text: 'SAIR' }
+    }] } }] }]
+  });
+  const historicosAntesOptOut = (await banco.query(
+    "SELECT COUNT(*)::integer total FROM historico_contatos WHERE contato_id=$1 AND tipo_evento='opt_out_whatsapp'",
+    [contatos[0].id]
+  )).rows[0].total;
+  confirmar(respostaRapidaComum[0].processado === true && historicosAntesOptOut === 0,
+    'QUICK_REPLY comum nao pode gerar opt-out, mesmo com texto visual SAIR.');
+
   const identificadorOptOut = 'wamid.qa.optout.' + crypto.randomUUID();
   const optout = await mensageriaService.processarWebhook({
     entry: [{ changes: [{ value: { messages: [{
       id: identificadorOptOut, from: primeiro.telefone_normalizado,
       context: { id: 'wamid.qa.' + primeiro.telefone_normalizado },
-      type: 'button', button: { payload: process.env.WHATSAPP_OPTOUT_BUTTON_ID, text: 'SAIR' }
+      type: 'button', button: { payload: process.env.WHATSAPP_OPTOUT_BUTTON_ID, text: 'ENCERRAR CONTATOS' }
     }] } }] }]
   });
   confirmar(optout[0].processado === true, 'O opt-out do primeiro contato nao foi processado.');
@@ -184,10 +217,21 @@ async function executar() {
     detalhe.contato.autorizacaoMensagens === 'revogado' && detalhe.contato.autorizacaoLigacoes === 'revogado' &&
     consentimentoMensagens.estado === 'revogado' && consentimentoLigacoes.estado === 'revogado' &&
     consentimentoMensagens.canal === 'whatsapp' && consentimentoLigacoes.canal === 'whatsapp' &&
-    historicoOptOut.dadosNovos.motivo.includes('SAIR'),
+    historicoOptOut && historicoOptOut.dadosNovos.origem === 'WhatsApp/Meta',
   'O painel nao receberia o bloqueio global e as duas revogacoes: ' + JSON.stringify({
     contato: detalhe.contato, mensagens: consentimentoMensagens, ligacoes: consentimentoLigacoes
   }));
+  const historicoComOptOut = await campanhaService.listarContatosLote(campanha.id, lote.lote.id);
+  const primeiroComOptOut = historicoComOptOut.find(function (item) {
+    return item.tentativaId === Number(primeiro.id);
+  });
+  const segundoSemOptOut = historicoComOptOut.find(function (item) {
+    return item.tentativaId === Number(tentativas[1].id);
+  });
+  confirmar(primeiroComOptOut && primeiroComOptOut.tentativaStatus === 'lida' &&
+    primeiroComOptOut.tentativaStatusEm && primeiroComOptOut.acaoContato === 'opt_out' &&
+    primeiroComOptOut.acaoContatoEm && segundoSemOptOut && !segundoSemOptOut.acaoContato,
+  'A leitura deve ser preservada e o opt-out real exibido como acao separada apenas no contato correto.');
   const chamadasAntesBarreira = payloads.length;
   let erroBarreira;
   try { await mensageriaService.enviar(tentativaBarreira.id); } catch (erro) { erroBarreira = erro; }
@@ -196,7 +240,7 @@ async function executar() {
   const repeticao = await mensageriaService.processarWebhook({
     entry: [{ changes: [{ value: { messages: [{
       id: identificadorOptOut, from: primeiro.telefone_normalizado,
-      type: 'button', button: { payload: process.env.WHATSAPP_OPTOUT_BUTTON_ID, text: 'SAIR' }
+      type: 'button', button: { payload: process.env.WHATSAPP_OPTOUT_BUTTON_ID, text: 'ENCERRAR CONTATOS' }
     }] } }] }]
   });
   const quantidadeHistoricosOptOut = (await banco.query(

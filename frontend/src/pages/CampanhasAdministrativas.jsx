@@ -74,6 +74,7 @@ function possuiImagemConfigurada(item){
 }
 function telefoneMascarado(valor){return String(valor||'Nao informado').replaceAll('*','•');}
 function formatarQuantidade(valor){return Number(valor||0).toLocaleString('pt-BR');}
+function formatarDataHoraHistorico(valor){return valor?new Date(valor).toLocaleString('pt-BR'):'Data não informada';}
 function rotuloContatos(quantidade){return Number(quantidade)===1?'contato':'contatos';}
 function formatarTierMeta(valor){
   if(!valor)return 'Não informado';
@@ -94,7 +95,7 @@ function ListaContatosCampanha({contatos,vazia}){
   if(!contatos||contatos.length===0)return <div className="estado-vazio-campanha"><strong>{vazia||'Nenhum contato disponível.'}</strong></div>;
   return <div className="lista-contatos-campanha">{contatos.map(function(contato,indice){return <article className="contato-previa-campanha" key={contato.nome+'-'+contato.telefoneMascarado+'-'+indice}>
     <div><strong>{contato.nome}</strong><span>{telefoneMascarado(contato.telefoneMascarado)}</span></div>
-    <dl><div><dt>Bairro</dt><dd>{contato.bairro}</dd></div><div><dt>Problema</dt><dd>{contato.problema}</dd></div>{contato.status&&<div><dt>Status</dt><dd>{textoStatus(contato.status)}</dd></div>}</dl>
+    <dl><div><dt>Bairro</dt><dd>{contato.bairro}</dd></div><div><dt>Problema</dt><dd>{contato.problema}</dd></div>{contato.status&&!contato.tentativaStatus&&<div><dt>Status</dt><dd>{textoStatus(contato.status)}</dd></div>}{contato.tentativaStatus&&<div><dt>Status da mensagem</dt><dd>{textoStatus(contato.tentativaStatus)} — {formatarDataHoraHistorico(contato.tentativaStatusEm)}</dd></div>}{contato.acaoContato==='opt_out'&&<div><dt>Ação do contato</dt><dd>Não deseja mais receber contatos — {formatarDataHoraHistorico(contato.acaoContatoEm)}</dd></div>}</dl>
   </article>;})}</div>;
 }
 
